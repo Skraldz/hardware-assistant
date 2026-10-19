@@ -2,6 +2,38 @@
 
 Se SPEC.md §10 for formatet. Hver post dækker én fase/feature. "Review" udfyldes af den studerende.
 
+## 2026-10-19 – Fase 5: Frontend + polish
+
+**Genereret:**
+- `frontend/`: minimal React 18 + Vite-app, almindelig JavaScript/JSX (ikke TypeScript — vurderet proportionalt, da frontenden er sekundær per SPEC §1.1). Tre faner: **Lager** (liste + to måder at tilføje komponenter: søg-på-nettet → vælg kandidat → udtræk → bekræft-flowet fra §5, samt en manuel/avanceret JSON-formular), **Anbefaling** (fri tekst → `/api/recommend`, viser builds/advarsler/`llm_used`-status), **Backup** (aktiv backend+destination, "lav backup nu", liste med "gendan"-knap).
+- `frontend/src/api.js`: alle backend-kald samlet ét sted. Backend-URL udledes af `window.location.hostname` + en port (`VITE_API_PORT`, bagt ind ved build-tid via Docker build-arg) — ingen hardcodet server-IP noget sted, så frontenden virker uanset hvilken adresse brugeren tilgår home-serveren på.
+- `frontend/Dockerfile`: multi-step build (`npm run build`) serveret via `vite preview` — **ikke** `vite dev`, se Antagelser.
+- `docker-compose.yml`: ny `frontend`-service (port `FRONTEND_PORT`, default 4173).
+- `backend/app/main.py`: tilføjet `CORSMiddleware` (`allow_origins=["*"]`) — krævet, da frontend og backend nu kører cross-origin fra browserens perspektiv.
+- `docs/architecture.md` (nyt, krævet af SPEC §11 for denne fase): services-oversigt med et mermaid-diagram, de to hovedflows (tilføj komponent, anbefal build), og §9.3's sikkerhedsafsnit (al AI-inferens kører lokalt, kun inventar-snapshots til Azure, prompt-injection-forsvar, CORS-begrundelse).
+- `README.md`: opdateret med frontend-URL og `npm run dev`-instruktion.
+
+**Antagelser:**
+- **Docker-deploymentet serverer et produktionsbuild (`vite preview`), ikke `vite dev --host`.** Under udvikling af denne fase fandt `npm audit` en kendt, moderat sårbarhed i esbuild/Vite's dev-server (GHSA-67mh-4wv8-2f99: enhver hjemmeside kan sende requests til en eksponeret dev-server og læse svaret) — relevant, fordi home-server-deploymentet eksponerer porten på netværket, ikke kun på localhost. `vite preview` serverer det statiske build uden dev-serverens sårbare endpoints, så det er valgt i stedet. `npm run dev` er stadig scriptet til lokal udvikling (localhost-only, normal brug af en dev-server).
+- **Ingen "rediger komponent"-UI.** Backend'ens `PUT /api/components/{id}` er allerede bygget og testet (fase 1), men frontenden eksponerer kun opret/slet — vurderet tilstrækkeligt til en 5-minutters demo; slet-og-genopret dækker behovet i praksis.
+- **Manuel komponent-tilføjelse bruger en rå JSON-tekstboks til specs**, ikke 8 kategori-specifikke formularer. En fuld dynamisk formular pr. kategori blev vurderet som for meget UI-arbejde for en "sekundær" frontend; søg-på-nettet-flowet er den tilsigtede hovedvej (ønsket eksplicit under kravafklaringen), JSON-boksen er faldback for avancerede brugere eller når websøgning er slået fra.
+- **CORS tillader alle origins.** Begrundet og dokumenteret i `docs/architecture.md` — en bevidst forenkling for en LAN-deployment uden faste klient-adresser, ikke egnet til en offentligt eksponeret tjeneste.
+- **Health-badge'en skelner mellem "kan slet ikke nå backend" og "backend kører, men degraderet"** (fx Ollama nede) — verificeret manuelt (se Tests).
+
+**Kendte risici / svagheder:**
+- **Ingen automatiserede frontend-tests.** SPEC stiller ikke krav om det for frontenden (sekundær), og der er ikke tilføjet et testsetup (Vitest/React Testing Library) i denne fase — al verifikation er manuel (se nedenfor).
+- **`docker compose up` med den nye `frontend`-service er ikke kørt** (samme forbehold som tidligere faser). Build-arg'et `VITE_API_PORT` er kun valideret ved at parse `docker-compose.yml`, ikke ved en faktisk Docker-build.
+- **Ingen loading-skeletons eller optimistiske opdateringer** — UI'en viser rå fejlbeskeder fra `fetch` (fx "Failed to fetch"), hvilket er fint til en demo, men ikke poleret til en rigtig bruger.
+
+**Tests der dækker det (manuel verifikation, da dette er frontend-UI):**
+- `npm run build` kører uden fejl; `npm audit` afdækkede og begrundede valget af `vite preview` frem for `vite dev` i Docker (se Antagelser).
+- Appen åbnet i en rigtig browser (Claude i Chrome) uden kørende backend: alle tre faner renderer korrekt, viser fejlbeskeder i stedet for at crashe, ingen fejl i browser-konsollen.
+- Appen genåbnet mod en **rigtig, kørende backend** (lokal `uvicorn` + SQLite, uden Docker): Lager-fanen viste alle 27 seedede komponenter korrekt; Backup-fanen oprettede og listede en rigtig backup (navn, tidspunkt, antal, størrelse) — bekræfter CORS, request/response-formater og hele backup-flowet virker end-to-end fra browseren. Health-badgen skiftede korrekt fra "Backend uanselig" til "Degraderet" (Ollama utilgængelig, DB og storage ok), som forventet uden en kørende Ollama.
+- Sletteknappen blev **ikke** testet i browseren (udløser `window.confirm`, som ville blokere automatiseringen) — DELETE-endpointet er allerede dækket af `test_api.py` på backend-siden.
+- `ruff check`/`ruff format --check`/`pytest --cov` på backend stadig grønne efter CORS-tilføjelsen (135 tests, 93 % samlet dækning — uændret fra fase 4, da ændringen kun er wiring).
+
+**Review (udfyldes af den studerende):**
+
 ## 2026-10-19 – Fase 4: Azure/lokal backup
 
 **Genereret:**

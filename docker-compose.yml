@@ -79,6 +79,20 @@ services:
     ports:
       - "${SEARXNG_PORT:-8080}:8080"
 
+  # Minimal React UI (Phase 5). Talks to the backend directly from the
+  # browser at <same hostname you loaded this page from>:${APP_PORT} — see
+  # frontend/src/api.js — so no server IP needs to be hardcoded anywhere.
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_PORT: ${APP_PORT:-8000}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-4173}:4173"
+
 volumes:
   db_data:
   ollama_data:

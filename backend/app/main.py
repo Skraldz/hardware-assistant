@@ -1,4 +1,5 @@
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -10,6 +11,18 @@ from app.storage import get_backup_storage_dependency
 from app.storage.base import BackupStorage
 
 app = FastAPI(title="Hardware Assistant API")
+
+# The frontend is served from a different port than the backend (and the
+# home server's LAN address isn't fixed), so this is a real cross-origin
+# request. Not a public-internet deployment, so allowing any origin is an
+# acceptable simplification here — documented in docs/architecture.md.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(components.router)
 app.include_router(recommend.router)
 app.include_router(backup.router)

@@ -9,7 +9,9 @@ cp .env.example .env   # udfyld adgangskoder
 docker compose up -d --build
 ```
 
-Backend starter på `http://localhost:8000` (se `/docs` for OpenAPI). Databasen oprettes og seedes automatisk ved første opstart (tom database).
+Backend starter på `http://localhost:8000` (se `/docs` for OpenAPI). Frontend starter på `http://localhost:4173`. Databasen oprettes og seedes automatisk ved første opstart (tom database).
+
+Åbner du frontenden fra en anden maskine end serveren (fx `http://192.168.1.50:4173`), finder den selv backenden på samme hostname, port `APP_PORT` — ingen konfiguration nødvendig.
 
 ## Backup: local eller Azure
 
@@ -36,6 +38,14 @@ pip install -e ".[dev]"
 ruff check .
 ruff format .
 pytest --cov
+```
+
+## Frontend-udvikling (uden Docker)
+
+```bash
+cd frontend
+npm install
+npm run dev   # http://localhost:5173, forventer backend på :8000
 ```
 
 ## Status
