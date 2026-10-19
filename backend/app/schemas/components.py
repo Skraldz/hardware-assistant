@@ -1,0 +1,128 @@
+"""Pydantic v2 schemas for components, including per-category specs.
+
+Specs fields are optional: a component can be entered manually with partial
+knowledge, and the compatibility rules (Phase 2) treat a missing field as
+"unknown" rather than pass/fail.
+"""
+
+from datetime import datetime
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.enums import Category, Condition, SpecsSource
+
+
+class CpuSpecs(BaseModel):
+    category: Literal["cpu"] = "cpu"
+    socket: str | None = None
+    cores: int | None = None
+    threads: int | None = None
+    tdp_w: int | None = None
+    integrated_graphics: bool | None = None
+    memory_type: list[Literal["DDR4", "DDR5"]] | None = None
+
+
+class MotherboardSpecs(BaseModel):
+    category: Literal["motherboard"] = "motherboard"
+    socket: str | None = None
+    form_factor: Literal["ATX", "mATX", "ITX", "EATX"] | None = None
+    memory_type: list[Literal["DDR4", "DDR5"]] | None = None
+    memory_slots: int | None = None
+    max_memory_gb: int | None = None
+    m2_slots: int | None = None
+    sata_ports: int | None = None
+    pcie_x16_slots: int | None = None
+
+
+class RamSpecs(BaseModel):
+    category: Literal["ram"] = "ram"
+    memory_type: Literal["DDR4", "DDR5"] | None = None
+    capacity_gb_per_module: int | None = None
+    modules: int | None = None
+    speed_mts: int | None = None
+    form: Literal["DIMM", "SODIMM"] | None = None
+
+
+class GpuSpecs(BaseModel):
+    category: Literal["gpu"] = "gpu"
+    vram_gb: int | None = None
+    tdp_w: int | None = None
+    length_mm: int | None = None
+    pcie_power_connectors: list[str] | None = None
+    vendor: Literal["nvidia", "amd", "intel"] | None = None
+
+
+class StorageSpecs(BaseModel):
+    category: Literal["storage"] = "storage"
+    interface: Literal["nvme", "sata_ssd", "sata_hdd"] | None = None
+    capacity_gb: int | None = None
+    form_factor: Literal["m2_2280", "2_5", "3_5"] | None = None
+
+
+class PsuSpecs(BaseModel):
+    category: Literal["psu"] = "psu"
+    wattage_w: int | None = None
+    form_factor: Literal["ATX", "SFX"] | None = None
+    pcie_power_connectors: list[str] | None = None
+    efficiency_rating: str | None = None
+
+
+class CaseSpecs(BaseModel):
+    category: Literal["case"] = "case"
+    supported_form_factors: list[str] | None = None
+    max_gpu_length_mm: int | None = None
+    max_cooler_height_mm: int | None = None
+    psu_form_factor: Literal["ATX", "SFX"] | None = None
+    drive_bays_3_5: int | None = None
+    drive_bays_2_5: int | None = None
+
+
+class CoolerSpecs(BaseModel):
+    category: Literal["cooler"] = "cooler"
+    type: Literal["air", "aio"] | None = None
+    supported_sockets: list[str] | None = None
+    height_mm: int | None = None
+    radiator_mm: int | None = None
+    tdp_rating_w: int | None = None
+
+
+ComponentSpecs = Annotated[
+    CpuSpecs | MotherboardSpecs | RamSpecs | GpuSpecs | StorageSpecs | PsuSpecs | CaseSpecs | CoolerSpecs,
+    Field(discriminator="category"),
+]
+
+
+class ComponentBase(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    manufacturer: str | None = Field(default=None, max_length=100)
+    quantity: int = Field(ge=0, default=0)
+    condition: Condition = Condition.NEW
+    specs_source: SpecsSource = SpecsSource.MANUAL
+    specs_verified: bool = False
+    notes: str | None = None
+
+
+class ComponentCreate(ComponentBase):
+    specs: ComponentSpecs
+
+
+class ComponentUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    manufacturer: str | None = Field(default=None, max_length=100)
+    quantity: int | None = Field(default=None, ge=0)
+    condition: Condition | None = None
+    specs: ComponentSpecs | None = None
+    specs_source: SpecsSource | None = None
+    specs_verified: bool | None = None
+    notes: str | None = None
+
+
+class ComponentRead(ComponentBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    category: Category
+    specs: ComponentSpecs
+    created_at: datetime
+    updated_at: datetime
