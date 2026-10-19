@@ -23,15 +23,24 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      ollama:
+        condition: service_started
+      searxng:
+        condition: service_started
     environment:
       DATABASE_URL: mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}
       PSU_BASE_WATT_W: ${PSU_BASE_WATT_W:-75}
       PSU_SAFETY_MARGIN: ${PSU_SAFETY_MARGIN:-1.3}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b-instruct}
+      ENABLE_WEB_LOOKUP: ${ENABLE_WEB_LOOKUP:-true}
+      SEARXNG_BASE_URL: http://searxng:8080
+      RECOMMEND_TOP_N: ${RECOMMEND_TOP_N:-5}
+      RECOMMEND_DEFAULT_MAX_BUILDS: ${RECOMMEND_DEFAULT_MAX_BUILDS:-3}
     ports:
       - "${APP_PORT:-8000}:8000"
 
-  # Local LLM. Not used by the backend yet (wired up in Phase 3), but kept in the
-  # stack from the start so the full topology is already clone-and-run ready.
+  # Local LLM (Phase 3: /api/components/extract + /api/recommend).
   ollama:
     image: ollama/ollama:latest
     restart: unless-stopped
@@ -49,11 +58,16 @@ services:
               count: 1
               capabilities: ["gpu"]
 
-  # Search engine used for hardware spec lookup (wired up in Phase 3's
-  # /api/components/search + /extract flow). Not used by the backend yet.
+  # Web search for hardware spec lookup (Phase 3's /api/components/search +
+  # /extract flow). settings.yml enables the JSON output format the backend
+  # needs; SEARXNG_SECRET is patched into it by the image's entrypoint.
   searxng:
     image: searxng/searxng:latest
     restart: unless-stopped
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET}
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
     ports:
       - "${SEARXNG_PORT:-8080}:8080"
 

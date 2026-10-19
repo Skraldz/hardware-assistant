@@ -1,0 +1,10 @@
+{
+  "specs": {
+    "category": "gpu",
+    "vram_gb": 8,
+    "tdp_w": 175,
+    "length_mm": 229,
+    "pcie_power_connectors": ["8-pin"],
+    "vendor": "nvidia"
+  }
+}

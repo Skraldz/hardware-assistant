@@ -1,0 +1,12 @@
+{
+  "use_case": "AI-træning med meget VRAM",
+  "headless": false,
+  "required_categories": ["gpu"],
+  "min_vram_gb": 99,
+  "min_ram_gb": null,
+  "min_storage_gb": null,
+  "min_cpu_cores": null,
+  "prefer_low_power": false,
+  "prefer_small_form_factor": false,
+  "notes": ""
+}

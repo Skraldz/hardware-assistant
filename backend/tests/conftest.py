@@ -5,7 +5,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db import Base, get_db
+from app.llm.client import get_llm_client
 from app.main import app
+from tests.fixtures.fake_llm import FakeLLMClient
 
 
 @pytest.fixture()
@@ -30,6 +32,9 @@ def client(db_session):
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
+    # No test may require a real Ollama (SPEC.md §9.1). Endpoints that need
+    # specific canned responses override this again themselves.
+    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient([])
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

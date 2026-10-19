@@ -2,6 +2,44 @@
 
 Se SPEC.md §10 for formatet. Hver post dækker én fase/feature. "Review" udfyldes af den studerende.
 
+## 2026-10-19 – Fase 3: LLM-integration + SearXNG + anbefalingspipeline
+
+**Genereret:**
+- `backend/app/llm/client.py`: `OllamaClient` (httpx mod `/api/generate`, structured output via `format=<pydantic JSON-schema>`) + `LLMClient`-protokol så tests aldrig rammer en rigtig Ollama. `get_llm_client()` er en FastAPI-dependency, overrides i alle tests.
+- `backend/app/llm/prompts.py`: alle prompts samlet ét sted (krav-fortolkning, spec-udtræk, build-rangering). Al brugerstyret/websøgnings-tekst pakkes i `<data label="...">`-blokke, og literal `<`/`>` escapes, så en indlejret `</data>` i inputtet ikke kan "lukke" blokken for tidligt — fundet af min egen injection-test under udvikling (se Kendte risici).
+- `backend/app/llm/parsing.py`: generisk `call_llm_with_retry()` — ugyldig JSON/skema → én retry med fejlbesked → fallback. Tager en valgfri `validate`-callback til semantisk validering ud over Pydantic-skemaet (bruges til at afvise opfundne `build_id`'er i rangeringen). `fallback` kan være `None`, når der ikke findes et meningsfuldt standardsvar (se Antagelser om `/extract`).
+- `backend/app/search/client.py`: `SearxngClient` mod SearXNG's JSON-API (kræver `format: json` aktiveret, se `searxng/settings.yml`) + `SearchClient`-protokol til tests.
+- `backend/app/schemas/requirements.py` (`ProjectRequirements` + konservativ fallback), `schemas/builds.py` (rangerings- og API-svarskemaer), `schemas/search.py` (søg/udtræk-skemaer, inkl. `ExtractedSpecsEnvelope` der giver `ComponentSpecs`-unionen et JSON-skema at give til Ollama).
+- `backend/app/pipeline/recommend.py`: de 5 trin fra SPEC §5 — fortolk krav (LLM) → forfiltrér (hårde minimumskrav: VRAM/RAM/lager/kerner) → generér builds (fase 2-motoren) → rangér (LLM, med fallback til en deterministisk score baseret på advarsler/effektforbrug/formfaktor) → gen-verificér det valgte build (forsvar i dybden) → returnér.
+- Nye endpoints: `POST /api/components/search` (SearXNG-kandidater, 404 hvis ingen findes, 400 hvis `ENABLE_WEB_LOOKUP=false`), `POST /api/components/extract` (to-trins flow: kræver et valgt `candidate` når websøgning er aktiveret, går direkte på LLM'ens egen viden når den er slået fra; 422 hvis LLM-output aldrig bliver gyldigt), `POST /api/recommend`.
+- `GET /api/health` viser nu også `ollama`-status (ping mod `/api/tags`).
+- `docker-compose.yml`: `backend` afhænger nu også af `ollama`/`searxng` (uden healthcheck-krav, da billederne ikke nødvendigvis har curl/wget); nye env-variabler videresendes. `searxng/settings.yml` (ny fil) aktiverer JSON-output; `SEARXNG_SECRET` patches ind af SearXNG-imagets egen entrypoint.
+
+**Antagelser:**
+- **Websøgning giver kun titel+snippet til LLM'en, ikke hele sidens HTML.** At hente og parse arbitrære websider var ude af scope for denne fase — snippet-baseret udtræk er en bevidst forenkling, dokumenteret her så den kan genbesøges, hvis det viser sig utilstrækkeligt i praksis.
+- **`/api/components/extract` har ingen "konservativ fallback"-instans**, i modsætning til krav-fortolkning og rangering. Hvis LLM'en aldrig returnerer gyldigt JSON (efter retry), er der ingen meningsfuld standard-kategori at gætte på — endepunktet returnerer 422 og beder brugeren indtaste specifikationerne manuelt, samme filosofi som "ingen søgeresultater" (se nedenfor).
+- **"Ingen søgeresultater" → fejl, ikke LLM-fallback** (brugerens eksplicitte valg under kravafklaringen): `/search` returnerer 404 i stedet for stille at falde tilbage til LLM-gæt. `ENABLE_WEB_LOOKUP=false` er den eneste vej til ren LLM-udtræk — en udtrykkelig indstilling, ikke en implicit fallback ved søgefejl.
+- **Hårde minimumskrav (min_vram_gb osv.) behandler manglende data som "opfylder ikke kravet"** — modsat kompatibilitetsreglerne (fase 2), hvor manglende data giver `unknown`. Et krav brugeren eksplicit har bedt om bør ikke opfyldes af et gæt.
+- **`required_categories` fra LLM'en bruges kun til at tvinge GPU til at være et reelt krav**, når `min_vram_gb` er sat (ellers ville en GPU-fri løsning stadig kunne vælges, selv når brugeren tydeligvis har brug for VRAM). Resten af `required_categories`-listen er ikke brugt til yderligere filtrering endnu — kan udvides, hvis det bliver relevant.
+- **`max_builds` styrer også hvor mange builds, der sendes til LLM'en til rangering** (`max(max_builds * 3, 10)`, forhåndssorteret efter den deterministiske score) — en afvejning mellem prompt-størrelse og at give LLM'en et reelt valg.
+- **Rangerings-rækkefølgen følger LLM'ens svar, når det er gyldigt** (valideret build_id for build_id); builds LLM'en ikke nævnte, men som stadig er gyldige, fylder resten af `max_builds` op efter deterministisk score.
+- **Ollama-service i `docker-compose.yml` har GPU-reservation slået til uden healthcheck** — `backend` afhænger af `service_started`, ikke `service_healthy`, så opstart blokerer ikke på en langsom modelindlæsning; `/api/health`'s `ollama`-felt er det reelle signal.
+
+**Kendte risici / svagheder:**
+- **Ikke testet mod en rigtig Ollama eller SearXNG** (samme forbehold som tidligere faser: intet Docker på denne maskine). SPEC §11's accept-kriterium "manuel test mod Ollama giver et fornuftigt 'headless lokal-AI'-build" er kun verificeret med `FakeLLMClient` — du bør køre den rigtige prompt mod en kørende Ollama-container på home-serveren og vurdere kvaliteten af svaret, inkl. om `qwen2.5:7b-instruct` rent faktisk returnerer gyldig JSON med Ollamas `format`-parameter i praksis (strukturerede outputs er modelafhængige).
+- **SearXNG's JSON-format kan være blokeret af rate-limiting/botbeskyttelse** på visse opstrøms-søgemotorer, selv med `format: json` aktiveret lokalt — ikke noget kodeniveau kan garantere; bør tjekkes manuelt efter deployment.
+- **Prompt-injection-forsvaret er escaping af `<`/`>`, ikke en fuld sandkasse.** Det forhindrer konkret at et ondsindet komponentnavn eller websnippet kan "lukke" `<data>`-blokken tidligt (fundet og fixet under test-skrivning, se Antagelser), men en tilstrækkeligt velformuleret injektion kan stadig forsøge at overtale modellen uden at bryde ud af blokken — systemets egentlige forsvar er stadig at al kompatibilitet verificeres af kode, og at `specs_verified` altid er `false`, indtil brugeren bekræfter.
+- **`psu_has_gpu_connectors`-typen antagelse om flade strømstik-lister gælder stadig** (uændret fra fase 2) og er ikke udvidet her.
+- **Coverage-gab:** `pipeline/recommend.py` linje 63 (RAM-hård-minimum når data mangler) er ikke dækket — samme mønster som andre `unknown`-grene, blot ikke eksplicit testet. `llm/client.py` og `search/client.py`'s rigtige HTTP-kald er utestede per design (kræver Ollama/SearXNG).
+
+**Tests der dækker det:**
+- `test_llm_parsing.py` (7 tests): gyldigt svar, ugyldig JSON → retry, to fejl → fallback, opfundet `build_id` afvist af `validate`-callback → fallback, gyldigt `build_id` accepteret, og to injection-tests der konkret beviser at en indlejret `</data>` bliver escaped i stedet for at bryde ud af data-blokken.
+- `test_pipeline.py` (14 tests): den krævede "headless lokal-AI"-scenarie end-to-end med fake LLM, inkompatibelt lager → ingen builds og intet rangerings-kald, LLM-fejl på begge trin → deterministisk fallback, hårde minimumskrav (VRAM/RAM/lager/kerner) i `prefilter_candidates`, manglende GPU-match → korrekt `missing`, og den deterministiske scorers præferencer (lav effekt, lille formfaktor).
+- `test_api_llm_endpoints.py` (9 tests): `/search` (kandidater, 404 ved tomt resultat, 400 når slået fra), `/extract` (web-lookup, direkte LLM-viden når slået fra, 400 uden valgt candidate, 422 ved varigt ugyldigt LLM-svar), `/recommend` (et build, tom-lager → `missing`).
+- `ruff check`/`ruff format --check` grønne. `pytest --cov`: 93 % samlet; 100 % på `llm/parsing.py` og `llm/prompts.py`, 99 % på `pipeline/recommend.py` (§9.1 kræver ≥80 % her — opfyldt).
+
+**Review (udfyldes af den studerende):**
+
 ## 2026-10-19 – Fase 2: Kompatibilitet
 
 **Genereret:**

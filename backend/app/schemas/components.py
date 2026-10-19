@@ -8,7 +8,7 @@ knowledge, and the compatibility rules (Phase 2) treat a missing field as
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from app.enums import Category, Condition, SpecsSource
 
@@ -91,6 +91,10 @@ ComponentSpecs = Annotated[
     CpuSpecs | MotherboardSpecs | RamSpecs | GpuSpecs | StorageSpecs | PsuSpecs | CaseSpecs | CoolerSpecs,
     Field(discriminator="category"),
 ]
+
+# Reused by the pipeline (Phase 3) to turn a Component row's raw `specs`
+# JSON dict back into the right category-specific spec model.
+ComponentSpecsAdapter: TypeAdapter = TypeAdapter(ComponentSpecs)
 
 
 class ComponentBase(BaseModel):

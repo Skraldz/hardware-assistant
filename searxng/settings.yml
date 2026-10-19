@@ -1,0 +1,14 @@
+# Minimal override merged on top of SearXNG's own defaults (use_default_settings).
+# Only change: enable the JSON output format so the backend
+# (app/search/client.py) can query it as an API instead of scraping HTML.
+# server.secret_key stays the literal string below — the official searxng
+# Docker image's entrypoint replaces it with $SEARXNG_SECRET on startup.
+use_default_settings: true
+
+server:
+  secret_key: "ultrasecretkey"
+
+search:
+  formats:
+    - html
+    - json

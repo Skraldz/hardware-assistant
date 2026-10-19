@@ -2,9 +2,21 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app import models
+from app.config import get_settings
 from app.db import get_db
-from app.enums import Category
+from app.enums import Category, SpecsSource
+from app.llm.client import LLMClient, get_llm_client
+from app.llm.parsing import call_llm_with_retry
+from app.llm.prompts import EXTRACT_SYSTEM_PROMPT, build_extract_prompt
 from app.schemas.components import ComponentCreate, ComponentRead, ComponentUpdate
+from app.schemas.search import (
+    ExtractedSpecsEnvelope,
+    ExtractRequest,
+    ExtractResponse,
+    SearchRequest,
+    SearchResponse,
+)
+from app.search.client import SearchClient, get_search_client
 
 router = APIRouter(prefix="/api/components", tags=["components"])
 
@@ -37,6 +49,63 @@ def create_component(payload: ComponentCreate, db: Session = Depends(get_db)) ->
     db.commit()
     db.refresh(component)
     return component
+
+
+@router.post("/search", response_model=SearchResponse)
+def search_components(
+    payload: SearchRequest, search_client: SearchClient = Depends(get_search_client)
+) -> SearchResponse:
+    settings = get_settings()
+    if not settings.enable_web_lookup:
+        raise HTTPException(
+            status_code=400,
+            detail="Websøgning er deaktiveret (ENABLE_WEB_LOOKUP=false). "
+            "Kald /api/components/extract direkte med navnet.",
+        )
+    candidates = search_client.search(payload.name)
+    if not candidates:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Ingen søgeresultater fundet for '{payload.name}'. Indtast specifikationerne manuelt.",
+        )
+    return SearchResponse(query=payload.name, candidates=candidates)
+
+
+@router.post("/extract", response_model=ExtractResponse)
+def extract_component_specs(
+    payload: ExtractRequest, llm_client: LLMClient = Depends(get_llm_client)
+) -> ExtractResponse:
+    settings = get_settings()
+    web_snippet: str | None = None
+    specs_source = SpecsSource.LLM_EXTRACTED
+
+    if settings.enable_web_lookup:
+        if payload.candidate is None:
+            raise HTTPException(
+                status_code=400,
+                detail="ENABLE_WEB_LOOKUP=true kræver et 'candidate' valgt via /api/components/search.",
+            )
+        web_snippet = f"{payload.candidate.title}\n{payload.candidate.snippet}"
+        specs_source = SpecsSource.WEB_LOOKUP
+
+    envelope, status = call_llm_with_retry(
+        llm_client,
+        system=EXTRACT_SYSTEM_PROMPT,
+        build_prompt=lambda error: build_extract_prompt(
+            payload.name, web_snippet=web_snippet, error_feedback=error
+        ),
+        schema=ExtractedSpecsEnvelope,
+        fallback=None,
+    )
+    if envelope is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Kunne ikke udtrække specifikationer for '{payload.name}'. Indtast dem manuelt.",
+        )
+
+    return ExtractResponse(
+        name=payload.name, specs=envelope.specs, specs_source=specs_source, llm_used=status
+    )
 
 
 @router.get("/{component_id}", response_model=ComponentRead)

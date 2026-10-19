@@ -36,7 +36,7 @@ MOTHERBOARD_PAYLOAD = {
 def test_health(client):
     response = client.get("/api/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "db": "ok"}
+    assert response.json() == {"status": "ok", "db": "ok", "ollama": "ok"}
 
 
 def test_create_component_sets_category_from_specs(client):

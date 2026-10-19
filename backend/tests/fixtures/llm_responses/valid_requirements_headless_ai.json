@@ -1,0 +1,12 @@
+{
+  "use_case": "headless pc til lokal AI",
+  "headless": true,
+  "required_categories": ["gpu"],
+  "min_vram_gb": 6,
+  "min_ram_gb": 16,
+  "min_storage_gb": 500,
+  "min_cpu_cores": 4,
+  "prefer_low_power": true,
+  "prefer_small_form_factor": false,
+  "notes": "Skal kunne køre lokale AI-modeller uden skærm."
+}
