@@ -36,7 +36,7 @@ Kørt efter fase 5. Et multi-agent code-review fandt 10 bekræftede fund på tv�
 
 **Genereret:**
 - `frontend/`: minimal React 18 + Vite-app, almindelig JavaScript/JSX (ikke TypeScript — vurderet proportionalt, da frontenden er sekundær per SPEC §1.1). Tre faner: **Lager** (liste + to måder at tilføje komponenter: søg-på-nettet → vælg kandidat → udtræk → bekræft-flowet fra §5, samt en manuel/avanceret JSON-formular), **Anbefaling** (fri tekst → `/api/recommend`, viser builds/advarsler/`llm_used`-status), **Backup** (aktiv backend+destination, "lav backup nu", liste med "gendan"-knap).
-- `frontend/src/api.js`: alle backend-kald samlet ét sted. Backend-URL udledes af `window.location.hostname` + en port (`VITE_API_PORT`, bagt ind ved build-tid via Docker build-arg) — ingen hardcodet server-IP noget sted, så frontenden virker uanset hvilken adresse brugeren tilgår home-serveren på.
+- `frontend/src/api.js`: alle backend-kald samlet ét sted. Backend-URL udledes af `window.location.hostname` + en port (oprindeligt `VITE_API_PORT`, bagt ind ved build-tid via Docker build-arg — **se rettelse i code review-posten ovenfor**: porten opløses nu ved container-start i stedet) — ingen hardcodet server-IP noget sted, så frontenden virker uanset hvilken adresse brugeren tilgår home-serveren på.
 - `frontend/Dockerfile`: multi-step build (`npm run build`) serveret via `vite preview` — **ikke** `vite dev`, se Antagelser.
 - `docker-compose.yml`: ny `frontend`-service (port `FRONTEND_PORT`, default 4173).
 - `backend/app/main.py`: tilføjet `CORSMiddleware` (`allow_origins=["*"]`) — krævet, da frontend og backend nu kører cross-origin fra browserens perspektiv.
@@ -52,7 +52,7 @@ Kørt efter fase 5. Et multi-agent code-review fandt 10 bekræftede fund på tv�
 
 **Kendte risici / svagheder:**
 - **Ingen automatiserede frontend-tests.** SPEC stiller ikke krav om det for frontenden (sekundær), og der er ikke tilføjet et testsetup (Vitest/React Testing Library) i denne fase — al verifikation er manuel (se nedenfor).
-- **`docker compose up` med den nye `frontend`-service er ikke kørt** (samme forbehold som tidligere faser). Build-arg'et `VITE_API_PORT` er kun valideret ved at parse `docker-compose.yml`, ikke ved en faktisk Docker-build.
+- **`docker compose up` med den nye `frontend`-service er ikke kørt** (samme forbehold som tidligere faser), stadig uverificeret efter den senere ombygning til runtime-portopløsning (`docker-entrypoint.sh`) — kun simuleret lokalt med `sed`, aldrig en rigtig container-opstart. (Den oprindelige antagelse her — at build-arg'et `VITE_API_PORT` kun var YAML-valideret — er forældet: den mekanisme er siden fjernet, se code review-posten ovenfor.)
 - **Ingen loading-skeletons eller optimistiske opdateringer** — UI'en viser rå fejlbeskeder fra `fetch` (fx "Failed to fetch"), hvilket er fint til en demo, men ikke poleret til en rigtig bruger.
 
 **Tests der dækker det (manuel verifikation, da dette er frontend-UI):**
