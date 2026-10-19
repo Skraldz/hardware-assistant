@@ -2,6 +2,39 @@
 
 Se SPEC.md §10 for formatet. Hver post dækker én fase/feature. "Review" udfyldes af den studerende.
 
+## 2026-10-19 – Fase 4: Azure/lokal backup
+
+**Genereret:**
+- `backend/app/config.py`: `backup_backend: Literal["local","azure"]` med case-insensitiv normalisering (`field_validator(mode="before")`) og en `model_validator(mode="after")`, der **fejler ved Settings-konstruktion** (dvs. så tidligt som overhovedet muligt — allerede når `app.db` importeres, da `db.py` kalder `get_settings()` ved modul-load), hvis `BACKUP_BACKEND=azure` er sat uden `AZURE_STORAGE_CONNECTION_STRING` eller `AZURE_STORAGE_ACCOUNT_URL`. Ingen stille fallback til lokal lagring.
+- `backend/app/storage/`: `base.py` (`BackupInfo`, `BackupStorage`-protokol), `local.py` (`LocalStorage` — rigtig filsystem-I/O, brugt i alle tests via `tmp_path`), `azure_blob.py` (`AzureBlobStorage`, auth via connection string eller `DefaultAzureCredential`, opretter containeren hvis den mangler, normaliserer "blob findes ikke" til `FileNotFoundError` så services-laget ikke skal kende til Azure-specifikke exceptions), `__init__.py` (`get_backup_storage(settings)` — det **eneste** sted der læser `backup_backend`, plus en cached FastAPI-dependency).
+- `backend/app/services/backup.py`: `export_snapshot` (bygger snapshot-JSON'en fra §7.1 via den eksisterende `ComponentRead`-serialisering — genbruger valideringslogikken i stedet for at duplikere den), `create_backup`, `list_backups` (beriger storage-lagets rå liste med `component_count` ved at downloade og parse hver snapshot — se Antagelser), `restore_backup` (schema_version → component_count-sanity-check → sha256 → validér hver komponent med Pydantic **før** databasen overhovedet røres → slet og genindsæt i én transaktion med rollback ved uventet DB-fejl).
+- `backend/app/routers/backup.py`: `POST/GET /api/backup`, `POST /api/backup/restore` (manuelt `confirm`-tjek → 400, ikke Pydantic-422, så det matcher SPEC §9.1's testkrav ordret).
+- `GET /api/health` viser nu også `storage`-status (kalder `storage.list()`), `backup_backend` og `backup_destination` (container-navn eller mappe — aldrig connection string).
+- `.env.example`, `docker-compose.yml` (backend får nu `BACKUP_BACKEND`/`LOCAL_BACKUP_DIR`/`AZURE_*`-env samt et `./backups:/app/backups`-volume), `README.md` (ny sektion om at skifte backend).
+
+**Antagelser:**
+- **`list_backups()` downloader og parser hver backup-fil for at finde `component_count`**, i stedet for at kræve det af `BackupStorage.list()` selv — det ville have krævet enten en Azure-specifik `metadata`-parameter i `upload()` (et brud på den spec'ede Protocol-signatur) eller at indkode antallet i filnavnet (i konflikt med det eksakte, spec'ede filnavnsformat `inventory-<UTC-tidsstempel>.json`). For et personligt projekt med et håndfuldt backups er downloadet pr. liste-kald acceptabelt; værd at genbesøge, hvis antallet af backups bliver stort.
+- **`BackupInfo.component_count` er `None`, indtil service-laget udfylder det** — storage-laget kan ikke vide det billigt (Azure blob-metadata uden download, lokal fil uden parsing), så typen er bevidst optional i stedet for at tvinge et gæt.
+- **Restore validerer *alle* komponenter, før databasen røres overhovedet** — "rollback ved fejl" dækker derfor primært uventede DB-fejl under selve slet-og-genindsæt-transaktionen (testet med en simuleret `commit()`-fejl), ikke en ugyldig komponent (den opdages tidligere og rammer aldrig databasen).
+- **`restore_backup` tjekker desuden at `component_count` matcher det faktiske antal komponenter** i filen — ikke et eksplicit SPEC-krav, men en gratis, billig sanity-check mod korrupte filer, konsistent med projektets fokus på kvalitetssikring.
+- **`AzureBlobStorage`'s `download()` normaliserer Azures `ResourceNotFoundError` til `FileNotFoundError`**, så `services/backup.py` kan håndtere "backup findes ikke" ens for begge backends uden at importere Azure-specifikke exceptions.
+- **`APP_VERSION` i snapshot-formatet er en hardcodet konstant** (`"0.1.0"`, matcher `pyproject.toml`) — ikke læst dynamisk fra pakke-metadata, da det ville kræve en ekstra afhængighed for et énlinjes-formål.
+
+**Kendte risici / svagheder:**
+- **Azure-stien er udelukkende testet med mocket `BlobServiceClient`** (ingen Azure-konto endnu, jf. tidligere faser). Når du opretter en konto, bør du som minimum køre en rigtig backup → list → restore-cyklus og bekræfte at `GET /api/health`/`GET /api/backup` viser `"azure"` og containernavnet uden at lække connection-stringen (testet her kun med en mocket storage-dependency, ikke en reelt kørende Azure-forbindelse gennem hele stacken).
+- **`docker compose up` er stadig ikke kørt i denne session** — `./backups:/app/backups`-volumet og `BACKUP_BACKEND`-env-gennemstrømningen er kun valideret ved at parse `docker-compose.yml` som YAML, ikke ved faktisk opstart.
+- **Ingen auto-backup** (§7.3's valgfrie "backup efter N ændringer eller via cron-endpoint") er implementeret — vurderet som ægte valgfrit ("valgfri" i spec'en) og udeladt for at holde fasen fokuseret; `POST /api/backup` kan allerede kaldes manuelt fra en cron-job på serveren, hvis det bliver relevant.
+- **`routers/backup.py` linje 16 og 52-53 samt `main.py`'s fejl-grene er ikke dækket** — mindre, symmetriske fejlhåndteringsgrene identisk i mønster med allerede testede grene andre steder.
+
+**Tests der dækker det:**
+- `test_config.py` (6 tests): default `local`, case-insensitiv normalisering, ugyldig værdi afvist, `azure` uden credentials fejler (regex-matcher den eksakte fejlbesked), `azure` med hhv. connection string og account URL accepteret.
+- `test_storage.py` (8 tests): factory returnerer `LocalStorage`/`AzureBlobStorage` korrekt (Azure-klient mocket for både connection-string- og account-url-stien), container-oprettelse tolererer `ResourceExistsError`, `LocalStorage`-roundtrip, manglende fil → `FileNotFoundError`, irrelevante filer ignoreres af `list()`.
+- `test_backup.py` (19 tests): fuld roundtrip (backup → simuleret datatab → restore → identisk lager), tamperet hash afvist, ukendt `schema_version` afvist, `component_count`-mismatch afvist, ugyldig JSON afvist, ugyldig komponent afvist uden at ændre databasen, ukendt backup-navn → `FileNotFoundError`/404, uventet DB-fejl under restore → rollback (verificeret at originaldata stadig er der), `list_backups` håndterer en ulæselig backup-fil uden at crashe, og den fulde API-cyklus (opret → backup → ny komponent → restore → kun de oprindelige komponenter findes).
+- `test_api.py`: `/api/health` lækker aldrig `AZURE_STORAGE_CONNECTION_STRING`, selv når Azure er den aktive backend.
+- `ruff check`/`ruff format --check` grønne. `pytest --cov`: 93 % samlet; 100 % på `services/backup.py` (§9.1 kræver ≥80 % her), `storage/base.py` og `storage/local.py`.
+
+**Review (udfyldes af den studerende):**
+
 ## 2026-10-19 – Fase 3: LLM-integration + SearXNG + anbefalingspipeline
 
 **Genereret:**

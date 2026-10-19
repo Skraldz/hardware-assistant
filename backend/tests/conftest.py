@@ -7,6 +7,8 @@ from sqlalchemy.pool import StaticPool
 from app.db import Base, get_db
 from app.llm.client import get_llm_client
 from app.main import app
+from app.storage import get_backup_storage_dependency
+from app.storage.local import LocalStorage
 from tests.fixtures.fake_llm import FakeLLMClient
 
 
@@ -27,7 +29,7 @@ def db_session():
 
 
 @pytest.fixture()
-def client(db_session):
+def client(db_session, tmp_path):
     def override_get_db():
         yield db_session
 
@@ -35,6 +37,9 @@ def client(db_session):
     # No test may require a real Ollama (SPEC.md §9.1). Endpoints that need
     # specific canned responses override this again themselves.
     app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient([])
+    # SPEC.md §9.1: LocalStorage (real filesystem, via tmp_path) is used in
+    # all tests — never a real Azure account.
+    app.dependency_overrides[get_backup_storage_dependency] = lambda: LocalStorage(str(tmp_path))
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

@@ -13,6 +13,8 @@ dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "pymysql>=1.1",
+    "azure-storage-blob>=12.19",
+    "azure-identity>=1.17",
 ]
 
 [project.optional-dependencies]

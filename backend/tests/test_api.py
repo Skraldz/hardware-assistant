@@ -1,3 +1,9 @@
+from unittest.mock import MagicMock
+
+from app.config import Settings
+from app.main import app
+from app.storage import get_backup_storage_dependency
+
 CPU_PAYLOAD = {
     "name": "AMD Ryzen 5 3600",
     "manufacturer": "AMD",
@@ -36,7 +42,29 @@ MOTHERBOARD_PAYLOAD = {
 def test_health(client):
     response = client.get("/api/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "db": "ok", "ollama": "ok"}
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["db"] == "ok"
+    assert body["ollama"] == "ok"
+    assert body["storage"] == "ok"
+    assert body["backup_backend"] == "local"
+    assert "connection_string" not in str(body).lower()
+
+
+def test_health_never_leaks_azure_connection_string(client, monkeypatch):
+    secret = "AccountKey=super-secret-value-do-not-leak"
+    monkeypatch.setattr(
+        "app.main.get_settings",
+        lambda: Settings(backup_backend="azure", azure_storage_connection_string=secret),
+    )
+    app.dependency_overrides[get_backup_storage_dependency] = lambda: MagicMock(list=lambda: [])
+
+    response = client.get("/api/health")
+
+    assert response.status_code == 200
+    assert secret not in response.text
+    assert response.json()["backup_backend"] == "azure"
+    assert response.json()["backup_destination"] == "inventory-backups"
 
 
 def test_create_component_sets_category_from_specs(client):

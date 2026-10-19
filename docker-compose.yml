@@ -37,8 +37,16 @@ services:
       SEARXNG_BASE_URL: http://searxng:8080
       RECOMMEND_TOP_N: ${RECOMMEND_TOP_N:-5}
       RECOMMEND_DEFAULT_MAX_BUILDS: ${RECOMMEND_DEFAULT_MAX_BUILDS:-3}
+      BACKUP_BACKEND: ${BACKUP_BACKEND:-local}
+      LOCAL_BACKUP_DIR: ${LOCAL_BACKUP_DIR:-/app/backups}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      AZURE_STORAGE_ACCOUNT_URL: ${AZURE_STORAGE_ACCOUNT_URL:-}
+      AZURE_BACKUP_CONTAINER: ${AZURE_BACKUP_CONTAINER:-inventory-backups}
     ports:
       - "${APP_PORT:-8000}:8000"
+    volumes:
+      # Only relevant for BACKUP_BACKEND=local; survives a container restart.
+      - ./backups:/app/backups
 
   # Local LLM (Phase 3: /api/components/extract + /api/recommend).
   ollama:
