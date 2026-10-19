@@ -2,6 +2,35 @@
 
 Se SPEC.md §10 for formatet. Hver post dækker én fase/feature. "Review" udfyldes af den studerende.
 
+## 2026-10-19 – Fase 2: Kompatibilitet
+
+**Genereret:**
+- `backend/app/compatibility/types.py`: `CandidateComponent`, `Build`, `RuleResult`, `BuildEvaluation` (med `warnings`-property for `unknown`-resultater), `EngineResult`. Ny fil ift. SPEC.md's mappestruktur (som kun nævner `rules.py` + `engine.py`) — delte typer samlet ét sted for at undgå cirkulære imports og duplikering mellem de to.
+- `backend/app/compatibility/rules.py`: alle 15 regler fra SPEC §6 (tabellen har 15 rækker, inkl. `display_output_available`), hver som en ren funktion `(Build) -> RuleResult`. `psu_wattage_sufficient` bruger de nye konfigurerbare `PSU_BASE_WATT_W`/`PSU_SAFETY_MARGIN`-settings (tilføjet til `config.py` og `.env.example`).
+- `backend/app/compatibility/engine.py`: `generate_builds()` kombinerer kandidater pr. kategori (begrænset af `top_n`, default 5) og beholder kun builds hvor ingen regel fejler. `missing` rapporterer kategorier uden nogen kandidater overhovedet.
+- `backend/tests/fixtures/sample_inventory.py`: en minimal, håndlavet, fuldt kompatibel baseline (separat fra `app/seed.py`, som er stort og realistisk til demo, ikke minimalt til assertions) + en `with_specs()`-hjælpefunktion til at lave varianter.
+- `backend/tests/test_rules.py` (41 tests) og `backend/tests/test_engine.py` (8 tests).
+
+**Antagelser:**
+- **`Build` har præcis én komponent pr. kategori, inkl. `storage`.** SPEC §6's `storage_slots_available` er skrevet til at tælle flere drev; her tælles 1 drev mod bundkortets slots/porte. Multi-drev-builds er ude af scope for nu — nævnt eksplicit, så det kan tages op igen hvis det bliver relevant (fx til "headless lokal-AI" med flere drev).
+- **`display_output_available` er den eneste regel med et ekstra argument (`headless`).** De øvrige 14 regler kender ikke til use-casen (det er fase 3/LLM's domæne) — engine.generate_builds() tager selv en `headless: bool`-parameter og videresender den kun til denne ene regel.
+- **"Ikke relevant" (fx intet GPU valgt, eller en AIO-køler ved `cooler_fits_case`) returneres som `pass`,** ikke en fjerde status. SPEC §6 lister kun pass/fail/unknown, og "regel gælder ikke" er semantisk tættere på pass (den blokerer ikke) end unknown (der er ikke manglende data, reglen er bare irrelevant).
+- **Kandidat-rækkefølge og `top_n`-begrænsning er engine-callerens ansvar.** Engine tager kandidaterne i den orden, de får dem, og skærer ved `top_n` pr. kategori — en relevans-sortering (fx "tættest på brugerens krav") hører til pipeline'en i fase 3, hvor der faktisk er krav at sortere efter.
+- **PSU-sikkerhedsmargin/base-watt (`PSU_SAFETY_MARGIN=1.3`, `PSU_BASE_WATT_W=75`)** er nu en env-var, men bliver kun sendt til `backend`-containeren i `docker-compose.yml` — ikke verificeret med en faktisk kørende container i denne session (se samme forbehold som fase 1 om `docker compose up`).
+
+**Kendte risici / svagheder:**
+- `psu_has_gpu_connectors` sammenligner strømstik med `Counter` (tager højde for at en GPU kan kræve to 8-pin-stik), men antager at PSU'ens `pcie_power_connectors`-liste er en flad liste af alle tilgængelige stik — hvis to PSU'er i praksis deler en kabel-streng, er dette en forsimpling.
+- `cooler_fits_case` dækker kun luftkølere (som SPEC §6 beder om); AIO-radiatorstørrelse mod kabinettets radiator-support tjekkes ikke, fordi `CaseSpecs` (§4.2) ikke har et `max_radiator_mm`-felt. Værd at nævne til eksamen, hvis der spørges ind til AIO-builds.
+- Kombinatorikken i `generate_builds()` er `O(top_n^7 * (top_n + gpu_count))` i værste fald — med `top_n=5` er det håndterbart (et par hundredtusind kombinationer, hver evaluering er billige sammenligninger), men der er ikke lavet et faktisk ydelsestjek mod et ~200-komponent-lager, som SPEC §5 nævner som målet. Bør profileres i fase 3, når pipeline'en faktisk fodrer engine'en med et realistisk antal kandidater pr. kategori.
+- `storage_slots_available` tjekker `>= 1` ledig slot/port, ikke om slottet/porten allerede er "brugt" af et andet drev i samme build — relevant kun hvis multi-drev-builds tilføjes senere (se Antagelser).
+
+**Tests der dækker det:**
+- `backend/tests/test_rules.py`: alle 15 regler testet for pass, fail og unknown; de fire regler med en "ikke relevant"-gren (`gpu_fits_case`, `cooler_fits_case`, `psu_has_gpu_connectors`, `display_output_available`) har en ekstra test for den gren.
+- `backend/tests/test_engine.py`: kendt kompatibelt lager → 1 gyldigt build; inkompatibel socket → 0 builds; manglende kategori → korrekt `missing`; headless uden GPU → 1 build; iGPU uden GPU (både headless og ikke-headless) → 1 build; intet GPU/iGPU og ikke-headless → 0 builds; `unknown`-resultat optræder som warning, ikke afvisning; `top_n` begrænser faktisk hvilke kandidater der undersøges.
+- `ruff check`/`ruff format --check` grønne. `pytest --cov`: 100 % dækning på `compatibility/rules.py` og `compatibility/engine.py` (SPEC §9.1 kræver ≥80 % her); 92 % samlet (de utestede linjer er stadig kun `bootstrap.py`/`seed.py`, begge engangsscripts).
+
+**Review (udfyldes af den studerende):**
+
 ## 2026-10-19 – Fase 1: Fundament
 
 **Genereret:**

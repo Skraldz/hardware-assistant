@@ -25,6 +25,8 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}
+      PSU_BASE_WATT_W: ${PSU_BASE_WATT_W:-75}
+      PSU_SAFETY_MARGIN: ${PSU_SAFETY_MARGIN:-1.3}
     ports:
       - "${APP_PORT:-8000}:8000"
 
