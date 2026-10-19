@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
-from app.llm.client import LLMClient
+from app.llm.client import LLMClient, LLMUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,13 @@ def call_llm_with_retry[T: BaseModel](
         prompt = build_prompt(last_error)
         try:
             raw = llm_client.generate_structured(system=system, prompt=prompt, schema=schema)
+        except LLMUnavailableError as exc:
+            # A down/unreachable Ollama won't fix itself within this request —
+            # go straight to fallback instead of burning the retry budget
+            # (and the user's wait, mid-demo) on a call that will fail again.
+            logger.warning("LLM utilgængelig, bruger fallback uden yderligere forsøg: %s", exc)
+            return fallback, "fallback"
+        try:
             data = json.loads(raw)
             parsed = schema.model_validate(data)
             if validate is not None:

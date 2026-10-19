@@ -16,7 +16,7 @@ from app.schemas.search import (
     SearchRequest,
     SearchResponse,
 )
-from app.search.client import SearchClient, get_search_client
+from app.search.client import SearchClient, SearchUnavailableError, get_search_client
 
 router = APIRouter(prefix="/api/components", tags=["components"])
 
@@ -62,7 +62,10 @@ def search_components(
             detail="Websøgning er deaktiveret (ENABLE_WEB_LOOKUP=false). "
             "Kald /api/components/extract direkte med navnet.",
         )
-    candidates = search_client.search(payload.name)
+    try:
+        candidates = search_client.search(payload.name)
+    except SearchUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     if not candidates:
         raise HTTPException(
             status_code=404,

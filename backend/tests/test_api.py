@@ -48,6 +48,7 @@ def test_health(client):
     assert body["ollama"] == "ok"
     assert body["storage"] == "ok"
     assert body["backup_backend"] == "local"
+    assert body["enable_web_lookup"] is True
     assert "connection_string" not in str(body).lower()
 
 

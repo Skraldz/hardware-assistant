@@ -21,7 +21,11 @@ export default function HealthBadge() {
 
   if (error) {
     return (
-      <span title={`Kan ikke nå backend: ${error}`} style={{ color: "#fca5a5" }}>
+      <span
+        title={`Kan ikke nå backend: ${error} (klik for at prøve igen)`}
+        onClick={refresh}
+        style={{ color: "#fca5a5", cursor: "pointer" }}
+      >
         <span className="dot dot-degraded" />
         Backend uanselig
       </span>

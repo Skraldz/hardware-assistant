@@ -155,6 +155,12 @@ def test_search_returns_400_when_web_lookup_disabled(client, monkeypatch):
     assert response.status_code == 400
 
 
+def test_search_returns_503_when_searxng_unavailable(client):
+    app.dependency_overrides[get_search_client] = lambda: FakeSearchClient([], unavailable=True)
+    response = client.post("/api/components/search", json={"name": "rtx 2060 super"})
+    assert response.status_code == 503
+
+
 # --- /api/components/extract ---
 
 
@@ -203,6 +209,47 @@ def test_extract_returns_422_when_llm_output_never_validates(client):
         },
     )
     assert response.status_code == 422
+
+
+def test_extract_returns_422_when_ollama_unavailable(client):
+    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient([], unavailable=True)
+    response = client.post(
+        "/api/components/extract",
+        json={
+            "name": "Mystery part",
+            "candidate": {"title": "x", "url": "https://example.com", "snippet": "x"},
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_unhandled_exception_still_gets_cors_headers(client):
+    """Starlette places ServerErrorMiddleware outside user middleware
+    (including CORSMiddleware), so a truly unhandled exception would
+    normally produce a 500 with no CORS header and the browser would just
+    report a generic network failure. main.py's global exception handler
+    exists specifically to prevent that."""
+
+    class ExplodingLLMClient:
+        def generate_structured(self, *, system, prompt, schema):
+            raise RuntimeError("uventet fejl i en afhængighed, ikke fanget af call_llm_with_retry")
+
+        def ping(self):
+            return True
+
+    app.dependency_overrides[get_llm_client] = lambda: ExplodingLLMClient()
+    response = client.post(
+        "/api/components/extract",
+        headers={"Origin": "http://example.com"},
+        json={
+            "name": "x",
+            "candidate": {"title": "t", "url": "https://example.com", "snippet": "s"},
+        },
+    )
+
+    assert response.status_code == 500
+    assert response.headers.get("access-control-allow-origin") == "*"
+    assert response.json()["detail"] == "Der opstod en uventet fejl på serveren."
 
 
 # --- /api/recommend ---

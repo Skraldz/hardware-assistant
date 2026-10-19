@@ -85,9 +85,12 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        VITE_API_PORT: ${APP_PORT:-8000}
     restart: unless-stopped
+    environment:
+      # Resolved at container start (docker-entrypoint.sh), not baked into
+      # the image, so changing APP_PORT in .env takes effect on
+      # `docker compose up` alone — no `--build` required.
+      API_PORT: ${APP_PORT:-8000}
     depends_on:
       - backend
     ports:

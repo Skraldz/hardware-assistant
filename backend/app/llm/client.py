@@ -15,6 +15,12 @@ from pydantic import BaseModel
 from app.config import get_settings
 
 
+class LLMUnavailableError(RuntimeError):
+    """Ollama couldn't be reached or returned an error. Treated the same as
+    an invalid response by llm/parsing.py's retry/fallback — a down Ollama
+    must never crash a request (SPEC.md §2)."""
+
+
 class LLMClient(Protocol):
     def generate_structured(self, *, system: str, prompt: str, schema: type[BaseModel]) -> str: ...
 
@@ -28,19 +34,22 @@ class OllamaClient:
         self._timeout = timeout
 
     def generate_structured(self, *, system: str, prompt: str, schema: type[BaseModel]) -> str:
-        response = httpx.post(
-            f"{self._base_url}/api/generate",
-            json={
-                "model": self._model,
-                "system": system,
-                "prompt": prompt,
-                "format": schema.model_json_schema(),
-                "stream": False,
-            },
-            timeout=self._timeout,
-        )
-        response.raise_for_status()
-        return response.json()["response"]
+        try:
+            response = httpx.post(
+                f"{self._base_url}/api/generate",
+                json={
+                    "model": self._model,
+                    "system": system,
+                    "prompt": prompt,
+                    "format": schema.model_json_schema(),
+                    "stream": False,
+                },
+                timeout=self._timeout,
+            )
+            response.raise_for_status()
+            return response.json()["response"]
+        except httpx.HTTPError as exc:
+            raise LLMUnavailableError(f"Kunne ikke nå Ollama: {exc}") from exc
 
     def ping(self) -> bool:
         try:

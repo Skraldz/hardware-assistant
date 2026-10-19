@@ -14,6 +14,10 @@ from app.schemas.search import SearchCandidate
 MAX_CANDIDATES = 5
 
 
+class SearchUnavailableError(RuntimeError):
+    """SearXNG couldn't be reached or returned an error."""
+
+
 class SearchClient(Protocol):
     def search(self, query: str) -> list[SearchCandidate]: ...
 
@@ -24,13 +28,16 @@ class SearxngClient:
         self._timeout = timeout
 
     def search(self, query: str) -> list[SearchCandidate]:
-        response = httpx.get(
-            f"{self._base_url}/search",
-            params={"q": query, "format": "json"},
-            timeout=self._timeout,
-        )
-        response.raise_for_status()
-        results = response.json().get("results", [])[:MAX_CANDIDATES]
+        try:
+            response = httpx.get(
+                f"{self._base_url}/search",
+                params={"q": query, "format": "json"},
+                timeout=self._timeout,
+            )
+            response.raise_for_status()
+            results = response.json().get("results", [])[:MAX_CANDIDATES]
+        except httpx.HTTPError as exc:
+            raise SearchUnavailableError(f"Kunne ikke nå SearXNG: {exc}") from exc
         return [
             SearchCandidate(
                 title=result.get("title", ""),

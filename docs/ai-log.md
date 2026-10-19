@@ -2,6 +2,36 @@
 
 Se SPEC.md §10 for formatet. Hver post dækker én fase/feature. "Review" udfyldes af den studerende.
 
+## 2026-10-19 – Code review (/code-review) + rettelser
+
+Kørt efter fase 5. Et multi-agent code-review fandt 10 bekræftede fund på tværs af frontend og backend; alle er rettet i denne post.
+
+**Genereret/rettet:**
+- **`InventoryView.jsx` — "Udtræk direkte"-knappen var død ved standardkonfiguration.** Backend kræver et `candidate`, når `ENABLE_WEB_LOOKUP=true` (standard), men knappen kaldte altid `extractComponent(navn, null)`. Rettet ved at udvide det mønster, `HealthBadge`/`BackupView` allerede brugte (vise hvad backend rapporterer, aldrig antage): `/api/health` eksponerer nu `enable_web_lookup`, og `InventoryView` henter det og viser **enten** "Søg"-knappen (når slået til) **eller** en direkte udtræk-knap (når slået fra) — aldrig en knap, der er garanteret at fejle.
+- **`InventoryView.jsx` — navn/specs kunne blive usynkroniseret.** `handleConfirmSave` læste det *aktuelle* `searchName`-state i stedet for navnet på udtræks-tidspunktet, og søgefeltet var ikke låst under gennemgang. Rettet: navnet fryses i et separat `confirmName`-state ved udtræk, og inputfeltet deaktiveres, mens et resultat er til gennemgang.
+- **`InventoryView.jsx` — kapløb mellem samtidige søge/udtræk-kald.** Et langsommere, allerede overhalet kald kunne overskrive et nyere resultat, når det endelig blev færdigt. Rettet med en simpel request-sekvens-tæller (`useRef`), der ignorerer svar fra et kald, der er blevet overhalet af et nyere.
+- **`InventoryView.jsx` — manuel tilføjelse kunne stille og roligt droppe felter.** `category`-dropdownet overskrev altid specs-JSON'ens `category`, og da ingen spec-model har `extra="forbid"`, forsvandt felter fra en forkert kategori uden varsel. Rettet: hvis JSON'ens `category` findes og er forskellig fra dropdownet, vises en fejl i stedet for at overskrive stille.
+- **`backend/app/main.py` — 500-fejl manglede CORS-headers.** `@app.exception_handler(Exception)` virkede ikke som ventet: FastAPI flytter specifikt en handler registreret på selve `Exception`-typen til `ServerErrorMiddleware`, som Starlette altid placerer **uden for** brugerdefineret middleware (inkl. `CORSMiddleware`) — fundet ved at min første rettelse fejlede i en test, der direkte eftergjorde fejlscenariet (se Kendte risici). Den korrekte løsning er en almindelig `BaseHTTPMiddleware`, tilføjet *før* `CORSMiddleware` (så den ender inden for CORS i kaldstakken), som selv fanger exceptions og returnerer et normalt `Response`-objekt. Samtidig er `OllamaClient`/`SearxngClient`s `httpx`-kald nu pakket ind og rejser `LLMUnavailableError`/`SearchUnavailableError` i stedet for at lække rå `httpx`-exceptions — `call_llm_with_retry` går nu direkte til fallback ved en utilgængelig Ollama (uden at spilde retry-forsøg på en fejl, der ikke retter sig selv), og `/api/components/search` returnerer en ren 503 ved utilgængelig SearXNG.
+- **`BackupView.jsx` — samtidige destruktive handlinger var ikke forhindret.** `disabled`-tjekket dækkede kun rækken i gang; andre "Gendan"-knapper og "Lav backup nu" var stadig klikbare under en igangværende gendannelse. Rettet med én global `activeAction`-tilstand, der låser alle handlingsknapper, mens én er i gang.
+- **`api.js` — fejlbeskeder blev vist med overflødige anførselstegn.** `JSON.stringify(detail)` blev brugt uanset om `detail` allerede var en almindelig streng (hvilket de fleste backend-fejl er). Rettet til kun at stringify'e, når `detail` ikke allerede er en streng.
+- **`frontend/Dockerfile` — buildet brugte ikke den committede lockfile.** `npm install` kørte før `package-lock.json` overhovedet var kopieret ind. Rettet: kopiér begge filer sammen og brug `npm ci`.
+- **`docker-compose.yml`/`Dockerfile` — backend-porten blev bagt ind i JS-bundlet ved build-tid.** En `.env`-ændring af `APP_PORT` uden `docker compose up --build` efterlod frontend-imaget med den gamle port, uden noget synligt tegn på hvorfor. Rettet til at matche det mønster, hostname'et allerede brugte (runtime, ikke build-time): `public/config.js` er en placeholder, `docker-entrypoint.sh` erstatter den fra `API_PORT`-env'en ved container-*start* (ikke image-build), og `api.js` læser `window.__RUNTIME_CONFIG__` først, med `VITE_API_PORT`/et hardcodet fallback for lokal udvikling uden Docker.
+- **`HealthBadge.jsx` — ingen måde at prøve igen på efter en fejl.** Fejltilstanden manglede den `onClick={refresh}`, den sunde tilstand allerede havde. Tilføjet.
+
+**Kendte risici / svagheder:**
+- Min første forsøg på CORS-fixet (en `@app.exception_handler(Exception)`-dekorator) var forkert — det løste ikke problemet, det bare flyttede det. Fejlen blev fanget, fordi jeg skrev en test, der faktisk eftergjorde scenariet (en afhængighed, der rejser en uventet exception, med et `Origin`-header sat), i stedet for kun at stole på at koden "så rigtig ud". Værd at huske til eksamen som et konkret eksempel på AI-genereret kode, der så plausibel ud, men var forkert, og hvordan det blev fanget.
+- `LLMUnavailableError` giver nu `/api/recommend`/`/api/components/extract` en hurtig, korrekt fallback i stedet for et langt hængende timeout-forsøg — men selve timeout-værdien (`OLLAMA_REQUEST_TIMEOUT_S`, default 60s) er stadig lang. Hvis Ollama hænger (i stedet for decideret er nede), vil det første forsøg stadig vente op til 60 sekunder, før fallback aktiveres. Ikke rettet her — en kortere timeout for selve anmodningen (adskilt fra modelgenereringstid) kunne overvejes, hvis det bliver et problem i praksis.
+
+**Tests der dækker det:**
+- `test_llm_parsing.py`: `LLMUnavailableError` giver øjeblikkelig fallback uden at bruge et ekstra forsøg.
+- `test_llm_client.py`, `test_search_client.py` (nye filer): `OllamaClient`/`SearxngClient`s egne `httpx`-fejlhåndtering, mocket (aldrig en rigtig Ollama/SearXNG).
+- `test_api_llm_endpoints.py`: `/search` returnerer 503 ved utilgængelig SearXNG; `/extract` returnerer 422 ved utilgængelig Ollama; en dedikeret test beviser at et uventet, ufanget exception i en afhængighed stadig giver et svar med `access-control-allow-origin`-header.
+- `test_api.py`: `/api/health` eksponerer `enable_web_lookup`.
+- `ruff check`/`ruff format --check`/`pytest --cov` grønne: 147 tests, 95 % samlet dækning (op fra 92 %).
+- Frontend: `npm run build` og `npm ci` (ren installation fra lockfile) kørt uden fejl. Alle fixes verificeret manuelt i en rigtig browser mod en rigtig, kørende lokal backend (SQLite, uden Docker) — inkl. at `enable_web_lookup`-styret knapvisning rent faktisk matcher backend's svar, at `config.js`-runtime-substitutionen virker (simuleret med `sed`, som `docker-entrypoint.sh` ville gøre det), og at backup-flowet stadig virker uændret med den nye globale busy-lås. Ingen fejl i browser-konsollen.
+
+**Review (udfyldes af den studerende):**
+
 ## 2026-10-19 – Fase 5: Frontend + polish
 
 **Genereret:**

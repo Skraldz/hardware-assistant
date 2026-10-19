@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hardware Assistant</title>
+    <!-- Must run before src/api.js (loaded transitively by the module
+         script below) reads window.__RUNTIME_CONFIG__. A plain script runs
+         synchronously during parsing, before the deferred module script. -->
+    <script src="/config.js"></script>
   </head>
   <body>
     <div id="root"></div>

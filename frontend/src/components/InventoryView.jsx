@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 
 const CATEGORIES = ["cpu", "motherboard", "ram", "gpu", "storage", "psu", "case", "cooler"];
@@ -8,13 +8,22 @@ export default function InventoryView() {
   const [components, setComponents] = useState([]);
   const [loadError, setLoadError] = useState(null);
 
+  // Defaults to the project's own default (true) until /api/health answers,
+  // so the "Søg"/"Udtræk direkte" choice below always matches what the
+  // backend will actually accept — see api.js's getHealth().
+  const [webLookupEnabled, setWebLookupEnabled] = useState(true);
+
   const [searchName, setSearchName] = useState("");
   const [candidates, setCandidates] = useState([]);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [extracted, setExtracted] = useState(null);
+  const [confirmName, setConfirmName] = useState("");
   const [extractError, setExtractError] = useState(null);
   const [confirmQuantity, setConfirmQuantity] = useState(1);
   const [confirmCondition, setConfirmCondition] = useState("new");
+  // Guards against an older, superseded search/extract call resolving after
+  // a newer one and silently overwriting its result.
+  const extractRequestId = useRef(0);
 
   const [manualName, setManualName] = useState("");
   const [manualCategory, setManualCategory] = useState("cpu");
@@ -34,42 +43,66 @@ export default function InventoryView() {
 
   useEffect(() => {
     loadComponents();
+    api
+      .getHealth()
+      .then((health) => setWebLookupEnabled(health.enable_web_lookup))
+      .catch(() => {
+        /* keep the default; the health badge already surfaces this error */
+      });
   }, []);
 
   function resetSearchFlow() {
     setCandidates([]);
     setSelectedCandidate(null);
     setExtracted(null);
+    setConfirmName("");
     setExtractError(null);
   }
 
   async function handleSearch(event) {
     event.preventDefault();
     resetSearchFlow();
+    const requestId = ++extractRequestId.current;
     try {
       const res = await api.searchComponents(searchName);
+      if (extractRequestId.current !== requestId) return;
       setCandidates(res.candidates);
     } catch (err) {
+      if (extractRequestId.current !== requestId) return;
       setExtractError(err.message);
     }
   }
 
-  async function handleExtractDirect() {
+  async function handleExtractDirect(event) {
+    event.preventDefault();
+    const name = searchName;
     resetSearchFlow();
+    const requestId = ++extractRequestId.current;
     try {
-      setExtracted(await api.extractComponent(searchName, null));
+      const res = await api.extractComponent(name, null);
+      if (extractRequestId.current !== requestId) return;
+      setExtracted(res);
+      setConfirmName(name);
     } catch (err) {
+      if (extractRequestId.current !== requestId) return;
       setExtractError(err.message);
     }
   }
 
   async function handlePickCandidate(candidate) {
+    const name = searchName;
     setSelectedCandidate(candidate);
     setExtracted(null);
+    setConfirmName("");
     setExtractError(null);
+    const requestId = ++extractRequestId.current;
     try {
-      setExtracted(await api.extractComponent(searchName, candidate));
+      const res = await api.extractComponent(name, candidate);
+      if (extractRequestId.current !== requestId) return;
+      setExtracted(res);
+      setConfirmName(name);
     } catch (err) {
+      if (extractRequestId.current !== requestId) return;
       setExtractError(err.message);
     }
   }
@@ -77,7 +110,7 @@ export default function InventoryView() {
   async function handleConfirmSave() {
     try {
       await api.createComponent({
-        name: searchName,
+        name: confirmName,
         quantity: Number(confirmQuantity),
         condition: confirmCondition,
         specs: extracted.specs,
@@ -97,6 +130,13 @@ export default function InventoryView() {
     setManualError(null);
     try {
       const specs = JSON.parse(manualSpecsJson);
+      if (specs.category && specs.category !== manualCategory) {
+        setManualError(
+          `Specs-JSON'ens category ("${specs.category}") passer ikke med den valgte kategori ` +
+            `("${manualCategory}"). Ret et af dem, før du gemmer.`
+        );
+        return;
+      }
       specs.category = manualCategory;
       await api.createComponent({
         name: manualName,
@@ -122,6 +162,8 @@ export default function InventoryView() {
       setLoadError(err.message);
     }
   }
+
+  const isReviewing = extracted !== null;
 
   return (
     <>
@@ -159,19 +201,28 @@ export default function InventoryView() {
       </section>
 
       <section>
-        <h2>Tilføj komponent — søg på nettet</h2>
-        <form onSubmit={handleSearch} className="row">
+        <h2>Tilføj komponent — {webLookupEnabled ? "søg på nettet" : "udtræk fra LLM'ens viden"}</h2>
+        <form onSubmit={webLookupEnabled ? handleSearch : handleExtractDirect} className="row">
           <label>
             <span>Komponentnavn</span>
-            <input value={searchName} onChange={(e) => setSearchName(e.target.value)} placeholder="fx RTX 2060 SUPER" required />
+            <input
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
+              placeholder="fx RTX 2060 SUPER"
+              disabled={isReviewing}
+              required
+            />
           </label>
-          <button type="submit" className="btn">
-            Søg
-          </button>
-          <button type="button" className="btn btn-secondary" onClick={handleExtractDirect} disabled={!searchName}>
-            Udtræk direkte (uden søgning)
+          <button type="submit" className="btn" disabled={isReviewing}>
+            {webLookupEnabled ? "Søg" : "Udtræk"}
           </button>
         </form>
+        {!webLookupEnabled && (
+          <p className="muted">
+            Websøgning er deaktiveret på serveren (ENABLE_WEB_LOOKUP=false) — specs udtrækkes direkte fra
+            LLM'ens egen viden om navnet.
+          </p>
+        )}
 
         {extractError && <p className="error-message">{extractError}</p>}
 
@@ -194,7 +245,9 @@ export default function InventoryView() {
 
         {extracted && (
           <div>
-            <h3>Udtrukne specs ({extracted.specs_source}, LLM: {extracted.llm_used})</h3>
+            <h3>
+              Udtrukne specs for "{confirmName}" ({extracted.specs_source}, LLM: {extracted.llm_used})
+            </h3>
             <pre style={{ background: "#f3f4f6", padding: "0.75rem", borderRadius: 6, overflowX: "auto" }}>
               {JSON.stringify(extracted.specs, null, 2)}
             </pre>
@@ -215,6 +268,9 @@ export default function InventoryView() {
               </label>
               <button className="btn" onClick={handleConfirmSave}>
                 Bekræft og gem
+              </button>
+              <button className="btn btn-secondary" onClick={resetSearchFlow} type="button">
+                Annullér
               </button>
             </div>
           </div>

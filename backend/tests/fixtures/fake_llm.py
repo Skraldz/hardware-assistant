@@ -8,6 +8,8 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from app.llm.client import LLMUnavailableError
+
 FIXTURES_DIR = Path(__file__).parent / "llm_responses"
 
 
@@ -16,15 +18,18 @@ def load_fixture(name: str) -> str:
 
 
 class FakeLLMClient:
-    def __init__(self, responses: list[str]) -> None:
+    def __init__(self, responses: list[str], *, unavailable: bool = False) -> None:
         self._responses = list(responses)
+        self._unavailable = unavailable
         self.prompts: list[str] = []
 
     def generate_structured(self, *, system: str, prompt: str, schema: type[BaseModel]) -> str:
         self.prompts.append(prompt)
+        if self._unavailable:
+            raise LLMUnavailableError("Simuleret: Ollama kan ikke nås")
         if not self._responses:
             raise AssertionError("FakeLLMClient has no more queued responses")
         return self._responses.pop(0)
 
     def ping(self) -> bool:
-        return True
+        return not self._unavailable

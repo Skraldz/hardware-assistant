@@ -2,18 +2,18 @@ FROM node:20-slim
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+# Copy the lockfile too, and use `npm ci`, so the image installs exactly
+# what was tested instead of letting npm re-resolve semver ranges.
+COPY package.json package-lock.json ./
+RUN npm ci
 
 COPY . .
-
-# Baked into the built JS at build time (Vite's import.meta.env.VITE_*
-# substitution happens during `npm run build`, not at container runtime) —
-# see docker-compose.yml's `args`. Defaults to the backend's own default port.
-ARG VITE_API_PORT=8000
-ENV VITE_API_PORT=$VITE_API_PORT
 RUN npm run build
+
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 4173
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["npm", "run", "preview"]

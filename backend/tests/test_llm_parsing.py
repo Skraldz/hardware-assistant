@@ -24,6 +24,24 @@ def test_valid_response_on_first_try_is_ok():
     assert parsed.min_vram_gb == 6
 
 
+def test_unavailable_llm_falls_back_immediately_without_retry():
+    client = FakeLLMClient([], unavailable=True)
+    fallback = fallback_requirements("x")
+
+    parsed, status = call_llm_with_retry(
+        client,
+        system="system",
+        build_prompt=lambda error: build_requirements_prompt("x", error_feedback=error),
+        schema=ProjectRequirements,
+        fallback=fallback,
+    )
+
+    assert status == "fallback"
+    assert parsed is fallback
+    # Only one call was attempted -- no point retrying a connection failure.
+    assert len(client.prompts) == 1
+
+
 def test_invalid_json_then_valid_response_is_retried():
     client = FakeLLMClient(
         [load_fixture("invalid_json.txt"), load_fixture("valid_requirements_headless_ai.json")]

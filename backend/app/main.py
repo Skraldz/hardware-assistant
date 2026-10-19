@@ -1,7 +1,12 @@
-from fastapi import Depends, FastAPI
+import logging
+from collections.abc import Awaitable, Callable
+
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import Settings, get_settings
 from app.db import get_db
@@ -10,12 +15,47 @@ from app.routers import backup, components, recommend
 from app.storage import get_backup_storage_dependency
 from app.storage.base import BackupStorage
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="Hardware Assistant API")
+
+
+class CatchUnhandledExceptionsMiddleware(BaseHTTPMiddleware):
+    """Turns a truly unanticipated exception into a plain 500 response
+    instead of letting it propagate to Starlette's ServerErrorMiddleware.
+
+    FastAPI special-cases a handler registered for the bare `Exception`
+    type: it gets hoisted onto ServerErrorMiddleware, which Starlette always
+    places *outside* user middleware (including CORSMiddleware below) — so
+    such a handler's response would still be missing CORS headers, and the
+    browser would report a generic network failure instead of the real
+    error. A plain middleware added *before* CORSMiddleware (making it the
+    inner one) catches the exception itself and returns an ordinary
+    Response, which then flows back out through CORSMiddleware normally.
+    (Known Ollama/SearXNG failures are already caught at the source and
+    turned into a proper HTTPException; this is the net for anything else.)
+    """
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        try:
+            return await call_next(request)
+        except Exception:
+            logger.exception("Uventet fejl under %s %s", request.method, request.url.path)
+            return JSONResponse(
+                status_code=500, content={"detail": "Der opstod en uventet fejl på serveren."}
+            )
+
+
+app.add_middleware(CatchUnhandledExceptionsMiddleware)
 
 # The frontend is served from a different port than the backend (and the
 # home server's LAN address isn't fixed), so this is a real cross-origin
 # request. Not a public-internet deployment, so allowing any origin is an
 # acceptable simplification here — documented in docs/architecture.md.
+# Added *after* CatchUnhandledExceptionsMiddleware so CORS stays outermost
+# and still decorates the responses that middleware produces.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -64,4 +104,7 @@ def health(
         # Container name or folder only — never a connection string (SPEC.md §7.2.1).
         "backup_backend": settings.backup_backend,
         "backup_destination": _backup_destination(settings),
+        # Lets the frontend know whether /api/components/search is usable
+        # (ENABLE_WEB_LOOKUP=false means /extract must be called directly).
+        "enable_web_lookup": settings.enable_web_lookup,
     }
