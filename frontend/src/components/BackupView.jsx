@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
+import { useLanguage } from "../i18n/LanguageContext.jsx";
+
+const DATE_LOCALES = { da: "da-DK", en: "en-GB" };
 
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -8,6 +11,7 @@ function formatBytes(bytes) {
 }
 
 export default function BackupView() {
+  const { t, language } = useLanguage();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   // A single in-flight action at a time: backup/restore both replace the
@@ -41,11 +45,11 @@ export default function BackupView() {
   }
 
   async function handleRestore(name) {
-    if (!window.confirm(`Gendan backup "${name}"? Dette erstatter hele det nuværende lager.`)) return;
+    if (!window.confirm(t("confirmRestore", name))) return;
     setActiveAction(`restore:${name}`);
     try {
       const res = await api.restoreBackup(name);
-      window.alert(`Gendannelse gennemført: ${res.restored_count} komponenter.`);
+      window.alert(t("restoreComplete", res.restored_count));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -57,25 +61,25 @@ export default function BackupView() {
 
   return (
     <section>
-      <h2>Backup</h2>
+      <h2>{t("backupHeading")}</h2>
       {data && (
         <p className="muted">
-          Aktiv backend: <strong>{data.backup_backend}</strong> → {data.destination}
+          {t("activeBackendLabel")} <strong>{data.backup_backend}</strong> → {data.destination}
         </p>
       )}
       {error && <p className="error-message">{error}</p>}
 
       <button className="btn" onClick={handleCreate} disabled={busy}>
-        {activeAction === "create" ? "Laver backup…" : "Lav backup nu"}
+        {activeAction === "create" ? t("creatingBackup") : t("createBackupNow")}
       </button>
 
       <table style={{ marginTop: "1rem" }}>
         <thead>
           <tr>
-            <th>Navn</th>
-            <th>Tidspunkt</th>
-            <th>Antal</th>
-            <th>Størrelse</th>
+            <th>{t("colName")}</th>
+            <th>{t("colTimestamp")}</th>
+            <th>{t("colQuantity")}</th>
+            <th>{t("colSize")}</th>
             <th></th>
           </tr>
         </thead>
@@ -83,12 +87,12 @@ export default function BackupView() {
           {data?.backups.map((backup) => (
             <tr key={backup.name}>
               <td>{backup.name}</td>
-              <td>{new Date(backup.created_at).toLocaleString("da-DK")}</td>
+              <td>{new Date(backup.created_at).toLocaleString(DATE_LOCALES[language])}</td>
               <td>{backup.component_count ?? "?"}</td>
               <td>{formatBytes(backup.size_bytes)}</td>
               <td>
                 <button className="btn btn-secondary" onClick={() => handleRestore(backup.name)} disabled={busy}>
-                  {activeAction === `restore:${backup.name}` ? "Gendanner…" : "Gendan"}
+                  {activeAction === `restore:${backup.name}` ? t("restoring") : t("restore")}
                 </button>
               </td>
             </tr>

@@ -2,6 +2,34 @@
 
 Se SPEC.md §10 for formatet. Hver post dækker én fase/feature. "Review" udfyldes af den studerende.
 
+## 2026-10-19 – Frontend: lys/mørk visning + sprogvalg (dansk/engelsk)
+
+**Genereret:**
+- `frontend/src/theme/ThemeContext.jsx`: React context til lys/mørk visning. Starter fra gemt valg i `localStorage`, ellers `window.matchMedia("(prefers-color-scheme: dark)")`. Toggle sætter `data-theme` på `<html>` og gemmer valget.
+- `frontend/src/styles.css`: omskrevet til CSS custom properties (`--color-*`) defineret på `:root` (lys) og overskrevet under `:root[data-theme="dark"]`. Header-baren beholder bevidst sin mørke farve i begge temaer (konsekvent branding-bjælke, et almindeligt dashboard-mønster) — kun indholdsfladerne (`body`, `section`, `nav`, tabel, formularer) skifter.
+- `frontend/src/i18n/translations.js` + `LanguageContext.jsx`: en simpel, håndskrevet ordbog (`da`/`en`) + en `t(key, ...args)`-funktion via React context, i stedet for et bibliotek som react-i18next — vurderet proportionalt for en "sekundær" frontend med et begrænset antal UI-strenge. Sprogvalget gemmes i `localStorage` (default `da`).
+- Alle fire komponenter (`App.jsx`, `HealthBadge.jsx`, `InventoryView.jsx`, `RecommendView.jsx`, `BackupView.jsx`) omskrevet til at bruge `t(...)` i stedet for hardcodet dansk tekst. `App.jsx` fik en sprog-`<select>` og en tema-toggleknap i headeren, ved siden af `HealthBadge`.
+- `README.md`: "Minimal web-UI"-punktet nævner nu lys/mørk visning og sprogvalg.
+
+**Antagelser:**
+- **Kun UI-chrome oversættes** (labels, knapper, overskrifter, statiske beskeder) — **ikke** backend-genereret indhold: regel-beskeder, LLM-begrundelser, fejlbeskeder fra API'et (`err.message`), eller komponent-kategori/stand-værdier i tabellen (`cpu`, `used` osv.). Det ville kræve enten at oversætte på serversiden (backend-prompts og fejlbeskeder er skrevet på dansk, jf. CLAUDE.md regel 6) eller at duplikere al forretningslogik-tekst i frontend-ordbogen — begge ude af scope for en sekundær frontend. Dokumenteret direkte i `translations.js`'s header-kommentar.
+- **Et binært lys/mørk-toggle, ikke en tre-vejs "lys/mørk/system"-menu.** Default følger systemets præference ved første besøg (`prefers-color-scheme`), men når brugeren først har klikket, er valget eksplicit og persisterer — en "følg system"-tilstand ville kræve en tredje UI-tilstand og en lytter på `matchMedia`-ændringer, vurderet som unødvendig kompleksitet.
+- **Standard-prompten i Anbefaling-fanen ("headless pc til lokal AI") er også oversat** (`defaultPrompt`-nøglen), så den matcher det aktive sprog ved første visning — ikke et krav, men en lille detalje for at undgå en dansk eksempeltekst i en ellers engelsk UI.
+- **`localStorage` bruges til begge valg** (samme mønster for begge, og samme fejlhåndtering som allerede etableret i projektet) — falder tilbage til in-memory default (ingen persistens) hvis utilgængelig (privat browsing, blokeret lagring), uden at fejle.
+
+**Kendte risici / svagheder:**
+- **Ingen automatiserede tests for tema/sprog** — samme begrundelse som resten af frontenden (se fase 5-posten): SPEC stiller ikke krav om frontend-tests, og der er ikke tilføjet Vitest/React Testing Library. Verificeret manuelt (se nedenfor).
+- **Kategorier/stand-værdier i lagertabellen forbliver engelske forkortelser** (`cpu`, `gpu`, `new`, `faulty` osv.) uanset sprogvalg — de er backend-enum-værdier, ikke oversat UI-tekst. Kort, teknisk, og forståeligt på begge sprog, men værd at nævne hvis en eksaminator spørger, hvorfor "Lager"-fanen ikke er 100 % oversat.
+
+**Tests der dækker det (manuel verifikation, da dette er frontend-UI):**
+- `npm run build` kører uden fejl.
+- Verificeret i en rigtig browser (Claude i Chrome) mod en rigtig, kørende lokal backend: temaet starter i mørk visning (matcher OS'ets `prefers-color-scheme: dark` på udviklingsmaskinen), toggle til lys visning bekræftet via computed styles (`document.documentElement.getAttribute("data-theme")`, `body`/`section`/`nav`-baggrundsfarver) — ikke kun et skærmbillede, da header-barens bevidst uændrede mørke farve gjorde et rent visuelt tjek misvisende ved første øjekast.
+- Sprogvalg skiftet til engelsk via `<select>`: alle tre faners labels, overskrifter, tabelkolonner og standard-prompten skiftede korrekt.
+- **Begge valg genindlæst korrekt efter en fuld side-reload** (bekræfter `localStorage`-persistens).
+- Ingen fejl i browser-konsollen gennem hele forløbet.
+
+**Review (udfyldes af den studerende):**
+
 ## 2026-10-19 – Code review (/code-review) + rettelser
 
 Kørt efter fase 5. Et multi-agent code-review fandt 10 bekræftede fund på tværs af frontend og backend; alle er rettet i denne post.

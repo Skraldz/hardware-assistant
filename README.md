@@ -9,7 +9,7 @@ AI-drevet hardwareassistent og lagersystem. Se `SPEC.md` for den fulde tekniske 
 - **AI-drevet build-anbefaling**: beskriv et projekt i fri tekst (fx "headless pc til lokal AI"), og få foreslået kompatible builds sammensat udelukkende af din egen beholdning.
 - **Deterministisk kompatibilitetstjek**: hver foreslået build verificeres af regelbaseret kode (socket, RAM-type, strømforbrug, fysisk pladsforhold osv.) — AI'en foreslår aldrig noget, reglerne ikke har godkendt.
 - **Backup/gendannelse**: sikkerhedskopiér hele lageret til disk eller Azure Blob Storage, og gendan det igen med integritetstjek (sha256, schema-version).
-- **Minimal web-UI**: React-frontend til lager, anbefalinger og backup.
+- **Minimal web-UI**: React-frontend til lager, anbefalinger og backup, med lys/mørk visning og dansk/engelsk sprogvalg (begge huskes i browseren).
 
 ## Sådan virker systemet
 

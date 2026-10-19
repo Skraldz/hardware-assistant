@@ -1,3 +1,79 @@
+:root {
+  --color-bg: #f5f5f5;
+  --color-surface: #ffffff;
+  --color-text: #1a1a1a;
+  --color-text-muted: #666666;
+  --color-border: #dddddd;
+
+  --color-header-bg: #1f2937;
+  --color-header-text: #ffffff;
+
+  --color-btn-bg: #1f2937;
+  --color-btn-text: #ffffff;
+  --color-btn-secondary-bg: #e5e7eb;
+  --color-btn-secondary-text: #1a1a1a;
+  --color-btn-danger-bg: #b91c1c;
+  --color-btn-danger-text: #ffffff;
+
+  --color-input-bg: #ffffff;
+  --color-input-border: #cccccc;
+
+  --color-candidate-hover: #f9fafb;
+  --color-candidate-selected: #eef2ff;
+  --color-code-bg: #f3f4f6;
+
+  --color-badge-ok-bg: #dcfce7;
+  --color-badge-ok-text: #166534;
+  --color-badge-warn-bg: #fef9c3;
+  --color-badge-warn-text: #854d0e;
+  --color-badge-error-bg: #fee2e2;
+  --color-badge-error-text: #991b1b;
+
+  --color-dot-ok: #22c55e;
+  --color-dot-degraded: #ef4444;
+
+  --color-error-bg: #fee2e2;
+  --color-error-text: #991b1b;
+}
+
+:root[data-theme="dark"] {
+  --color-bg: #111827;
+  --color-surface: #1f2937;
+  --color-text: #e5e7eb;
+  --color-text-muted: #9ca3af;
+  --color-border: #374151;
+
+  --color-header-bg: #0b1220;
+  --color-header-text: #f9fafb;
+
+  --color-btn-bg: #3b82f6;
+  --color-btn-text: #0b1220;
+  --color-btn-secondary-bg: #374151;
+  --color-btn-secondary-text: #e5e7eb;
+  --color-btn-danger-bg: #ef4444;
+  --color-btn-danger-text: #0b1220;
+
+  --color-input-bg: #111827;
+  --color-input-border: #4b5563;
+
+  --color-candidate-hover: #273449;
+  --color-candidate-selected: #1e3a5f;
+  --color-code-bg: #0b1220;
+
+  --color-badge-ok-bg: #14532d;
+  --color-badge-ok-text: #bbf7d0;
+  --color-badge-warn-bg: #713f12;
+  --color-badge-warn-text: #fef08a;
+  --color-badge-error-bg: #7f1d1d;
+  --color-badge-error-text: #fecaca;
+
+  --color-dot-ok: #4ade80;
+  --color-dot-degraded: #f87171;
+
+  --color-error-bg: #7f1d1d;
+  --color-error-text: #fecaca;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -5,17 +81,18 @@
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
-  background: #f5f5f5;
-  color: #1a1a1a;
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 
 header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
   padding: 0.75rem 1.5rem;
-  background: #1f2937;
-  color: white;
+  background: var(--color-header-bg);
+  color: var(--color-header-text);
 }
 
 header h1 {
@@ -23,12 +100,41 @@ header h1 {
   margin: 0;
 }
 
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.icon-btn {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: inherit;
+  border-radius: 6px;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.language-select {
+  background: transparent;
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.85rem;
+}
+
+.language-select option {
+  color: #1a1a1a;
+}
+
 nav {
   display: flex;
   gap: 0.5rem;
   padding: 0.75rem 1.5rem;
-  background: white;
-  border-bottom: 1px solid #ddd;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
 }
 
 nav button {
@@ -38,11 +144,12 @@ nav button {
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.95rem;
+  color: var(--color-text);
 }
 
 nav button.active {
-  background: #1f2937;
-  color: white;
+  background: var(--color-btn-bg);
+  color: var(--color-btn-text);
 }
 
 main {
@@ -52,7 +159,7 @@ main {
 }
 
 section {
-  background: white;
+  background: var(--color-surface);
   border-radius: 8px;
   padding: 1.25rem;
   margin-bottom: 1.25rem;
@@ -74,7 +181,7 @@ th,
 td {
   text-align: left;
   padding: 0.4rem 0.5rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--color-border);
 }
 
 button {
@@ -82,8 +189,8 @@ button {
 }
 
 .btn {
-  background: #1f2937;
-  color: white;
+  background: var(--color-btn-bg);
+  color: var(--color-btn-text);
   border: none;
   border-radius: 6px;
   padding: 0.5rem 1rem;
@@ -96,13 +203,13 @@ button {
 }
 
 .btn-secondary {
-  background: #e5e7eb;
-  color: #1a1a1a;
+  background: var(--color-btn-secondary-bg);
+  color: var(--color-btn-secondary-text);
 }
 
 .btn-danger {
-  background: #b91c1c;
-  color: white;
+  background: var(--color-btn-danger-bg);
+  color: var(--color-btn-danger-text);
 }
 
 input,
@@ -110,9 +217,11 @@ select,
 textarea {
   font: inherit;
   padding: 0.4rem 0.5rem;
-  border: 1px solid #ccc;
+  border: 1px solid var(--color-input-border);
   border-radius: 6px;
   width: 100%;
+  background: var(--color-input-bg);
+  color: var(--color-text);
 }
 
 label {
@@ -138,7 +247,7 @@ label span {
 }
 
 .candidate {
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 0.6rem;
   margin-bottom: 0.5rem;
@@ -146,7 +255,11 @@ label span {
 }
 
 .candidate:hover {
-  background: #f9fafb;
+  background: var(--color-candidate-hover);
+}
+
+.candidate.selected {
+  background: var(--color-candidate-selected);
 }
 
 .badge {
@@ -158,18 +271,18 @@ label span {
 }
 
 .badge-ok {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--color-badge-ok-bg);
+  color: var(--color-badge-ok-text);
 }
 
 .badge-warn {
-  background: #fef9c3;
-  color: #854d0e;
+  background: var(--color-badge-warn-bg);
+  color: var(--color-badge-warn-text);
 }
 
 .badge-error {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--color-badge-error-bg);
+  color: var(--color-badge-error-text);
 }
 
 .dot {
@@ -181,16 +294,16 @@ label span {
 }
 
 .dot-ok {
-  background: #22c55e;
+  background: var(--color-dot-ok);
 }
 
 .dot-degraded {
-  background: #ef4444;
+  background: var(--color-dot-degraded);
 }
 
 .error-message {
-  color: #991b1b;
-  background: #fee2e2;
+  color: var(--color-error-text);
+  background: var(--color-error-bg);
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
   font-size: 0.85rem;
@@ -198,13 +311,21 @@ label span {
 }
 
 .build-card {
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 0.75rem;
   margin-bottom: 0.75rem;
 }
 
 .muted {
-  color: #666;
+  color: var(--color-text-muted);
   font-size: 0.85rem;
+}
+
+.specs-preview {
+  background: var(--color-code-bg);
+  color: var(--color-text);
+  padding: 0.75rem;
+  border-radius: 6px;
+  overflow-x: auto;
 }

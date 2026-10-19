@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
+import { useLanguage } from "../i18n/LanguageContext.jsx";
 
 const CATEGORIES = ["cpu", "motherboard", "ram", "gpu", "storage", "psu", "case", "cooler"];
 const CONDITIONS = ["new", "used", "faulty"];
 
 export default function InventoryView() {
+  const { t } = useLanguage();
   const [components, setComponents] = useState([]);
   const [loadError, setLoadError] = useState(null);
 
@@ -131,10 +133,7 @@ export default function InventoryView() {
     try {
       const specs = JSON.parse(manualSpecsJson);
       if (specs.category && specs.category !== manualCategory) {
-        setManualError(
-          `Specs-JSON'ens category ("${specs.category}") passer ikke med den valgte kategori ` +
-            `("${manualCategory}"). Ret et af dem, før du gemmer.`
-        );
+        setManualError(t("manualCategoryMismatch", specs.category, manualCategory));
         return;
       }
       specs.category = manualCategory;
@@ -154,7 +153,7 @@ export default function InventoryView() {
   }
 
   async function handleDelete(id) {
-    if (!window.confirm("Slet denne komponent fra lageret?")) return;
+    if (!window.confirm(t("confirmDeleteComponent"))) return;
     try {
       await api.deleteComponent(id);
       await loadComponents();
@@ -168,16 +167,16 @@ export default function InventoryView() {
   return (
     <>
       <section>
-        <h2>Lager ({components.length})</h2>
+        <h2>{t("inventoryHeading", components.length)}</h2>
         {loadError && <p className="error-message">{loadError}</p>}
         <table>
           <thead>
             <tr>
-              <th>Kategori</th>
-              <th>Navn</th>
-              <th>Antal</th>
-              <th>Stand</th>
-              <th>Specs bekræftet</th>
+              <th>{t("colCategory")}</th>
+              <th>{t("colName")}</th>
+              <th>{t("colQuantity")}</th>
+              <th>{t("colCondition")}</th>
+              <th>{t("colSpecsVerified")}</th>
               <th></th>
             </tr>
           </thead>
@@ -188,10 +187,10 @@ export default function InventoryView() {
                 <td>{c.name}</td>
                 <td>{c.quantity}</td>
                 <td>{c.condition}</td>
-                <td>{c.specs_verified ? "Ja" : "Nej"}</td>
+                <td>{c.specs_verified ? t("yes") : t("no")}</td>
                 <td>
                   <button className="btn btn-danger" onClick={() => handleDelete(c.id)}>
-                    Slet
+                    {t("delete")}
                   </button>
                 </td>
               </tr>
@@ -201,40 +200,34 @@ export default function InventoryView() {
       </section>
 
       <section>
-        <h2>Tilføj komponent — {webLookupEnabled ? "søg på nettet" : "udtræk fra LLM'ens viden"}</h2>
+        <h2>{webLookupEnabled ? t("addViaSearchHeading") : t("addViaExtractHeading")}</h2>
         <form onSubmit={webLookupEnabled ? handleSearch : handleExtractDirect} className="row">
           <label>
-            <span>Komponentnavn</span>
+            <span>{t("componentNameLabel")}</span>
             <input
               value={searchName}
               onChange={(e) => setSearchName(e.target.value)}
-              placeholder="fx RTX 2060 SUPER"
+              placeholder={t("componentNamePlaceholder")}
               disabled={isReviewing}
               required
             />
           </label>
           <button type="submit" className="btn" disabled={isReviewing}>
-            {webLookupEnabled ? "Søg" : "Udtræk"}
+            {webLookupEnabled ? t("search") : t("extract")}
           </button>
         </form>
-        {!webLookupEnabled && (
-          <p className="muted">
-            Websøgning er deaktiveret på serveren (ENABLE_WEB_LOOKUP=false) — specs udtrækkes direkte fra
-            LLM'ens egen viden om navnet.
-          </p>
-        )}
+        {!webLookupEnabled && <p className="muted">{t("webLookupDisabledNotice")}</p>}
 
         {extractError && <p className="error-message">{extractError}</p>}
 
         {candidates.length > 0 && (
           <div>
-            <p className="muted">Vælg det resultat, der matcher din komponent:</p>
+            <p className="muted">{t("pickCandidatePrompt")}</p>
             {candidates.map((candidate) => (
               <div
                 key={candidate.url}
-                className="candidate"
+                className={`candidate${selectedCandidate === candidate ? " selected" : ""}`}
                 onClick={() => handlePickCandidate(candidate)}
-                style={{ background: selectedCandidate === candidate ? "#eef2ff" : undefined }}
               >
                 <strong>{candidate.title}</strong>
                 <div className="muted">{candidate.snippet}</div>
@@ -245,19 +238,15 @@ export default function InventoryView() {
 
         {extracted && (
           <div>
-            <h3>
-              Udtrukne specs for "{confirmName}" ({extracted.specs_source}, LLM: {extracted.llm_used})
-            </h3>
-            <pre style={{ background: "#f3f4f6", padding: "0.75rem", borderRadius: 6, overflowX: "auto" }}>
-              {JSON.stringify(extracted.specs, null, 2)}
-            </pre>
+            <h3>{t("extractedSpecsHeading", confirmName, extracted.specs_source, extracted.llm_used)}</h3>
+            <pre className="specs-preview">{JSON.stringify(extracted.specs, null, 2)}</pre>
             <div className="row">
               <label>
-                <span>Antal</span>
+                <span>{t("quantityLabel")}</span>
                 <input type="number" min="0" value={confirmQuantity} onChange={(e) => setConfirmQuantity(e.target.value)} />
               </label>
               <label>
-                <span>Stand</span>
+                <span>{t("conditionLabel")}</span>
                 <select value={confirmCondition} onChange={(e) => setConfirmCondition(e.target.value)}>
                   {CONDITIONS.map((c) => (
                     <option key={c} value={c}>
@@ -267,10 +256,10 @@ export default function InventoryView() {
                 </select>
               </label>
               <button className="btn" onClick={handleConfirmSave}>
-                Bekræft og gem
+                {t("confirmAndSave")}
               </button>
               <button className="btn btn-secondary" onClick={resetSearchFlow} type="button">
-                Annullér
+                {t("cancel")}
               </button>
             </div>
           </div>
@@ -278,15 +267,15 @@ export default function InventoryView() {
       </section>
 
       <section>
-        <h2>Tilføj komponent — manuelt (avanceret)</h2>
+        <h2>{t("manualAddHeading")}</h2>
         <form onSubmit={handleManualAdd}>
           <div className="row">
             <label>
-              <span>Navn</span>
+              <span>{t("nameLabel")}</span>
               <input value={manualName} onChange={(e) => setManualName(e.target.value)} required />
             </label>
             <label>
-              <span>Kategori</span>
+              <span>{t("categoryLabel")}</span>
               <select value={manualCategory} onChange={(e) => setManualCategory(e.target.value)}>
                 {CATEGORIES.map((c) => (
                   <option key={c} value={c}>
@@ -296,11 +285,11 @@ export default function InventoryView() {
               </select>
             </label>
             <label>
-              <span>Antal</span>
+              <span>{t("quantityLabel")}</span>
               <input type="number" min="0" value={manualQuantity} onChange={(e) => setManualQuantity(e.target.value)} />
             </label>
             <label>
-              <span>Stand</span>
+              <span>{t("conditionLabel")}</span>
               <select value={manualCondition} onChange={(e) => setManualCondition(e.target.value)}>
                 {CONDITIONS.map((c) => (
                   <option key={c} value={c}>
@@ -311,12 +300,12 @@ export default function InventoryView() {
             </label>
           </div>
           <label>
-            <span>Specs (JSON — felter du ikke kender kan udelades)</span>
+            <span>{t("specsJsonLabel")}</span>
             <textarea rows={6} value={manualSpecsJson} onChange={(e) => setManualSpecsJson(e.target.value)} />
           </label>
           {manualError && <p className="error-message">{manualError}</p>}
           <button type="submit" className="btn">
-            Tilføj
+            {t("add")}
           </button>
         </form>
       </section>

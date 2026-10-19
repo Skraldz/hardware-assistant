@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../api.js";
+import { useLanguage } from "../i18n/LanguageContext.jsx";
 
 function StatusBadge({ label, status }) {
   const cls = status === "ok" ? "badge-ok" : status === "retried" ? "badge-warn" : "badge-error";
@@ -11,7 +12,8 @@ function StatusBadge({ label, status }) {
 }
 
 export default function RecommendView() {
-  const [prompt, setPrompt] = useState("headless pc til lokal AI");
+  const { t } = useLanguage();
+  const [prompt, setPrompt] = useState(() => t("defaultPrompt"));
   const [maxBuilds, setMaxBuilds] = useState(3);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -33,19 +35,19 @@ export default function RecommendView() {
 
   return (
     <section>
-      <h2>Anbefal en build</h2>
+      <h2>{t("recommendHeading")}</h2>
       <form onSubmit={handleSubmit}>
         <label>
-          <span>Beskriv projektet i fri tekst</span>
+          <span>{t("promptLabel")}</span>
           <textarea rows={3} value={prompt} onChange={(e) => setPrompt(e.target.value)} required />
         </label>
         <div className="row">
           <label>
-            <span>Maks. antal builds</span>
+            <span>{t("maxBuildsLabel")}</span>
             <input type="number" min="1" max="10" value={maxBuilds} onChange={(e) => setMaxBuilds(e.target.value)} />
           </label>
           <button className="btn" type="submit" disabled={loading}>
-            {loading ? "Tænker…" : "Anbefal"}
+            {loading ? t("thinking") : t("recommend")}
           </button>
         </div>
       </form>
@@ -55,21 +57,22 @@ export default function RecommendView() {
       {result && (
         <div style={{ marginTop: "1rem" }}>
           <p>
-            <StatusBadge label="Fortolkning" status={result.llm_used.interpret} />
-            <StatusBadge label="Rangering" status={result.llm_used.rank} />
+            <StatusBadge label={t("interpretLabel")} status={result.llm_used.interpret} />
+            <StatusBadge label={t("rankLabel")} status={result.llm_used.rank} />
           </p>
 
           {result.missing.length > 0 && (
-            <p className="error-message">Mangler i lageret: {result.missing.join(", ")}</p>
+            <p className="error-message">{t("missingInInventory", result.missing.join(", "))}</p>
           )}
 
           {result.builds.length === 0 && result.missing.length === 0 && (
-            <p className="muted">Ingen kompatible builds kunne sammensættes ud fra lageret.</p>
+            <p className="muted">{t("noCompatibleBuilds")}</p>
           )}
 
           {result.builds.map((build, index) => (
             <div className="build-card" key={index}>
-              <strong>Build {index + 1}</strong> <span className="muted">(score {build.score.toFixed(0)})</span>
+              <strong>{t("buildLabel", index + 1)}</strong>{" "}
+              <span className="muted">{t("scoreLabel", build.score.toFixed(0))}</span>
               <ul>
                 {build.components.map((c) => (
                   <li key={c.id}>
@@ -78,9 +81,7 @@ export default function RecommendView() {
                 ))}
               </ul>
               <p>{build.reason}</p>
-              {build.warnings.length > 0 && (
-                <p className="muted">⚠ {build.warnings.join(" · ")}</p>
-              )}
+              {build.warnings.length > 0 && <p className="muted">⚠ {build.warnings.join(" · ")}</p>}
             </div>
           ))}
         </div>
