@@ -2,20 +2,58 @@
 `settings.backup_backend`. Routers and services depend only on the
 `BackupStorage` protocol (dependency injection via FastAPI `Depends`), never
 on `LocalStorage`/`AzureBlobStorage` directly.
+
+Originally `BACKUP_BACKEND` picked a single backend fixed for the whole
+deployment. The frontend now lets the user pick local-vs-Azure per backup
+(create/list/restore each independently choose), so `get_backup_storage_for`
+below constructs whichever backend is actually requested, with
+`BACKUP_BACKEND` only setting the *default* when none is explicitly given.
 """
 
 from functools import lru_cache
+from typing import Literal
 
 from app.config import Settings, get_settings
 from app.storage.azure_blob import AzureBlobStorage
 from app.storage.base import BackupStorage
 from app.storage.local import LocalStorage
 
+BackendName = Literal["local", "azure"]
+
+
+class BackendUnavailableError(Exception):
+    """The requested backup backend isn't usable (e.g. Azure chosen without
+    AZURE_STORAGE_CONNECTION_STRING/AZURE_STORAGE_ACCOUNT_URL configured)."""
+
+
+def is_azure_available(settings: Settings) -> bool:
+    return bool(settings.azure_storage_connection_string or settings.azure_storage_account_url)
+
+
+def available_backends(settings: Settings) -> list[BackendName]:
+    """Local is always usable; Azure only once credentials are configured --
+    independently of which one BACKUP_BACKEND defaults to, so Azure can be
+    configured as an optional *extra* destination without making it the
+    deployment's default."""
+    backends: list[BackendName] = ["local"]
+    if is_azure_available(settings):
+        backends.append("azure")
+    return backends
+
+
+def get_backup_storage_for(backend: BackendName, settings: Settings) -> BackupStorage:
+    if backend == "local":
+        return LocalStorage(settings.local_backup_dir)
+    if not is_azure_available(settings):
+        raise BackendUnavailableError(
+            "Azure backup is not configured on this server "
+            "(set AZURE_STORAGE_CONNECTION_STRING or AZURE_STORAGE_ACCOUNT_URL)."
+        )
+    return AzureBlobStorage.from_settings(settings)
+
 
 def get_backup_storage(settings: Settings) -> BackupStorage:
-    if settings.backup_backend == "local":
-        return LocalStorage(settings.local_backup_dir)
-    return AzureBlobStorage.from_settings(settings)
+    return get_backup_storage_for(settings.backup_backend, settings)
 
 
 @lru_cache
@@ -24,5 +62,6 @@ def _cached_backup_storage() -> BackupStorage:
 
 
 def get_backup_storage_dependency() -> BackupStorage:
-    """FastAPI dependency. Overridden in tests."""
+    """FastAPI dependency for the default (BACKUP_BACKEND) storage, used by
+    GET /api/health. Overridden in tests."""
     return _cached_backup_storage()

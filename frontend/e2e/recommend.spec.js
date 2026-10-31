@@ -23,17 +23,24 @@ test("sends a prompt and shows the assistant reply, builds, and score guide", as
   await expect(page.getByText("Interpretation: ok")).toBeVisible();
 });
 
-test("a build can be saved from the chat", async ({ page }) => {
+test("a build can be saved from the chat, with the original ask as its purpose", async ({ page }) => {
   await mockApi(page);
   await page.goto("/");
   await page.getByRole("button", { name: "Recommend" }).click();
 
-  await page.getByLabel("Describe the project in free text").fill("headless pc for local AI");
+  await page
+    .getByLabel("Describe the project in free text")
+    .fill("play Baldur's Gate 3 at max resolution and 60 FPS");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText("Build 1")).toBeVisible();
 
+  const saveRequest = page.waitForRequest(
+    (req) => req.url().endsWith("/api/builds") && req.method() === "POST",
+  );
   await page.getByRole("button", { name: "Save build" }).click();
+  const request = await saveRequest;
 
+  expect(request.postDataJSON().purpose).toBe("play Baldur's Gate 3 at max resolution and 60 FPS");
   await expect(page.getByRole("button", { name: "Saved" })).toBeVisible();
 });
 

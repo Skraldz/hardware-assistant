@@ -14,6 +14,7 @@ test("lists a saved build and can mark it as built", async ({ page }) => {
 
   await expect(pane.getByText("AMD Ryzen 5 3600")).toBeVisible();
   await expect(pane.getByText("Not built yet")).toBeVisible();
+  await expect(pane.getByText("play Baldur's Gate 3 at max resolution and 60 FPS")).toBeVisible();
 
   const completeRequest = page.waitForRequest(
     (req) => req.url().includes("/complete") && req.method() === "POST",

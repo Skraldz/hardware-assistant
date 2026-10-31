@@ -92,6 +92,7 @@ export const translations = {
     saving: "Gemmer…",
 
     buildsHeading: "Gemte builds",
+    buildPurposeLabel: "Formål:",
     noSavedBuilds: "Ingen gemte builds endnu. Gem en build fra Anbefaling-fanen.",
     notBuiltYet: "Ikke samlet endnu",
     completedOn: (date) => `Samlet ${date}`,
@@ -103,6 +104,10 @@ export const translations = {
     confirmDeleteBuild: "Slet denne gemte build? Dette påvirker ikke selve lagerkomponenterne.",
 
     backupHeading: "Backup",
+    backendLocal: "Lokal",
+    backendAzure: "Azure (sky)",
+    azureNotConfiguredNotice:
+      "Azure er ikke konfigureret på serveren (AZURE_STORAGE_CONNECTION_STRING/AZURE_STORAGE_ACCOUNT_URL mangler i .env) — kun lokal backup er tilgængelig.",
     activeBackendLabel: "Aktiv backend:",
     createBackupNow: "Lav backup nu",
     creatingBackup: "Laver backup…",
@@ -200,6 +205,7 @@ export const translations = {
     saving: "Saving…",
 
     buildsHeading: "Saved builds",
+    buildPurposeLabel: "Purpose:",
     noSavedBuilds: "No saved builds yet. Save one from the Recommend tab.",
     notBuiltYet: "Not built yet",
     completedOn: (date) => `Built ${date}`,
@@ -211,6 +217,10 @@ export const translations = {
     confirmDeleteBuild: "Delete this saved build? This does not affect the inventory components themselves.",
 
     backupHeading: "Backup",
+    backendLocal: "Local",
+    backendAzure: "Azure (cloud)",
+    azureNotConfiguredNotice:
+      "Azure isn't configured on the server (AZURE_STORAGE_CONNECTION_STRING/AZURE_STORAGE_ACCOUNT_URL missing from .env) — only local backup is available.",
     activeBackendLabel: "Active backend:",
     createBackupNow: "Create backup now",
     creatingBackup: "Creating backup…",

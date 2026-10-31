@@ -4,10 +4,17 @@ mocked throughout (SPEC.md §9.1)."""
 
 from unittest.mock import MagicMock, patch
 
+import pytest
 from azure.core.exceptions import ResourceExistsError
 
 from app.config import Settings
-from app.storage import get_backup_storage
+from app.storage import (
+    BackendUnavailableError,
+    available_backends,
+    get_backup_storage,
+    get_backup_storage_for,
+    is_azure_available,
+)
 from app.storage.azure_blob import AzureBlobStorage
 from app.storage.local import LocalStorage
 
@@ -16,6 +23,33 @@ def test_factory_returns_local_storage(tmp_path):
     settings = Settings(local_backup_dir=str(tmp_path))
     storage = get_backup_storage(settings)
     assert isinstance(storage, LocalStorage)
+
+
+def test_available_backends_is_local_only_without_azure_credentials():
+    settings = Settings()
+    assert is_azure_available(settings) is False
+    assert available_backends(settings) == ["local"]
+
+
+def test_available_backends_includes_azure_when_credentials_present():
+    settings = Settings(azure_storage_connection_string="fake-connection-string")
+    assert is_azure_available(settings) is True
+    assert available_backends(settings) == ["local", "azure"]
+
+
+def test_azure_is_available_even_when_backup_backend_defaults_to_local():
+    # Azure can be configured as an *optional extra* destination without
+    # being the deployment's default BACKUP_BACKEND.
+    settings = Settings(
+        backup_backend="local", azure_storage_account_url="https://example.blob.core.windows.net"
+    )
+    assert available_backends(settings) == ["local", "azure"]
+
+
+def test_get_backup_storage_for_azure_without_credentials_raises(tmp_path):
+    settings = Settings(local_backup_dir=str(tmp_path))
+    with pytest.raises(BackendUnavailableError, match="(?i)azure"):
+        get_backup_storage_for("azure", settings)
 
 
 @patch("app.storage.azure_blob.BlobServiceClient")

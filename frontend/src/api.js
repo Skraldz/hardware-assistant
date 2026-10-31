@@ -59,10 +59,14 @@ export const api = {
       body: JSON.stringify({ conversation, max_builds: maxBuilds }),
     }),
 
-  listBackups: () => request("/api/backup"),
-  createBackup: () => request("/api/backup", { method: "POST" }),
-  restoreBackup: (name) =>
-    request("/api/backup/restore", { method: "POST", body: JSON.stringify({ name, confirm: true }) }),
+  listBackups: (backend) => request(`/api/backup${backend ? `?backend=${backend}` : ""}`),
+  createBackup: (backend) =>
+    request("/api/backup", { method: "POST", body: JSON.stringify({ backend: backend ?? null }) }),
+  restoreBackup: (name, backend) =>
+    request("/api/backup/restore", {
+      method: "POST",
+      body: JSON.stringify({ name, confirm: true, backend: backend ?? null }),
+    }),
 
   listBuilds: () => request("/api/builds"),
   saveBuild: (build) => request("/api/builds", { method: "POST", body: JSON.stringify(build) }),

@@ -55,6 +55,11 @@ class SavedBuild(Base):
     # later edited or deleted -- completing the build (routers/builds.py)
     # still acts on the live components by id, for whichever still exist.
     components: Mapped[list] = mapped_column(JSON, nullable=False)
+    # Why the *user* wanted this build (e.g. "play Baldur's Gate 3 at max
+    # resolution and 60 FPS") -- the original ask, distinct from `reason`
+    # below, which is the ranking LLM's justification for picking this
+    # specific build over the other candidates.
+    purpose: Mapped[str | None] = mapped_column(Text, nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     completed: Mapped[bool] = mapped_column(nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

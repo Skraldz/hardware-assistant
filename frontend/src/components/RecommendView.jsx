@@ -76,8 +76,12 @@ export default function RecommendView() {
 
   async function handleSaveBuild(key, build) {
     setSaveState((prev) => ({ ...prev, [key]: "saving" }));
+    // The original ask (first user message), not the AI's justification
+    // for picking this build over the other candidates -- shown on the
+    // Builds tab as the build's purpose.
+    const purpose = messages.find((m) => m.role === "user")?.content ?? null;
     try {
-      await api.saveBuild({ components: build.components, reason: build.reason });
+      await api.saveBuild({ components: build.components, purpose, reason: build.reason });
       setSaveState((prev) => ({ ...prev, [key]: "saved" }));
     } catch (err) {
       setSaveState((prev) => ({ ...prev, [key]: undefined }));

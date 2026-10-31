@@ -44,6 +44,7 @@ def test_save_build_returns_it_and_list_includes_it(client):
         json={
             "name": "My headless AI box",
             "components": [{"id": cpu["id"], "category": "cpu", "name": cpu["name"]}],
+            "purpose": "play Baldur's Gate 3 at max resolution and 60 FPS",
             "reason": "Meets the requirements.",
         },
     )
@@ -51,9 +52,14 @@ def test_save_build_returns_it_and_list_includes_it(client):
     assert response.status_code == 201
     body = response.json()
     assert body["name"] == "My headless AI box"
+    assert body["purpose"] == "play Baldur's Gate 3 at max resolution and 60 FPS"
+    assert body["reason"] == "Meets the requirements."
     assert body["completed"] is False
     assert body["completed_at"] is None
     assert body["components"] == [{"id": cpu["id"], "category": "cpu", "name": cpu["name"]}]
+
+    listed = client.get("/api/builds").json()
+    assert listed[0]["purpose"] == "play Baldur's Gate 3 at max resolution and 60 FPS"
 
     listed = client.get("/api/builds")
     assert listed.status_code == 200

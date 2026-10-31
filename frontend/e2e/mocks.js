@@ -96,6 +96,7 @@ export const SAMPLE_SAVED_BUILDS = [
       { id: 1, category: "cpu", name: "AMD Ryzen 5 3600" },
       { id: 2, category: "gpu", name: "NVIDIA GeForce RTX 2060 6GB" },
     ],
+    purpose: "play Baldur's Gate 3 at max resolution and 60 FPS",
     reason: "Meets the stated requirements.",
     completed: false,
     created_at: "2026-01-01T00:00:00",
@@ -106,7 +107,15 @@ export const SAMPLE_SAVED_BUILDS = [
 export const SAMPLE_BACKUPS = {
   backup_backend: "local",
   destination: "/app/backups",
-  backups: [],
+  available_backends: ["local", "azure"],
+  backups: [
+    {
+      name: "inventory-20260101T000000Z.json",
+      created_at: "2026-01-01T00:00:00",
+      size_bytes: 2048,
+      component_count: 2,
+    },
+  ],
 };
 
 async function fulfillJson(route, body, status = 200) {
@@ -167,5 +176,18 @@ export async function mockApi(page, overrides = {}) {
     if (route.request().method() === "DELETE") return route.fulfill({ status: 204 });
     return route.continue();
   });
-  await page.route("**/api/backup", (route) => fulfillJson(route, backups));
+  // "*" at the end also matches "?backend=azure" etc.
+  await page.route("**/api/backup*", (route) => {
+    if (route.request().method() === "POST") {
+      return fulfillJson(
+        route,
+        { name: "inventory-20260102T000000Z.json", created_at: "2026-01-02T00:00:00", size_bytes: 2048, component_count: 2 },
+        201,
+      );
+    }
+    return fulfillJson(route, backups);
+  });
+  await page.route("**/api/backup/restore", (route) =>
+    fulfillJson(route, { restored_count: backups.backups?.length ?? 0 }),
+  );
 }

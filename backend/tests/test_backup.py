@@ -213,3 +213,33 @@ def test_restore_via_api_replaces_inventory(client):
 
     names = {c["name"] for c in client.get("/api/components").json()}
     assert names == {"Keep me"}
+
+
+def test_list_backups_reports_available_backends(client):
+    response = client.get("/api/backup")
+    assert response.status_code == 200
+    # No AZURE_STORAGE_* configured for this test client -- only local.
+    assert response.json()["available_backends"] == ["local"]
+
+
+def test_create_backup_with_unavailable_azure_backend_returns_400(client):
+    response = client.post("/api/backup", json={"backend": "azure"})
+    assert response.status_code == 400
+    assert "azure" in response.json()["detail"].lower()
+
+
+def test_list_backups_with_unavailable_azure_backend_returns_400(client):
+    response = client.get("/api/backup?backend=azure")
+    assert response.status_code == 400
+
+
+def test_restore_with_unavailable_azure_backend_returns_400(client):
+    response = client.post(
+        "/api/backup/restore", json={"name": "inventory-x.json", "confirm": True, "backend": "azure"}
+    )
+    assert response.status_code == 400
+
+
+def test_create_backup_explicit_local_backend_matches_default(client):
+    response = client.post("/api/backup", json={"backend": "local"})
+    assert response.status_code == 201

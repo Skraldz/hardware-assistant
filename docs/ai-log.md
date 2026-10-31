@@ -2,6 +2,30 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-10-31 – Per-backup backend choice (local vs. Azure), and a saved build's purpose
+
+**Generated:**
+- **Pick local vs. Azure per backup**, not just once via `BACKUP_BACKEND` at deployment time. `storage/__init__.py` gains `available_backends(settings)`/`is_azure_available(settings)` (local is always usable; Azure only once credentials are configured -- independently of what `BACKUP_BACKEND` itself defaults to, so Azure can be an optional *extra* destination without being the deployment's default) and `get_backup_storage_for(backend, settings)`, which constructs whichever backend is actually requested and raises `BackendUnavailableError` (-> HTTP 400) if Azure is asked for without credentials. `POST/GET /api/backup` and `POST /api/backup/restore` all gain an optional `backend` field/query param, defaulting to the server's configured `BACKUP_BACKEND` when omitted -- existing callers that never mention it keep working unchanged. `BackupListResponse` gains `available_backends`, so the frontend can show/hide the Azure option without guessing. `BackupView.jsx` gets a Local/Azure chip picker that drives which backend's list is shown and which one "Create backup now"/"Restore" act on.
+- **A saved build's `purpose`**: reported directly -- a saved build only stored the ranking LLM's `reason` for picking it over the other candidates (e.g. "Meets the stated requirements"), not *why the user wanted it* (e.g. "play Baldur's Gate 3 at max resolution and 60 FPS"). `SavedBuild`/`SavedBuildCreate`/`SavedBuildRead` gain a `purpose` field, distinct from `reason`. `RecommendView.jsx`'s `handleSaveBuild` now sends the conversation's first user message as `purpose` when saving, and `BuildsView.jsx` displays it prominently above the component list.
+
+**Assumptions:**
+- **"The purpose" is the conversation's *first* user message**, not the latest one or some AI-distilled summary of it -- matches what was actually asked for ("the original prompt"), and is simpler/more honest than trying to have the LLM re-summarize intent after the fact. A multi-turn conversation that significantly changed direction after its first message would still show that first message as the purpose, which could occasionally read oddly, but this was judged an acceptable, rare edge case against the simplicity of not needing a new LLM call or a way to track "what the current effective ask is" separately from the raw transcript.
+- **Restoring a backup doesn't let you pick a backend independently of which list you're viewing** -- a restore operates on whatever backend's list the row came from (the currently selected one), since a restore action is inherently about the already-listed backup, not a fresh destination choice the way create/list are.
+
+**Known risks / weaknesses:**
+- **Testing `/api/backup`'s new per-request backend selection required changing how the test client isolates local storage.** The endpoints used to resolve storage via a single FastAPI-injected dependency (`get_backup_storage_dependency`, overridden in `conftest.py` to point at `tmp_path`); now that each endpoint constructs storage itself based on the requested backend, that override only still covers `/api/health`. The `client` fixture now also monkeypatches `app.routers.backup.get_settings` to point `local_backup_dir` at the same `tmp_path` -- two separate mechanisms achieving the same test isolation, which is a bit more to keep in sync if this router changes again.
+- **No UI distinguishes "no backups exist yet on this backend" from "this backend's list hasn't loaded"** -- both render as an empty table; not expected to be confusing in practice given the explicit Local/Azure toggle, but untested with an actual empty Azure container.
+
+**Tests covering it:**
+- `test_storage.py` (4 new tests): `available_backends`/`is_azure_available` with and without credentials configured; Azure available even when `BACKUP_BACKEND=local`; `get_backup_storage_for("azure", ...)` raises `BackendUnavailableError` without credentials.
+- `test_backup.py` (5 new tests): `available_backends` reported correctly via the API; create/list/restore all return 400 for an unavailable Azure backend; an explicit `backend: "local"` matches the implicit default.
+- `test_builds.py`: `purpose` round-trips through save and list.
+- `e2e/backup.spec.js` (new, 2 tests): the Local/Azure picker drives both the list request and the create-backup request body; the Azure option is hidden (with an explanatory note) when the mocked server reports only `["local"]` as available.
+- `e2e/recommend.spec.js`/`e2e/builds.spec.js`: saving a build sends the conversation's first message as `purpose`, and the Builds tab displays it.
+- `ruff check`/`ruff format --check`/`pytest --cov` green: 190 tests, 95% overall coverage. All 14 Playwright specs green.
+
+**Review (filled in by the student):**
+
 ## 2026-10-31 – Three live-reported frontend bugs: stale "saved" state, locked name field, extraction prompt
 
 Reported directly from continued live use of the home-server deployment.

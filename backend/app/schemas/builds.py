@@ -88,6 +88,11 @@ class RecommendResponse(BaseModel):
 class SavedBuildCreate(BaseModel):
     name: str | None = None
     components: list[ComponentSummary] = Field(min_length=1)
+    # Why the user wanted this build in the first place (e.g. "play
+    # Baldur's Gate 3 at max resolution and 60 FPS") -- distinct from
+    # `reason`, which is the ranking LLM's justification for picking this
+    # build over the other candidates it was given.
+    purpose: str | None = None
     reason: str | None = None
 
 
@@ -97,6 +102,7 @@ class SavedBuildRead(BaseModel):
     id: int
     name: str | None
     components: list[ComponentSummary]
+    purpose: str | None
     reason: str | None
     completed: bool
     created_at: datetime

@@ -73,6 +73,11 @@ export default function BuildsView({ active = true }) {
           ) : (
             <span className="badge badge-warn">{t("notBuiltYet")}</span>
           )}
+          {build.purpose && (
+            <p>
+              <strong>{t("buildPurposeLabel")}</strong> {build.purpose}
+            </p>
+          )}
           <ul>
             {build.components.map((c) => (
               <li key={c.id}>

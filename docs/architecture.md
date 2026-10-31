@@ -11,7 +11,7 @@ flowchart LR
     Backend["backend<br/>(FastAPI)"] -->|SQL| DB[("db<br/>MariaDB")]
     Backend -->|HTTP, local network| Ollama["ollama<br/>(local LLM)"]
     Backend -->|HTTP, local network| SearXNG["searxng<br/>(web search)"]
-    Backend -.->|backup only,<br/>only if BACKUP_BACKEND=azure| Azure[("Azure Blob<br/>Storage")]
+    Backend -.->|backup only,<br/>only when Azure is<br/>chosen for that backup| Azure[("Azure Blob<br/>Storage")]
 ```
 
 | Service | Role |
@@ -79,7 +79,7 @@ A `saved_builds` table (added for the Builds tab, outside SPEC.md's original sco
 ## Security and responsible AI use (SPEC.md §9.3)
 
 - **All AI inference runs locally.** `ollama` runs on the home server, inside the local Docker network. No prompt, project description, or component data is ever sent to an external AI service (OpenAI, Azure OpenAI, or similar).
-- **Only inventory snapshots are sent to Azure**, and only when `BACKUP_BACKEND=azure` is explicitly selected in `.env` — see `docs/ai-log.md`'s Phase 4 entry. That's pure inventory data (component names, specs, quantities) — never prompts, LLM responses, or search results.
+- **Only inventory snapshots are sent to Azure**, and only when Azure is chosen as the destination for a given backup (either as the deployment's default `BACKUP_BACKEND`, or picked per backup from the Backup tab once `AZURE_STORAGE_CONNECTION_STRING`/`AZURE_STORAGE_ACCOUNT_URL` makes it selectable at all) — see `docs/ai-log.md`'s Phase 4 entry. That's pure inventory data (component names, specs, quantities) — never prompts, LLM responses, or search results.
 - **LLM output is never trusted unfiltered.** All structured LLM output is validated with Pydantic; invalid output gets one retry with the validation error fed back, then a deterministic fallback (see `backend/app/llm/parsing.py`). The ranking's `build_id` values are explicitly validated against the actual candidate list — an invented id is rejected.
 - **Prompt injection.** User-controlled and web-search text (component names, project descriptions, search result snippets) is sent to the LLM wrapped in `<data>` blocks with an explicit instruction that the content is data, not commands. Literal `<`/`>` are escaped so an embedded fake closing tag can't break out of the block (see `backend/app/llm/prompts.py` and its tests).
 - **The `specs_verified` flag.** Specs from the LLM or web lookup are always `specs_verified=false` until a user has actively confirmed them via the frontend.

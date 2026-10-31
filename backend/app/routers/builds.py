@@ -26,6 +26,7 @@ def save_build(payload: SavedBuildCreate, db: Session = Depends(get_db)) -> mode
     build = models.SavedBuild(
         name=payload.name,
         components=[c.model_dump(mode="json") for c in payload.components],
+        purpose=payload.purpose,
         reason=payload.reason,
     )
     db.add(build)

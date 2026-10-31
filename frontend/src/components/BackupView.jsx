@@ -14,14 +14,19 @@ export default function BackupView({ active = true }) {
   const { t, language } = useLanguage();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  // null until the first successful load reports what the server supports
+  // and defaults to; from then on, the user's own choice.
+  const [backend, setBackend] = useState(null);
   // A single in-flight action at a time: backup/restore both replace the
   // whole inventory, so two concurrent ones would race the backend and
   // leave the result up to whichever response happens to land last.
   const [activeAction, setActiveAction] = useState(null); // null | "create" | `restore:${name}`
 
-  async function load() {
+  async function load(forBackend) {
     try {
-      setData(await api.listBackups());
+      const result = await api.listBackups(forBackend ?? undefined);
+      setData(result);
+      setBackend(forBackend ?? result.backup_backend);
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -31,14 +36,23 @@ export default function BackupView({ active = true }) {
   // Tabs stay mounted across switches (App.jsx); refetch whenever this one
   // becomes active again, so a backup created elsewhere isn't stale here.
   useEffect(() => {
-    if (active) load();
+    if (active) load(backend);
+    // `backend` is deliberately not a dependency here: a tab reactivation
+    // should reload the currently-selected backend, not re-trigger this
+    // effect every time the user picks a different one (handleBackendChange
+    // already loads explicitly).
   }, [active]);
+
+  async function handleBackendChange(nextBackend) {
+    setBackend(nextBackend);
+    await load(nextBackend);
+  }
 
   async function handleCreate() {
     setActiveAction("create");
     try {
-      await api.createBackup();
-      await load();
+      await api.createBackup(backend);
+      await load(backend);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -50,7 +64,7 @@ export default function BackupView({ active = true }) {
     if (!window.confirm(t("confirmRestore", name))) return;
     setActiveAction(`restore:${name}`);
     try {
-      const res = await api.restoreBackup(name);
+      const res = await api.restoreBackup(name, backend);
       window.alert(t("restoreComplete", res.restored_count));
     } catch (err) {
       setError(err.message);
@@ -65,9 +79,27 @@ export default function BackupView({ active = true }) {
     <section>
       <h2>{t("backupHeading")}</h2>
       {data && (
-        <p className="muted">
-          {t("activeBackendLabel")} <strong>{data.backup_backend}</strong> → {data.destination}
-        </p>
+        <>
+          <div className="chip-row">
+            {data.available_backends.map((b) => (
+              <button
+                key={b}
+                type="button"
+                className={`chip${backend === b ? " active" : ""}`}
+                onClick={() => handleBackendChange(b)}
+                disabled={busy}
+              >
+                {b === "azure" ? t("backendAzure") : t("backendLocal")}
+              </button>
+            ))}
+          </div>
+          <p className="muted">
+            {t("activeBackendLabel")} <strong>{data.backup_backend}</strong> → {data.destination}
+          </p>
+          {!data.available_backends.includes("azure") && (
+            <p className="muted">{t("azureNotConfiguredNotice")}</p>
+          )}
+        </>
       )}
       {error && <p className="error-message">{error}</p>}
 

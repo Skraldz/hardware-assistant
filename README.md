@@ -42,18 +42,19 @@ If you open the frontend from a different machine than the server (e.g. `http://
 
 ## Backup: local or Azure
 
-The inventory can be backed up to disk or to Azure Blob Storage. Switched **exclusively** via `.env` — no code changes:
+The inventory can be backed up to disk or to Azure Blob Storage, picked per backup from the Backup tab (or per API call) — not fixed once at deployment:
 
 ```dotenv
-BACKUP_BACKEND=local   # or: azure
+BACKUP_BACKEND=local   # the default destination when a call doesn't say which one to use
+AZURE_STORAGE_CONNECTION_STRING=...   # or AZURE_STORAGE_ACCOUNT_URL — either makes Azure selectable at all
 ```
 
-- **`local`** (default): writes to `LOCAL_BACKUP_DIR` (default `/app/backups`), which is mounted as `./backups` on the server, so files survive a restart.
-- **`azure`**: requires `AZURE_STORAGE_CONNECTION_STRING` **or** `AZURE_STORAGE_ACCOUNT_URL` (with `DefaultAzureCredential`) filled in `.env`. The container (`AZURE_BACKUP_CONTAINER`, default `inventory-backups`) is created automatically if it doesn't exist. If both are missing, **the backend fails at startup** — it never silently falls back to local storage.
+- **`local`**: writes to `LOCAL_BACKUP_DIR` (default `/app/backups`), which is mounted as `./backups` on the server, so files survive a restart. Always available.
+- **`azure`**: requires `AZURE_STORAGE_CONNECTION_STRING` **or** `AZURE_STORAGE_ACCOUNT_URL` (with `DefaultAzureCredential`) filled in `.env` — fill in either one to make Azure selectable as an *option*, independently of whether `BACKUP_BACKEND` itself is set to `azure`. The container (`AZURE_BACKUP_CONTAINER`, default `inventory-backups`) is created automatically if it doesn't exist. If `BACKUP_BACKEND=azure` is set as the *default* without either credential, **the backend fails at startup** — it never silently falls back to local storage; asking for `azure` explicitly on a single call without credentials configured returns a 400 instead.
 
-The active backend and destination (never secrets) are shown in `GET /api/health` and `GET /api/backup`.
+The Backup tab shows which backends are actually usable and lets you switch between them; `GET /api/health`/`GET /api/backup` show the active backend and destination (never secrets).
 
-Backup endpoints: `POST /api/backup` (create a backup), `GET /api/backup` (list backups), `POST /api/backup/restore` (`{"name": "...", "confirm": true}` — replaces the entire inventory in a single transaction).
+Backup endpoints: `POST /api/backup` (`{"backend": "local" | "azure" | null}`, create a backup — `null`/omitted uses the configured default), `GET /api/backup?backend=...` (list backups for a backend), `POST /api/backup/restore` (`{"name": "...", "confirm": true, "backend": "..."}`  — replaces the entire inventory in a single transaction).
 
 ## Development and tests (without Docker)
 
