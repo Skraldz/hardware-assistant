@@ -89,6 +89,27 @@ def test_unknown_rule_result_is_surfaced_as_a_warning_not_a_rejection():
     assert len(result.builds[0].warnings) >= 1
 
 
+def test_single_drive_only_combos_when_motherboard_has_one_m2_slot():
+    candidates = base_candidates()
+    candidates[Category.STORAGE] = [storage_nvme_1tb(), storage_nvme_1tb()]
+    # motherboard_b450m() has m2_slots=1 -- a 2-drive NVMe combo can't fit,
+    # so only single-drive builds should survive the compatibility rules.
+    result = generate_builds(candidates)
+    assert len(result.builds) >= 1
+    assert all(len(b.build.storage) == 1 for b in result.builds)
+
+
+def test_two_drive_build_appears_when_motherboard_has_enough_m2_slots():
+    candidates = base_candidates()
+    candidates[Category.STORAGE] = [storage_nvme_1tb(), storage_nvme_1tb()]
+    candidates[Category.MOTHERBOARD] = [with_specs(motherboard_b450m(), m2_slots=2)]
+
+    result = generate_builds(candidates)
+
+    two_drive_builds = [b for b in result.builds if len(b.build.storage) == 2]
+    assert len(two_drive_builds) >= 1
+
+
 def test_top_n_limits_how_many_candidates_per_category_are_considered():
     candidates = base_candidates()
     candidates[Category.CPU] = [

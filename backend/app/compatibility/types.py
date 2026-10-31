@@ -6,11 +6,10 @@ that filtering happens in the pipeline, Phase 3) plus their validated specs,
 not the full database row. This keeps compatibility/ independently testable
 without a database, as SPEC.md requires.
 
-Simplification: a Build holds exactly one component per category, including
-`storage`. SPEC.md's `storage_slots_available` rule is written in terms of
-counting multiple drives; Phase 2 treats each build as single-drive and
-checks that 1 drive fits the available slots. Multi-drive builds are out of
-scope for now (documented in docs/ai-log.md).
+Simplification: a Build holds exactly one component per category, except
+`storage`, which holds 1-2 drives (see engine.py's `MAX_STORAGE_DRIVES`) --
+`storage_slots_available` (rules.py) checks the combined count against the
+motherboard's M.2/SATA slots, split by interface.
 """
 
 from dataclasses import dataclass
@@ -35,7 +34,7 @@ class Build:
     cpu: CandidateComponent
     motherboard: CandidateComponent
     ram: CandidateComponent
-    storage: CandidateComponent
+    storage: list[CandidateComponent]
     psu: CandidateComponent
     case: CandidateComponent
     cooler: CandidateComponent

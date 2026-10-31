@@ -103,12 +103,12 @@ def cooler_wraith_stealth() -> CandidateComponent:
     )
 
 
-def compatible_build(**overrides: CandidateComponent | None) -> Build:
+def compatible_build(**overrides) -> Build:
     defaults: dict = {
         "cpu": cpu_ryzen_5_3600(),
         "motherboard": motherboard_b450m(),
         "ram": ram_corsair_16gb(),
-        "storage": storage_nvme_1tb(),
+        "storage": [storage_nvme_1tb()],
         "psu": psu_650w(),
         "case": case_atx(),
         "cooler": cooler_wraith_stealth(),

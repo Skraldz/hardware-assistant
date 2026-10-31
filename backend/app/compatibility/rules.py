@@ -179,22 +179,43 @@ def psu_fits_case(build: Build) -> RuleResult:
 
 
 def storage_slots_available(build: Build) -> RuleResult:
-    interface = build.storage.specs.interface
-    if interface is None:
-        return RuleResult("unknown", "Storage device interface is not specified.")
-    if interface == "nvme":
-        slots = build.motherboard.specs.m2_slots
-        if slots is None:
-            return RuleResult("unknown", "Motherboard's number of M.2 slots is not specified.")
-        if slots >= 1:
-            return RuleResult("pass", f"The motherboard has {slots} M.2 slot(s) for the NVMe drive.")
-        return RuleResult("fail", "The motherboard has no M.2 slots for the NVMe drive.")
-    ports = build.motherboard.specs.sata_ports
-    if ports is None:
+    """A build may hold multiple drives (engine.py's MAX_STORAGE_DRIVES) --
+    counts them by interface (NVMe drives need M.2 slots, SATA SSDs/HDDs
+    need SATA ports) and checks each count against the motherboard's
+    matching slot count."""
+    nvme_count = 0
+    sata_count = 0
+    for drive in build.storage:
+        interface = drive.specs.interface
+        if interface is None:
+            return RuleResult("unknown", "A storage device's interface is not specified.")
+        if interface == "nvme":
+            nvme_count += 1
+        else:
+            sata_count += 1
+
+    m2_slots = build.motherboard.specs.m2_slots
+    sata_ports = build.motherboard.specs.sata_ports
+    if nvme_count and m2_slots is None:
+        return RuleResult("unknown", "Motherboard's number of M.2 slots is not specified.")
+    if sata_count and sata_ports is None:
         return RuleResult("unknown", "Motherboard's number of SATA ports is not specified.")
-    if ports >= 1:
-        return RuleResult("pass", f"The motherboard has {ports} SATA port(s) for the drive.")
-    return RuleResult("fail", "The motherboard has no SATA ports for the drive.")
+
+    if nvme_count > (m2_slots or 0):
+        return RuleResult(
+            "fail", f"{nvme_count} NVMe drive(s) don't fit in the motherboard's {m2_slots} M.2 slot(s)."
+        )
+    if sata_count > (sata_ports or 0):
+        return RuleResult(
+            "fail", f"{sata_count} SATA drive(s) don't fit in the motherboard's {sata_ports} SATA port(s)."
+        )
+
+    parts = []
+    if nvme_count:
+        parts.append(f"{nvme_count} NVMe drive(s) in {m2_slots} M.2 slot(s)")
+    if sata_count:
+        parts.append(f"{sata_count} SATA drive(s) in {sata_ports} SATA port(s)")
+    return RuleResult("pass", f"The motherboard fits {' and '.join(parts)}.")
 
 
 def display_output_available(build: Build, *, headless: bool = False) -> RuleResult:

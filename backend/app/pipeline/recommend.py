@@ -178,7 +178,15 @@ def _to_build_result(
     build = evaluation.build
     components = [
         ComponentSummary(id=c.id, category=Category(c.specs.category), name=c.name)
-        for c in (build.cpu, build.motherboard, build.ram, build.storage, build.psu, build.case, build.cooler)
+        for c in (
+            build.cpu,
+            build.motherboard,
+            build.ram,
+            *build.storage,
+            build.psu,
+            build.case,
+            build.cooler,
+        )
     ]
     if build.gpu is not None:
         components.append(ComponentSummary(id=build.gpu.id, category=Category.GPU, name=build.gpu.name))
@@ -232,6 +240,10 @@ def _chat_build_summary(index: int, build_result: BuildResult, evaluation: Build
         "cpu": {"name": build.cpu.name, "cores": build.cpu.specs.cores, "threads": build.cpu.specs.threads},
         "gpu": {"name": build.gpu.name, "vram_gb": build.gpu.specs.vram_gb} if build.gpu else None,
         "ram_gb": ram_gb,
+        "storage": [
+            {"name": drive.name, "interface": drive.specs.interface, "capacity_gb": drive.specs.capacity_gb}
+            for drive in build.storage
+        ],
         "reason": build_result.reason,
         "warnings": build_result.warnings,
     }

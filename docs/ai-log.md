@@ -2,6 +2,32 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-10-31 – Multi-drive builds, expanded seed data, tab-state persistence
+
+**Generated:**
+- **Multi-drive builds.** `compatibility/types.py`'s `Build.storage` changes from a single `CandidateComponent` to `list[CandidateComponent]` (Phase 2's original single-drive simplification, explicitly flagged there as revisitable). `compatibility/rules.py`'s `storage_slots_available` now counts drives by interface (NVMe → M.2 slots, SATA SSD/HDD → SATA ports) and checks each count against the motherboard actually paired with it in that build, instead of checking one drive against one slot type. `compatibility/engine.py`'s `generate_builds` gains `_storage_combos()`, generating every 1- and 2-drive combination from the top-N storage candidates (`MAX_STORAGE_DRIVES = 2`) — a combo that doesn't fit a given motherboard is simply rejected by the rule like any other incompatibility, so the engine doesn't need to know a motherboard's slot count before enumerating storage options. `pipeline/recommend.py` updated everywhere it assumed a single storage component (`_to_build_result`'s component list, `_chat_build_summary`'s build summary for the chat-reply LLM, which now also lists each drive's interface/capacity).
+- **Seed data expanded from 55 to 75 components**, primarily more storage (6 → 12: added high-end and budget NVMe, a NAS-grade 8TB HDD, more SATA SSD/HDD variety, and a quantity=2 entry to test picking two of the same drive) so multi-drive combinations have real choices, plus a motherboard with 4 M.2 slots/8 SATA ports (ASRock X670E Taichi) specifically for exercising multi-drive builds, and a modest spread of additional CPUs/motherboards/RAM/GPUs/PSUs/cases/coolers for general test variety (including a deliberately underpowered PSU with only one 6-pin connector, and a very tight ITX case, both for exercising the existing fail-path rules with less contrived data).
+- **Tabs stay mounted across switches** (`frontend/src/App.jsx`): previously each tab's component fully unmounted when switching away, resetting all of its state — the Recommend chat log, an in-progress inventory search, etc. Every tab now renders simultaneously (hidden via the `hidden` attribute, not removed from the DOM), and each view that loads data on mount (Inventory/Builds/Backup) takes an `active` prop and refetches whenever it becomes active again rather than only once on first app load, so changes made in another tab are still picked up on return.
+- **"Open in new tab" link** on each web-search candidate in the manual add-component flow (`InventoryView.jsx`), so a result can be inspected on its own site without accidentally picking it as the match (`stopPropagation` on the link's click).
+
+**Assumptions:**
+- **`MAX_STORAGE_DRIVES = 2`, not "however many slots the motherboard has".** Generating storage combos sized to match each candidate motherboard's actual slot count would require enumerating storage *after* the motherboard is chosen, which doesn't fit the engine's existing per-category, independent-then-filter structure (candidates per category are combined first, rules reject invalid combinations after). Two drives covers "most builds have more than one storage disk" (the explicit ask) without that restructuring; `storage_slots_available` still enforces the real limit for whatever motherboard a given combo is paired with.
+- **Storage combination order doesn't matter**, so `itertools.combinations` (not `permutations`) is used — a build with drive A+B is identical to B+A for every rule and for display purposes.
+- **A build can still have exactly one drive** — the default case, and the only case when fewer than 2 storage candidates are available (`_storage_combos` caps the combo size at `min(MAX_STORAGE_DRIVES, len(candidates))`), so existing single-storage scenarios and their tests are unaffected.
+
+**Known risks / weaknesses:**
+- **Combinatorics grew in the storage dimension**: with `top_n=5` storage candidates, the engine now evaluates up to 5+10=15 storage combos instead of 5 single picks, multiplying through the existing nested-loop combinatorics (already flagged as unprofiled against a ~200-component inventory in the Phase 2 entry). Not measured here either; worth profiling together if it ever becomes the actual bottleneck mentioned there.
+- **No test exercises `generate_builds` with storage candidates spanning NVMe *and* SATA simultaneously at the engine (not just rule) level** — the rule-level mixed-interface test (`test_storage_slots_available_pass_mixed_nvme_and_sata`) covers the compatibility logic, but an engine-level combo of e.g. one NVMe boot drive + one SATA HDD bulk drive isn't separately asserted end-to-end.
+
+**Tests covering it:**
+- `test_rules.py`: three new `storage_slots_available` cases (two NVMe drives pass with 2 M.2 slots, fail with only 1, and a mixed NVMe+SATA combo passes).
+- `test_engine.py`: two new cases (`generate_builds` only produces single-drive builds when the motherboard has 1 M.2 slot even with 2 storage candidates offered; a 2-drive build appears once the motherboard has 2 M.2 slots).
+- Seed data validated both statically (`ComponentSpecsAdapter.validate_python` on all 75 specs dicts) and dynamically (`seed()` against a real in-memory SQLite engine, confirmed 75 rows).
+- `ruff check`/`ruff format --check`/`pytest --cov` green: 173 tests, 95% overall coverage; 100% on `compatibility/engine.py` and `compatibility/rules.py`.
+- Frontend: `npm run build` clean; tab-state persistence manually verified in a real browser (sent a message in Recommend, switched to Inventory, switched back — the chat log and in-flight state were both still there).
+
+**Review (filled in by the student):**
+
 ## 2026-10-31 – Merge all search results into extraction context; deterministic sampling
 
 Live-tested directly against the home server's search/extract flow (Claude in Chrome against the running deployment): searching "RTX 4070" returned five SearXNG results, and the one the UI had the user click (a TechPowerUp page about launch date/process node) genuinely did not mention VRAM or wattage in its snippet — but two of the *other* four results for the same query did ("12 GB GDDR6X... TDP 200W"). The previous fix (required-field schema) was necessary but not sufficient: the model was correctly leaving fields null because the one snippet it was given didn't contain that information, not because it was being lazy.

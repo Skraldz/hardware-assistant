@@ -9,6 +9,8 @@ are taken in the order given — ranking candidates by relevance before
 calling the engine is the caller's responsibility.
 """
 
+from itertools import combinations
+
 from app.compatibility.rules import ALL_RULES, display_output_available
 from app.compatibility.types import Build, BuildEvaluation, CandidateComponent, EngineResult, RuleResult
 from app.enums import Category
@@ -23,6 +25,14 @@ REQUIRED_CATEGORIES = [
     Category.COOLER,
 ]
 
+# Most desktop builds have 1-2 drives; generating every subset size up to
+# a motherboard's actual slot count would require knowing the motherboard
+# pick before enumerating storage (the opposite of this function's existing
+# per-category, independent-then-filter structure). Capped at 2 instead --
+# storage_slots_available (rules.py) still rejects any combo that doesn't
+# fit the motherboard actually paired with it in a given build.
+MAX_STORAGE_DRIVES = 2
+
 
 def evaluate_build(build: Build, *, headless: bool = False) -> dict[str, RuleResult]:
     results = {rule.__name__: rule(build) for rule in ALL_RULES}
@@ -32,6 +42,18 @@ def evaluate_build(build: Build, *, headless: bool = False) -> dict[str, RuleRes
 
 def is_build_valid(rule_results: dict[str, RuleResult]) -> bool:
     return all(result.status != "fail" for result in rule_results.values())
+
+
+def _storage_combos(
+    storage_candidates: list[CandidateComponent],
+) -> list[tuple[CandidateComponent, ...]]:
+    """Every 1- and 2-drive combination of the given candidates (order
+    doesn't matter for compatibility purposes, so combinations rather than
+    permutations keeps the count down)."""
+    combos: list[tuple[CandidateComponent, ...]] = []
+    for size in range(1, min(MAX_STORAGE_DRIVES, len(storage_candidates)) + 1):
+        combos.extend(combinations(storage_candidates, size))
+    return combos
 
 
 def generate_builds(
@@ -48,12 +70,13 @@ def generate_builds(
         return candidates.get(category, [])[:top_n]
 
     gpu_options: list[CandidateComponent | None] = [None, *top(Category.GPU)]
+    storage_options = _storage_combos(top(Category.STORAGE))
 
     builds: list[BuildEvaluation] = []
     for cpu in top(Category.CPU):
         for motherboard in top(Category.MOTHERBOARD):
             for ram in top(Category.RAM):
-                for storage in top(Category.STORAGE):
+                for storage in storage_options:
                     for psu in top(Category.PSU):
                         for case in top(Category.CASE):
                             for cooler in top(Category.COOLER):
@@ -62,7 +85,7 @@ def generate_builds(
                                         cpu=cpu,
                                         motherboard=motherboard,
                                         ram=ram,
-                                        storage=storage,
+                                        storage=list(storage),
                                         psu=psu,
                                         case=case,
                                         cooler=cooler,

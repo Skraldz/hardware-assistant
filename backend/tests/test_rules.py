@@ -5,7 +5,7 @@ extra case for that.
 """
 
 from app.compatibility import rules
-from tests.fixtures.sample_inventory import compatible_build, with_specs
+from tests.fixtures.sample_inventory import compatible_build, storage_nvme_1tb, with_specs
 
 # --- cpu_socket_matches_board ---
 
@@ -285,18 +285,18 @@ def test_storage_slots_available_unknown_missing_slots():
 
 
 def test_storage_slots_available_unknown_missing_interface():
-    build = compatible_build(storage=with_specs(compatible_build().storage, interface=None))
+    build = compatible_build(storage=[with_specs(compatible_build().storage[0], interface=None)])
     assert rules.storage_slots_available(build).status == "unknown"
 
 
 def test_storage_slots_available_pass_sata():
-    build = compatible_build(storage=with_specs(compatible_build().storage, interface="sata_ssd"))
+    build = compatible_build(storage=[with_specs(compatible_build().storage[0], interface="sata_ssd")])
     assert rules.storage_slots_available(build).status == "pass"
 
 
 def test_storage_slots_available_unknown_missing_sata_ports():
     build = compatible_build(
-        storage=with_specs(compatible_build().storage, interface="sata_ssd"),
+        storage=[with_specs(compatible_build().storage[0], interface="sata_ssd")],
         motherboard=with_specs(compatible_build().motherboard, sata_ports=None),
     )
     assert rules.storage_slots_available(build).status == "unknown"
@@ -304,10 +304,30 @@ def test_storage_slots_available_unknown_missing_sata_ports():
 
 def test_storage_slots_available_fail_sata():
     build = compatible_build(
-        storage=with_specs(compatible_build().storage, interface="sata_ssd"),
+        storage=[with_specs(compatible_build().storage[0], interface="sata_ssd")],
         motherboard=with_specs(compatible_build().motherboard, sata_ports=0),
     )
     assert rules.storage_slots_available(build).status == "fail"
+
+
+def test_storage_slots_available_pass_two_nvme_drives():
+    build = compatible_build(
+        storage=[storage_nvme_1tb(), storage_nvme_1tb()],
+        motherboard=with_specs(compatible_build().motherboard, m2_slots=2),
+    )
+    assert rules.storage_slots_available(build).status == "pass"
+
+
+def test_storage_slots_available_fail_two_nvme_drives_one_slot():
+    build = compatible_build(storage=[storage_nvme_1tb(), storage_nvme_1tb()])
+    assert rules.storage_slots_available(build).status == "fail"
+
+
+def test_storage_slots_available_pass_mixed_nvme_and_sata():
+    build = compatible_build(
+        storage=[storage_nvme_1tb(), with_specs(storage_nvme_1tb(), interface="sata_ssd")]
+    )
+    assert rules.storage_slots_available(build).status == "pass"
 
 
 # --- display_output_available ---
