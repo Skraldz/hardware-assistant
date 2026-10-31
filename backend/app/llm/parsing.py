@@ -45,6 +45,10 @@ def call_llm_with_retry[T: BaseModel](
 
     for attempt in range(max_attempts):
         prompt = build_prompt(last_error)
+        # Lets a sparse/wrong answer be diagnosed as "the source text didn't
+        # have this info" vs. "the model had it and didn't use it" -- the
+        # raw response alone (logged below) can't tell those apart.
+        logger.info("Prompt for %s (attempt %d): %s", schema.__name__, attempt + 1, prompt)
         try:
             raw = llm_client.generate_structured(system=system, prompt=prompt, schema=schema)
         except LLMUnavailableError as exc:

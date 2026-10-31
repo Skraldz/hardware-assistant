@@ -50,6 +50,19 @@ def test_generate_structured_returns_raw_response_text(mock_post):
     assert raw == '{"value": "ok"}'
 
 
+@patch("app.llm.client.httpx.post")
+def test_generate_structured_uses_deterministic_sampling(mock_post):
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"response": '{"value": "ok"}'}
+    mock_post.return_value = response
+    client = OllamaClient(base_url="http://ollama:11434", model="qwen2.5:7b-instruct", timeout=5.0)
+
+    client.generate_structured(system="s", prompt="p", schema=DummySchema)
+
+    assert mock_post.call_args.kwargs["json"]["options"] == {"temperature": 0}
+
+
 @patch("app.llm.client.httpx.get")
 def test_ping_returns_false_on_connection_error(mock_get):
     mock_get.side_effect = httpx.ConnectError("connection refused")

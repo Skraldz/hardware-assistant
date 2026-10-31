@@ -43,6 +43,14 @@ class OllamaClient:
                     "prompt": prompt,
                     "format": schema.model_json_schema(),
                     "stream": False,
+                    # Deterministic sampling: without this, Ollama's default
+                    # temperature means identical prompts (e.g. re-ranking
+                    # the same builds on a follow-up question that didn't
+                    # change the requirements) can still produce different
+                    # output from one call to the next -- undermining both
+                    # schema-field-filling consistency and the frontend's
+                    # "builds unchanged" comparison (RecommendView.jsx).
+                    "options": {"temperature": 0},
                 },
                 timeout=self._timeout,
             )
