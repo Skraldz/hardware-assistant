@@ -53,6 +53,12 @@ def call_llm_with_retry[T: BaseModel](
             # (and the user's wait, mid-demo) on a call that will fail again.
             logger.warning("LLM unavailable, using fallback without further attempts: %s", exc)
             return fallback, "fallback"
+        # A sparse-but-schema-valid response (e.g. every optional field left
+        # null) never raises below, so it would otherwise leave no trace in
+        # the logs at all -- log the raw text on every attempt, not just
+        # failures, so "the model answered but the content was poor" is
+        # distinguishable from "the model's output didn't even parse".
+        logger.info("Raw LLM response for %s (attempt %d): %s", schema.__name__, attempt + 1, raw)
         try:
             data = json.loads(raw)
             parsed = schema.model_validate(data)

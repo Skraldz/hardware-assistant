@@ -15,6 +15,12 @@ from app.routers import backup, builds, components, recommend
 from app.storage import get_backup_storage_dependency
 from app.storage.base import BackupStorage
 
+# Uvicorn doesn't touch the root logger's level by default, so without this
+# every plain logger.info(...) call in the app (e.g. llm/parsing.py's raw
+# LLM response logging, useful for diagnosing "the model answered but the
+# content was poor") is silently dropped at the default WARNING level.
+logging.basicConfig(level=logging.INFO)
+
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Hardware Assistant API")
