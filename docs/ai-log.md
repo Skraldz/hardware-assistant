@@ -2,6 +2,33 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-10-31 – Merge all search results into extraction context; deterministic sampling
+
+Live-tested directly against the home server's search/extract flow (Claude in Chrome against the running deployment): searching "RTX 4070" returned five SearXNG results, and the one the UI had the user click (a TechPowerUp page about launch date/process node) genuinely did not mention VRAM or wattage in its snippet — but two of the *other* four results for the same query did ("12 GB GDDR6X... TDP 200W"). The previous fix (required-field schema) was necessary but not sufficient: the model was correctly leaving fields null because the one snippet it was given didn't contain that information, not because it was being lazy.
+
+**Generated:**
+- `backend/app/schemas/search.py`: `ExtractRequest` gains `other_candidates: list[SearchCandidate] = []`.
+- `backend/app/routers/components.py`: `extract_component_specs` now merges the chosen candidate's title+snippet with every entry in `other_candidates` into one `web_snippet` string, instead of using the chosen one alone.
+- `backend/app/llm/prompts.py`: the data block label renamed `web_search_result` → `web_search_results` (now genuinely plural), with an added instruction that the block may contain several different results and a value present in only one of them is still usable.
+- `frontend/src/api.js`/`InventoryView.jsx`: `handlePickCandidate` now sends the rest of that search's candidates (everything in `candidates` state except the one clicked) alongside the chosen one — no new HTTP calls, since `/api/components/search` already fetched all of them.
+- (Committed separately, same investigation) `backend/app/llm/client.py` now sets `options: {"temperature": 0}` on every Ollama call — live logs showed a follow-up question that didn't change the requirements still producing a different ranked build order from one call to the next, since Ollama's default sampling temperature means identical prompts aren't guaranteed identical output, undermining the frontend's "builds unchanged, don't repeat the cards" comparison (previous entry). `backend/app/llm/parsing.py` also logs the prompt text sent on every attempt, not just the response — the thing that actually made this investigation possible: telling "the source text didn't have this info" apart from "the model had it and ignored it".
+
+**Assumptions:**
+- **All of a search's results are assumed to be about the same product**, since they came from the same query — merging their snippets wholesale, rather than trying to verify each one is actually about the exact same component, is a deliberate simplification. In practice SearXNG's results for a specific product name are consistently about that product; a generic/ambiguous search name could pull in snippets about a different but similarly-named part, which would now also reach the extraction prompt. Not observed in testing, but worth knowing if an extraction result looks suspiciously like a different model/variant.
+- **Deterministic sampling (temperature=0) is applied uniformly to every call** (requirements, ranking, extraction, chat reply) rather than selectively, on the view that reproducibility is more valuable than response variety for a tool whose entire architecture point is "the rules verify, not the model" (SPEC.md §2) — a slightly different phrasing of the same question should get a materially different answer only when the underlying facts changed, not by chance.
+
+**Known risks / weaknesses:**
+- **Not yet re-verified against the live deployment after this change** — built and unit-tested (a new test asserts both snippets' content reaches the extraction prompt), but the actual field-filling improvement needs to be confirmed against the home server's real Ollama + SearXNG the same way the bug itself was found.
+- **No limit on how many "other candidates" get merged in** — bounded naturally by `MAX_CANDIDATES=5` (search/client.py) minus the one chosen, so at most 4 extra snippets; not expected to be a prompt-size problem at that scale, but worth watching if `MAX_CANDIDATES` is ever raised.
+
+**Tests covering it:**
+- `test_api_llm_endpoints.py::test_extract_merges_other_candidates_snippets_into_the_prompt`: posts a candidate plus one `other_candidates` entry and asserts both snippets' distinctive text reaches the specs-extraction prompt.
+- `test_llm_client.py::test_generate_structured_uses_deterministic_sampling`: asserts `options: {"temperature": 0}` is sent on every call.
+- `test_llm_parsing.py`'s injection test updated for the renamed `web_search_results` label.
+- `ruff check`/`ruff format --check`/`pytest --cov` green: 168 tests, 95% overall coverage.
+
+**Review (filled in by the student):**
+
 ## 2026-10-31 – Diagnosed against a live Ollama: required-field extraction schema, headless/GPU prompt fix, duplicate-build note
 
 With the home-server deployment actually running a pulled model for the first time, three issues surfaced that the earlier (fallback-only) testing couldn't have caught:

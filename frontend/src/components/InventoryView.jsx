@@ -201,7 +201,12 @@ export default function InventoryView() {
     setExtractError(null);
     const requestId = ++extractRequestId.current;
     try {
-      const res = await api.extractComponent(name, candidate);
+      // The chosen candidate's snippet alone is frequently too short to
+      // contain every spec -- send the rest of this same search's results
+      // too, so the backend can pool whichever of them actually states
+      // each value instead of relying on just the one clicked.
+      const otherCandidates = candidates.filter((c) => c !== candidate);
+      const res = await api.extractComponent(name, candidate, otherCandidates);
       if (extractRequestId.current !== requestId) return;
       setExtracted(res);
       setConfirmName(name);

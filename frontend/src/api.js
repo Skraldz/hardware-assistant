@@ -47,8 +47,11 @@ export const api = {
 
   searchComponents: (name) =>
     request("/api/components/search", { method: "POST", body: JSON.stringify({ name }) }),
-  extractComponent: (name, candidate) =>
-    request("/api/components/extract", { method: "POST", body: JSON.stringify({ name, candidate }) }),
+  extractComponent: (name, candidate, otherCandidates = []) =>
+    request("/api/components/extract", {
+      method: "POST",
+      body: JSON.stringify({ name, candidate, other_candidates: otherCandidates }),
+    }),
 
   recommend: (conversation, maxBuilds) =>
     request("/api/recommend", {

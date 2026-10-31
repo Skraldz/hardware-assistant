@@ -99,7 +99,13 @@ def extract_component_specs(
                 status_code=400,
                 detail="ENABLE_WEB_LOOKUP=true requires a 'candidate' chosen via /api/components/search.",
             )
-        web_snippet = f"{payload.candidate.title}\n{payload.candidate.snippet}"
+        # A single search result's snippet is frequently too short to
+        # contain every spec (e.g. a product's launch-date blurb vs. its
+        # VRAM/wattage) -- the other results for the same query often have
+        # what this one is missing, so all of them are merged into the
+        # extraction context rather than using the chosen one alone.
+        all_candidates = [payload.candidate, *payload.other_candidates]
+        web_snippet = "\n\n".join(f"{c.title}\n{c.snippet}" for c in all_candidates)
         specs_source = SpecsSource.WEB_LOOKUP
 
     # Two LLM calls instead of one: a tiny category-only schema first, then a

@@ -5,7 +5,12 @@
 
 `candidate` is required when ENABLE_WEB_LOOKUP=true (the chosen SearXNG
 result) and ignored when it's false (the LLM extracts from its own
-knowledge of `name` alone).
+knowledge of `name` alone). `other_candidates` (optional) are the rest of
+that same search's results -- a single snippet is often too short to
+contain every spec (see docs/ai-log.md), while the other results for the
+same query frequently have the missing numbers in theirs, so the backend
+merges all of them into the extraction context rather than using the
+chosen one alone.
 """
 
 from pydantic import BaseModel
@@ -32,6 +37,7 @@ class SearchResponse(BaseModel):
 class ExtractRequest(BaseModel):
     name: str
     candidate: SearchCandidate | None = None
+    other_candidates: list[SearchCandidate] = []
 
 
 class ExtractedSpecsEnvelope(BaseModel):

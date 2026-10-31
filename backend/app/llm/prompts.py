@@ -128,7 +128,7 @@ def build_category_prompt(
         _data_block("component_name", name),
     ]
     if web_snippet:
-        parts.append(_data_block("web_search_result", web_snippet))
+        parts.append(_data_block("web_search_results", web_snippet))
     else:
         parts.append("No web search result is available — use your own knowledge of the component.")
     if error_feedback:
@@ -152,7 +152,12 @@ def build_extract_prompt(
         _data_block("component_name", name),
     ]
     if web_snippet:
-        parts.append(_data_block("web_search_result", web_snippet))
+        parts.append(_data_block("web_search_results", web_snippet))
+        parts.append(
+            "The block above may contain several different search results for this component -- "
+            "use whichever of them actually states each value; they don't all need to agree on "
+            "wording, and a value present in only one of them is still usable."
+        )
     else:
         parts.append("No web search result is available — use your own knowledge of the component.")
     if error_feedback:

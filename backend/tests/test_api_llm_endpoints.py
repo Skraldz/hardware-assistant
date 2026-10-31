@@ -187,6 +187,36 @@ def test_extract_with_candidate_returns_specs_from_web_lookup(client):
     assert body["llm_used"] == "ok"
 
 
+def test_extract_merges_other_candidates_snippets_into_the_prompt(client):
+    fake_client = FakeLLMClient(
+        [load_fixture("valid_category_gpu.json"), load_fixture("valid_extract_gpu.json")]
+    )
+    app.dependency_overrides[get_llm_client] = lambda: fake_client
+    response = client.post(
+        "/api/components/extract",
+        json={
+            "name": "RTX 4070",
+            "candidate": {
+                "title": "RTX 4070 launch article",
+                "url": "https://a.example.com",
+                "snippet": "Launched April 2023, built on a 5 nm process.",
+            },
+            "other_candidates": [
+                {
+                    "title": "RTX 4070 specs",
+                    "url": "https://b.example.com",
+                    "snippet": "12 GB GDDR6X, TDP 200W.",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    specs_prompt = fake_client.prompts[1]
+    assert "Launched April 2023" in specs_prompt
+    assert "12 GB GDDR6X, TDP 200W" in specs_prompt
+
+
 def test_extract_without_candidate_when_web_lookup_enabled_returns_400(client):
     response = client.post("/api/components/extract", json={"name": "RTX 2060 SUPER"})
     assert response.status_code == 400
