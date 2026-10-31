@@ -376,6 +376,38 @@ def test_deterministic_score_prefers_small_form_factor_when_requested():
     assert score_small_ff < score_default
 
 
+def test_deterministic_score_gently_prefers_lower_power_even_without_the_preference():
+    from app.compatibility.types import BuildEvaluation
+    from tests.fixtures.sample_inventory import compatible_build, with_specs
+
+    low_tdp = BuildEvaluation(
+        build=compatible_build(cpu=with_specs(compatible_build().cpu, tdp_w=65)), rule_results={}
+    )
+    high_tdp = BuildEvaluation(
+        build=compatible_build(cpu=with_specs(compatible_build().cpu, tdp_w=125)), rule_results={}
+    )
+
+    requirements = ProjectRequirements(use_case="x")
+    assert deterministic_score(low_tdp, requirements) > deterministic_score(high_tdp, requirements)
+
+
+def test_deterministic_score_does_not_penalize_vram_without_a_stated_minimum():
+    from app.compatibility.types import BuildEvaluation
+    from tests.fixtures.sample_inventory import compatible_build, gpu_rtx_2060, with_specs
+
+    # Same build except for GPU VRAM -- with no min_vram_gb requested at
+    # all, a bigger GPU should not score worse just for existing.
+    modest = BuildEvaluation(
+        build=compatible_build(gpu=with_specs(gpu_rtx_2060(), vram_gb=6, tdp_w=160)), rule_results={}
+    )
+    big = BuildEvaluation(
+        build=compatible_build(gpu=with_specs(gpu_rtx_2060(), vram_gb=24, tdp_w=160)), rule_results={}
+    )
+
+    requirements = ProjectRequirements(use_case="x")
+    assert deterministic_score(modest, requirements) == deterministic_score(big, requirements)
+
+
 def test_deterministic_score_prefers_minimal_spec_when_requested():
     from app.compatibility.types import BuildEvaluation
     from tests.fixtures.sample_inventory import compatible_build, with_specs

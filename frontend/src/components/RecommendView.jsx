@@ -129,6 +129,17 @@ export default function RecommendView() {
     <section>
       <h2>{t("recommendHeading")}</h2>
 
+      <details className="score-guide">
+        <summary>{t("scoreGuideSummary")}</summary>
+        <p>{t("scoreGuideIntro")}</p>
+        <ul>
+          <li>{t("scoreGuideBase")}</li>
+          <li>{t("scoreGuideWarnings")}</li>
+          <li>{t("scoreGuidePreferences")}</li>
+          <li>{t("scoreGuideLlmOrder")}</li>
+        </ul>
+      </details>
+
       {messages.length > 0 && (
         <div className="chat-log">
           {messages.map((m, i) => (

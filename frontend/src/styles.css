@@ -423,6 +423,33 @@ label span {
   font-size: 0.85rem;
 }
 
+.score-guide {
+  background: var(--color-code-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+.score-guide summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.score-guide p,
+.score-guide ul {
+  margin: 0.5rem 0 0;
+}
+
+.score-guide ul {
+  padding-left: 1.2rem;
+}
+
+.score-guide li {
+  margin-bottom: 0.3rem;
+}
+
 .specs-preview {
   background: var(--color-code-bg);
   color: var(--color-text);

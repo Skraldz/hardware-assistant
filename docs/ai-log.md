@@ -2,6 +2,32 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-10-31 – Fixed a real performance regression from multi-drive builds, plus a gentler always-on scoring nudge and its in-app guide
+
+While testing the multi-drive feature live (previous entry) against the real 75-component seed data, `POST /api/recommend` took **~16-26 seconds** -- the exact combinatorics risk flagged (but never measured) since the Phase 2 log entry, now actually tripped by the 2-drive storage combos tripling the size of the already-large search space. Profiled directly (`generate_builds()` in isolation against the real seed data) rather than guessed at.
+
+**Generated:**
+- `compatibility/engine.py`: three early-exit pruning checks added to `generate_builds`'s loop, each mirroring an existing rule's exact "fail" condition (CPU/motherboard socket match, case/motherboard form factor fit, and four RAM-vs-motherboard/CPU checks folded together: DIMM form, memory type, module count vs. slots, and total capacity vs. the board's max) -- a combination any of these would reject is skipped before the remaining categories are even looped over, instead of being fully materialized into a `Build` and rule-evaluated. Each prune only ever skips a combination the full rule evaluation would reject anyway (missing data on either side still falls through to the full, authoritative check) -- `evaluate_build`/`is_build_valid` remain the only source of truth for which builds are actually valid; these are a performance shortcut layered on top, not a second implementation of the rules.
+- `_storage_combos()` (previous entry) changed from generating all 1- and 2-drive combinations of the same top-N pool to offering every single-drive option from the full pool but only generating 2-drive combinations from a smaller sub-pool (`MAX_STORAGE_PAIR_CANDIDATES = 3`) -- combo count now grows linearly with `top_n` instead of quadratically.
+- `pipeline/recommend.py`'s `deterministic_score()`: every preference (low power, small form factor, "nothing more than necessary") now has a strong form when its `ProjectRequirements` flag is explicitly set (unchanged weights from before) and a much gentler always-on form otherwise, so builds aren't uniformly stuck at a score of 100 just because nothing was explicitly requested -- reported by the student as "scores are always 100 or 96". The VRAM/CPU-core nudge only activates when a real `min_vram_gb`/`min_cpu_cores` was actually stated, so a build is never penalized just for having a GPU or a many-core CPU when nothing asked for either.
+- `frontend/src/components/RecommendView.jsx`: a collapsible "What does the score mean?" guide above the chat, explaining the starting value, the per-warning deduction, the always-on vs. explicit-preference nudges, and -- importantly -- that when the "Ranking" badge shows "ok", the displayed order and each build's reason came from the LLM, not from this score (the score is still shown, but isn't what decided the order in that case).
+
+**Assumptions:**
+- **The pruning conditions were written to exactly mirror specific existing rules' fail conditions** (`cpu_socket_matches_board`, `board_fits_case`, and the four RAM rules), not reimplemented from scratch -- reduces the risk of the "fast path" and the "authoritative path" silently disagreeing, though it does mean a future change to one of those rules' logic would need the matching prune updated too (noted in the function's own docstring/comments as the tradeoff).
+- **Profiled in isolation** (`generate_builds()` called directly against the real seed data, timed with `time.time()`), not via a proper benchmarking tool or CI-tracked threshold -- adequate to catch and verify-fix a 14x regression, not to catch a smaller one creeping back in later. SPEC.md §6's own "should run quickly with ~200 components" criterion is still not under an automated check.
+- **The gentle scoring nudge weights (0.01 vs 0.05 for power, 1 vs 5 for form factor, 0.3 vs 2 for spec overage) are roughly an order of magnitude gentler than their explicit-preference counterparts** -- picked to guarantee the explicit path always dominates (verified by the existing comparison tests, which assert strict inequality on the very same evaluation under both forms), not derived from any principled scale.
+
+**Known risks / weaknesses:**
+- **1.87s for the full 75-component seed data is still not instant** -- acceptable relative to an LLM round-trip once Ollama is actually involved (which dominates real-world latency), but a much larger inventory (SPEC.md's ~200-component target, not re-tested here) would still grow combinatorially in the categories that aren't pruned early (storage combos, PSU, cooler, GPU) and could become slow again. The three prunes chosen were the highest-impact, lowest-risk ones found by inspection, not the output of a systematic analysis of which rules prune the most per unit of complexity added.
+- **No regression test guards the performance itself** -- the fix is verified by a one-off profiling script (not committed) and the fact that `len(result.builds)` was identical before and after (24,840 either way, confirming the prunes change nothing about *which* builds are valid) -- a future change could silently reintroduce slowness without any test catching it.
+
+**Tests covering it:**
+- `test_engine.py` (6 new tests): each new pruning branch gets a dedicated case confirming `generate_builds` still produces zero builds for that specific incompatibility (case form factor, RAM not DIMM, RAM type unsupported by board, RAM type unsupported by CPU, RAM modules exceeding slots, RAM capacity exceeding the board's max) -- these exercise the new early-exit code paths directly, not just the equivalent rule function in isolation.
+- `test_pipeline.py` (2 new tests): a lower-TDP build scores higher than a higher-TDP one with no `prefer_low_power` set (the gentle nudge); a build with a much bigger GPU scores identically to a modest one when no `min_vram_gb` was requested (confirms the "no penalty without a stated baseline" guard).
+- `ruff check`/`ruff format --check`/`pytest --cov` green: 181 tests, 95% overall coverage; 100% on `compatibility/engine.py`.
+
+**Review (filled in by the student):**
+
 ## 2026-10-31 – Multi-drive builds, expanded seed data, tab-state persistence
 
 **Generated:**

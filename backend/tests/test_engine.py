@@ -89,6 +89,45 @@ def test_unknown_rule_result_is_surfaced_as_a_warning_not_a_rejection():
     assert len(result.builds[0].warnings) >= 1
 
 
+def test_case_form_factor_mismatch_produces_no_builds():
+    """Exercises generate_builds' own early board_fits_case prune
+    (performance optimization, see the function's docstring), not just
+    the rule in isolation."""
+    candidates = base_candidates()
+    candidates[Category.CASE] = [with_specs(case_atx(), supported_form_factors=["ITX"])]
+    assert generate_builds(candidates).builds == []
+
+
+def test_ram_not_dimm_produces_no_builds():
+    candidates = base_candidates()
+    candidates[Category.RAM] = [with_specs(ram_corsair_16gb(), form="SODIMM")]
+    assert generate_builds(candidates).builds == []
+
+
+def test_ram_type_not_supported_by_board_produces_no_builds():
+    candidates = base_candidates()
+    candidates[Category.RAM] = [with_specs(ram_corsair_16gb(), memory_type="DDR5")]
+    assert generate_builds(candidates).builds == []
+
+
+def test_ram_type_not_supported_by_cpu_produces_no_builds():
+    candidates = base_candidates()
+    candidates[Category.CPU] = [with_specs(cpu_ryzen_5_3600(), memory_type=["DDR5"])]
+    assert generate_builds(candidates).builds == []
+
+
+def test_ram_modules_exceed_board_slots_produces_no_builds():
+    candidates = base_candidates()
+    candidates[Category.RAM] = [with_specs(ram_corsair_16gb(), modules=8)]
+    assert generate_builds(candidates).builds == []
+
+
+def test_ram_capacity_exceeds_board_max_produces_no_builds():
+    candidates = base_candidates()
+    candidates[Category.RAM] = [with_specs(ram_corsair_16gb(), capacity_gb_per_module=128)]
+    assert generate_builds(candidates).builds == []
+
+
 def test_single_drive_only_combos_when_motherboard_has_one_m2_slot():
     candidates = base_candidates()
     candidates[Category.STORAGE] = [storage_nvme_1tb(), storage_nvme_1tb()]

@@ -77,6 +77,16 @@ export const translations = {
     buildsUnchangedNote: "Samme builds som før — se ovenfor.",
     buildLabel: (n) => `Build ${n}`,
     scoreLabel: (score) => `(score ${score})`,
+    scoreGuideSummary: "Hvad betyder score'n?",
+    scoreGuideIntro:
+      "Hver build starter med en score på 100. Det er en deterministisk fallback-vurdering — ikke AI'ens egen mening.",
+    scoreGuideBase: "Udgangspunkt: 100 point.",
+    scoreGuideWarnings:
+      "−5 point pr. kompatibilitetsadvarsel (⚠ nedenfor) — fx manglende data om et felt, der ikke kunne tjekkes fuldt ud.",
+    scoreGuidePreferences:
+      "Små, altid aktive justeringer mod lavere effektforbrug, mindre kabinet og tættere på dine minimumskrav — og meget stærkere udgaver af de samme justeringer, hvis du eksplicit beder om det (\"brug mindre strøm\", \"et lille kabinet\", \"ikke mere end jeg har brug for\").",
+    scoreGuideLlmOrder:
+      "Når \"Rangering\"-badgen viser \"ok\", er det faktisk AI'ens egen rangering og begrundelse, du ser — scoren vises stadig, men styrer ikke rækkefølgen i det tilfælde.",
     saveBuild: "Gem build",
     buildSaved: "Gemt ✓",
     saving: "Gemmer…",
@@ -175,6 +185,16 @@ export const translations = {
     buildsUnchangedNote: "Same builds as before — see above.",
     buildLabel: (n) => `Build ${n}`,
     scoreLabel: (score) => `(score ${score})`,
+    scoreGuideSummary: "What does the score mean?",
+    scoreGuideIntro:
+      "Every build starts with a score of 100. It's a deterministic fallback rating — not the AI's own opinion.",
+    scoreGuideBase: "Starting point: 100 points.",
+    scoreGuideWarnings:
+      "−5 points per compatibility warning (⚠ below) — e.g. missing data for a field that couldn't be fully checked.",
+    scoreGuidePreferences:
+      "Small, always-on nudges toward lower power draw, a smaller case, and staying closer to your stated minimums — plus much stronger versions of the same nudges if you explicitly ask for it (\"use less power\", \"a small case\", \"nothing more than I need\").",
+    scoreGuideLlmOrder:
+      "When the \"Ranking\" badge shows \"ok\", you're actually seeing the AI's own ranking and reasoning — the score is still shown, but it isn't what decided the order in that case.",
     saveBuild: "Save build",
     buildSaved: "Saved ✓",
     saving: "Saving…",

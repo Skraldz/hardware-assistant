@@ -97,21 +97,38 @@ def prefilter_candidates(
 
 def deterministic_score(evaluation: BuildEvaluation, requirements: ProjectRequirements) -> float:
     """Fallback ranking when the LLM's output is unusable, and the
-    pre-ranking used to bound how many builds get sent to the LLM."""
+    pre-ranking used to bound how many builds get sent to the LLM. Also
+    shown to the user as each build's "score" (RecommendView.jsx's guide
+    panel explains what it means) -- when the LLM ranking succeeds, this
+    score is still displayed, but the actual order and each build's
+    `reason` come from the LLM, not from this value.
+
+    Every preference below has two forms: a strong deduction when the
+    matching ProjectRequirements flag is explicitly set (unchanged from
+    before, and exactly what the existing prefer_* tests assert), and a
+    much gentler always-on nudge in the same direction otherwise -- so
+    builds aren't uniformly stuck at 100 just because nothing was
+    explicitly requested, while an explicit preference still dominates.
+    """
     score = 100.0
     score -= 5 * len(evaluation.warnings)
 
+    total_tdp = evaluation.build.cpu.specs.tdp_w or 0
+    if evaluation.build.gpu is not None:
+        total_tdp += evaluation.build.gpu.specs.tdp_w or 0
     if requirements.prefer_low_power:
-        total_tdp = evaluation.build.cpu.specs.tdp_w or 0
-        if evaluation.build.gpu is not None:
-            total_tdp += evaluation.build.gpu.specs.tdp_w or 0
         score -= total_tdp * 0.05
+    else:
+        score -= total_tdp * 0.01
 
-    if requirements.prefer_small_form_factor:
-        size_rank = {"ITX": 0, "mATX": 1, "ATX": 2, "EATX": 3}
-        supported = evaluation.build.case.specs.supported_form_factors
-        if supported:
-            score -= min((size_rank.get(f, 2) for f in supported), default=2) * 5
+    size_rank = {"ITX": 0, "mATX": 1, "ATX": 2, "EATX": 3}
+    supported = evaluation.build.case.specs.supported_form_factors
+    smallest_supported = min((size_rank.get(f, 2) for f in supported), default=2) if supported else None
+    if smallest_supported is not None:
+        if requirements.prefer_small_form_factor:
+            score -= smallest_supported * 5
+        else:
+            score -= smallest_supported * 1
 
     if requirements.prefer_minimal_spec:
         # Prefer the build that's just sufficient for the stated goal, not
@@ -125,6 +142,19 @@ def deterministic_score(evaluation: BuildEvaluation, requirements: ProjectRequir
         cpu_cores = evaluation.build.cpu.specs.cores or 0
         cores_over = max(cpu_cores - (requirements.min_cpu_cores or 0), 0)
         score -= cores_over * 2
+    else:
+        # Only nudge against overshoot when a real minimum was actually
+        # stated -- without one, there's no baseline to call anything
+        # "more than necessary", so a build is never penalised just for
+        # having a GPU or a many-core CPU when nothing asked for either.
+        if requirements.min_vram_gb is not None:
+            gpu_vram = evaluation.build.gpu.specs.vram_gb if evaluation.build.gpu else 0
+            vram_over = max((gpu_vram or 0) - requirements.min_vram_gb, 0)
+            score -= vram_over * 0.3
+        if requirements.min_cpu_cores is not None:
+            cpu_cores = evaluation.build.cpu.specs.cores or 0
+            cores_over = max(cpu_cores - requirements.min_cpu_cores, 0)
+            score -= cores_over * 0.3
 
     return score
 
