@@ -2,6 +2,27 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-10-31 – Seed data expanded to 210 components across three hardware eras
+
+**Generated:**
+- `backend/app/seed.py` grown from 75 to 210 components, requested because recommendations kept converging on the same handful of recent parts. The new 135 components span roughly 2005-2010 (Socket 775/939/AM2+/LGA1366, e.g. Pentium 4/D, Athlon 64 (X2), Core 2 Duo/Quad, Phenom (II)), the 2010s (LGA1155/LGA1150/LGA1151/AM3+/FM2+/first-gen AM4, e.g. Sandy Bridge through Coffee Lake Refresh, FX-8350/9590, Ryzen 7 1800X), and more 2020s/2026 high-end (RTX 4090/5090, RX 7900 XTX), plus single-socket server/workstation hardware: rack-mountable cases (1U/2U/4U), rack motherboards (ASRock Rack, Supermicro), server CPUs (Xeon E/Silver, EPYC 4004/7002), ECC RAM, datacenter GPUs (Tesla P4, RTX A2000), and NAS/enterprise drives.
+- `backend/app/schemas/components.py`: `CpuSpecs`/`MotherboardSpecs`/`RamSpecs.memory_type` widened from `Literal["DDR4", "DDR5"]` to also accept `"DDR"`/`"DDR2"`/`"DDR3"` -- needed to honestly represent 2005-2010s hardware, which predates DDR4. Nothing else in the codebase hardcodes the old two-value set (`compatibility/rules.py`/`engine.py` only check list/set membership), so this was a pure widening with no other code changes required.
+
+**Assumptions:**
+- **No new schema fields were added for rack/server-specific concepts** (rack units, ECC, multi-socket boards). This project's compatibility model already assumes exactly one CPU per build, so "server motherboard" here means a single-socket board (Xeon E, one Xeon Scalable socket, one EPYC socket) -- true dual-socket server boards are out of scope, not represented. Rack cases/motherboards/PSUs reuse the closest existing field values (e.g. a 4U rack case's `supported_form_factors` includes `"EATX"`/`"ATX"`; a redundant hot-swap server PSU's `form_factor` is mapped to `"SFX"`, the more compact of the two allowed values) and spell out the approximation in that component's `notes` field rather than inventing new Literal values or schema fields for a seed-data-only need.
+- **Sub-1GB-VRAM-era GPUs (e.g. GeForce 7800 GTX 256MB, 8800 GTX 768MB) omit `vram_gb` entirely** rather than rounding to 0 or 1, since `GpuSpecs.vram_gb` is an integer field and 0 would read as "no VRAM" rather than "below this field's granularity"; the exact figure is still in the component name. The GTX 580 (1.5GB) is the one exception, rounded down to `vram_gb=1` with a note, since some seed variety benefits from it having a comparable (if conservative) numeric value for VRAM-based rule checks.
+- **ATI-branded cards (pre-2006 AMD acquisition) use `vendor: "amd"`**, the only available option for that hardware lineage in `GpuSpecs.vendor`'s `Literal["nvidia", "amd", "intel"]` -- noted explicitly on each such component rather than left unexplained.
+
+**Known risks / weaknesses:**
+- Specs for decade-old and server hardware (TDP, socket, slot counts) are from general knowledge, not verified against a datasheet the way the student's own real PC's specs were -- reasonable for demo/seed data, but shouldn't be presented as verified (`specs_verified=True` is set uniformly for all seed data the same way it already was before this change, which is a pre-existing simplification, not new).
+- `generate_builds()` was profiled against the full 210-component inventory end-to-end (not just unit tests) and still completes in ~1.9s, unchanged from the 75-component baseline -- because the engine ranks from `top_n` (default 5) candidates per category rather than the full pool, so a larger inventory doesn't by itself increase the combinatorics the engine actually walks. Candidate *selection* (which `top_n` to consider in the first place) happens in the Phase 3 pipeline, not exercised directly by this check.
+
+**Tests covering it:**
+- Every one of the 210 seed entries validated with `ComponentSpecsAdapter.validate_python()` (0 errors) and inserted end-to-end via `seed()` against an in-memory SQLite database (210/210 rows).
+- `ruff check`/`ruff format --check` green; full `pytest` suite (194 tests, unchanged -- no test asserts on the old component count) green.
+
+**Review (filled in by the student):**
+
 ## 2026-10-31 – Backups as spreadsheets (.xlsx), including saved builds
 
 **Deliberate deviation from SPEC.md, requested explicitly by the student:** §7.1 specifies a single JSON snapshot file (`inventory-<timestamp>.json`); §7.2.1 says the backup destination is chosen "exclusively via `.env`", no code changes to switch (already revisited in the previous entry — backend choice is now also per-request). This entry further departs from §7.1's exact format: backups are now `.xlsx` workbooks instead of JSON, and include saved builds, which §7.1 never covered at all (builds didn't exist in the original spec). Flagged here explicitly, the way earlier "out of scope" requests (cloud LLM option, buy-recommendations) were, so it's easy to point to for the exam if asked why the implementation diverges from the written spec.

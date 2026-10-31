@@ -20,14 +20,14 @@ class CpuSpecs(BaseModel):
     threads: int | None = None
     tdp_w: int | None = None
     integrated_graphics: bool | None = None
-    memory_type: list[Literal["DDR4", "DDR5"]] | None = None
+    memory_type: list[Literal["DDR", "DDR2", "DDR3", "DDR4", "DDR5"]] | None = None
 
 
 class MotherboardSpecs(BaseModel):
     category: Literal["motherboard"] = "motherboard"
     socket: str | None = None
     form_factor: Literal["ATX", "mATX", "ITX", "EATX"] | None = None
-    memory_type: list[Literal["DDR4", "DDR5"]] | None = None
+    memory_type: list[Literal["DDR", "DDR2", "DDR3", "DDR4", "DDR5"]] | None = None
     memory_slots: int | None = None
     max_memory_gb: int | None = None
     m2_slots: int | None = None
@@ -37,7 +37,7 @@ class MotherboardSpecs(BaseModel):
 
 class RamSpecs(BaseModel):
     category: Literal["ram"] = "ram"
-    memory_type: Literal["DDR4", "DDR5"] | None = None
+    memory_type: Literal["DDR", "DDR2", "DDR3", "DDR4", "DDR5"] | None = None
     capacity_gb_per_module: int | None = None
     modules: int | None = None
     speed_mts: int | None = None
