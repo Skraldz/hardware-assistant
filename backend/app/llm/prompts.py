@@ -18,6 +18,14 @@ REQUIREMENTS_SYSTEM_PROMPT = (
     "use your general knowledge of that title's system requirements to estimate reasonable values for "
     "min_vram_gb, min_cpu_cores, min_ram_gb, and min_storage_gb — do not leave them empty just because "
     "the user did not state exact numbers themselves. "
+    "The same applies to a general workload category, not just a named title: 'local AI'/'running an "
+    "LLM'/'Stable Diffusion'/machine learning in general all typically need a capable GPU with "
+    "meaningful VRAM to run at a usable speed — infer a reasonable min_vram_gb for these (e.g. at least "
+    "6-8GB for a small local language model, more for a larger one) rather than leaving it null, unless "
+    "the user explicitly says they don't need good performance or are fine with CPU-only inference. "
+    '"Headless" means only that no display output is needed (no monitor attached) — it says nothing '
+    "about whether a GPU is needed for compute; a headless AI/compute box very often still needs one, "
+    "and headless must never by itself be read as a reason to omit min_vram_gb. "
     "If the user asks for a build that should not be more powerful than necessary for their stated goal "
     '(e.g. "but not more powerful than that", "nothing more than I need"), set prefer_minimal_spec '
     "to true. "
