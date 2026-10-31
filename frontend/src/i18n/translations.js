@@ -44,6 +44,7 @@ export const translations = {
     webLookupDisabledNotice:
       "Websøgning er deaktiveret på serveren (ENABLE_WEB_LOOKUP=false) — specs udtrækkes direkte fra LLM'ens egen viden om navnet.",
     pickCandidatePrompt: "Vælg det resultat, der matcher din komponent:",
+    openInNewTab: "Åbn i ny fane",
     extractedSpecsHeading: (name, source, llmUsed) =>
       `Udtrukne specs for "${name}" (${source}, LLM: ${llmUsed})`,
     quantityLabel: "Antal",
@@ -141,6 +142,7 @@ export const translations = {
     webLookupDisabledNotice:
       "Web lookup is disabled on the server (ENABLE_WEB_LOOKUP=false) — specs are extracted directly from the LLM's own knowledge of the name.",
     pickCandidatePrompt: "Pick the result that matches your component:",
+    openInNewTab: "Open in new tab",
     extractedSpecsHeading: (name, source, llmUsed) =>
       `Extracted specs for "${name}" (${source}, LLM: ${llmUsed})`,
     quantityLabel: "Quantity",

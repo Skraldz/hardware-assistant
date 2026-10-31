@@ -10,7 +10,7 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function BackupView() {
+export default function BackupView({ active = true }) {
   const { t, language } = useLanguage();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -28,9 +28,11 @@ export default function BackupView() {
     }
   }
 
+  // Tabs stay mounted across switches (App.jsx); refetch whenever this one
+  // becomes active again, so a backup created elsewhere isn't stale here.
   useEffect(() => {
-    load();
-  }, []);
+    if (active) load();
+  }, [active]);
 
   async function handleCreate() {
     setActiveAction("create");

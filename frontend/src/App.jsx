@@ -19,7 +19,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("inventory");
   const { t, language, setLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
-  const ActiveComponent = TABS[activeTab].Component;
 
   return (
     <>
@@ -56,7 +55,17 @@ export default function App() {
         ))}
       </nav>
       <main>
-        <ActiveComponent />
+        {/* All tabs stay mounted (hidden via CSS, not unmounted) so a
+            tab's state -- the Recommend chat log, an in-progress search,
+            etc. -- survives switching away and back instead of resetting. */}
+        {Object.entries(TABS).map(([key, tab]) => {
+          const TabComponent = tab.Component;
+          return (
+            <div key={key} hidden={key !== activeTab}>
+              <TabComponent active={key === activeTab} />
+            </div>
+          );
+        })}
       </main>
     </>
   );

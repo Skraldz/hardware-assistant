@@ -90,7 +90,7 @@ function compareComponents(a, b, sortKey) {
   return String(av).localeCompare(String(bv));
 }
 
-export default function InventoryView() {
+export default function InventoryView({ active = true }) {
   const { t } = useLanguage();
   const [components, setComponents] = useState([]);
   const [loadError, setLoadError] = useState(null);
@@ -136,7 +136,12 @@ export default function InventoryView() {
     }
   }
 
+  // Tabs stay mounted across switches (App.jsx), so refetch whenever this
+  // one becomes active again -- not just on first mount -- to pick up
+  // changes made elsewhere (e.g. a build marked complete in the Builds tab
+  // decrements inventory quantities here).
   useEffect(() => {
+    if (!active) return;
     loadComponents();
     api
       .getHealth()
@@ -144,7 +149,7 @@ export default function InventoryView() {
       .catch(() => {
         /* keep the default; the health badge already surfaces this error */
       });
-  }, []);
+  }, [active]);
 
   function handleSort(key) {
     if (key === sortKey) {
@@ -373,7 +378,19 @@ export default function InventoryView() {
                 className={`candidate${selectedCandidate === candidate ? " selected" : ""}`}
                 onClick={() => handlePickCandidate(candidate)}
               >
-                <strong>{candidate.title}</strong>
+                <div className="candidate-title-row">
+                  <strong>{candidate.title}</strong>
+                  <a
+                    href={candidate.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="candidate-open-link"
+                    onClick={(e) => e.stopPropagation()}
+                    title={t("openInNewTab")}
+                  >
+                    {t("openInNewTab")} ↗
+                  </a>
+                </div>
                 <div className="muted">{candidate.snippet}</div>
               </div>
             ))}

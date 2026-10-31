@@ -4,7 +4,7 @@ import { useLanguage } from "../i18n/LanguageContext.jsx";
 
 const DATE_LOCALES = { da: "da-DK", en: "en-GB" };
 
-export default function BuildsView() {
+export default function BuildsView({ active = true }) {
   const { t, language } = useLanguage();
   const [builds, setBuilds] = useState([]);
   const [error, setError] = useState(null);
@@ -22,9 +22,11 @@ export default function BuildsView() {
     }
   }
 
+  // Tabs stay mounted across switches (App.jsx); refetch whenever this one
+  // becomes active again (e.g. a build just saved from the Recommend tab).
   useEffect(() => {
-    load();
-  }, []);
+    if (active) load();
+  }, [active]);
 
   async function handleComplete(build) {
     if (!window.confirm(t("confirmCompleteBuild"))) return;

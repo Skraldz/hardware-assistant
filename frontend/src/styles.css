@@ -311,6 +311,24 @@ label span {
   background: var(--color-candidate-selected);
 }
 
+.candidate-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.candidate-open-link {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.candidate-open-link:hover {
+  text-decoration: underline;
+}
+
 .badge {
   display: inline-block;
   font-size: 0.75rem;
