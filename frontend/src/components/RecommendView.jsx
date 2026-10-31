@@ -123,6 +123,11 @@ export default function RecommendView() {
     setMessages([]);
     setError(null);
     setInput(t("defaultPrompt"));
+    // saveState is keyed by "<messageIndex>-<buildIndex>", and a new
+    // conversation's messages start back at index 0 -- without clearing
+    // this too, a fresh build at the same index would inherit an older
+    // conversation's "saved" state it was never actually saved under.
+    setSaveState({});
   }
 
   return (

@@ -63,3 +63,22 @@ test("open-in-new-tab link on a search result does not select it as the match", 
   // Clicking it must not trigger the candidate-pick extract flow.
   await expect(page.getByText(/Extracted specs for/)).not.toBeVisible();
 });
+
+// Regression test: the name field used to stay disabled while a result was
+// under review, as a (now-redundant) guard against a name-drift bug that's
+// actually prevented by handleConfirmSave freezing its own confirmName
+// state -- the field no longer needs to lock at all.
+test("the component name field stays editable after a result is extracted", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/");
+
+  const nameField = page.getByLabel("Component name");
+  await nameField.fill("RTX 2060 SUPER");
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByText("NVIDIA GeForce RTX 2060 SUPER Specs", { exact: false }).click();
+  await expect(page.getByText(/Extracted specs for/)).toBeVisible();
+
+  await expect(nameField).toBeEnabled();
+  await nameField.fill("A completely different part");
+  await expect(nameField).toHaveValue("A completely different part");
+});

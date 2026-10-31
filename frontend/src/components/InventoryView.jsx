@@ -274,8 +274,6 @@ export default function InventoryView({ active = true }) {
     }
   }
 
-  const isReviewing = extracted !== null;
-
   const visibleComponents = components
     .filter((c) => categoryFilter === "all" || c.category === categoryFilter)
     .sort((a, b) => (sortDir === "asc" ? 1 : -1) * compareComponents(a, b, sortKey));
@@ -357,11 +355,10 @@ export default function InventoryView({ active = true }) {
               value={searchName}
               onChange={(e) => setSearchName(e.target.value)}
               placeholder={t("componentNamePlaceholder")}
-              disabled={isReviewing}
               required
             />
           </label>
-          <button type="submit" className="btn" disabled={isReviewing}>
+          <button type="submit" className="btn">
             {webLookupEnabled ? t("search") : t("extract")}
           </button>
         </form>

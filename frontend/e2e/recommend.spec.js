@@ -36,3 +36,27 @@ test("a build can be saved from the chat", async ({ page }) => {
 
   await expect(page.getByRole("button", { name: "Saved" })).toBeVisible();
 });
+
+// Regression test: saveState was keyed by "<messageIndex>-<buildIndex>",
+// and "New conversation" reset the message list but not that save state --
+// a new conversation's first build reused the same key as the previous
+// conversation's first build, so it incorrectly showed as already saved.
+test("a new conversation's builds are not pre-marked as saved", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Recommend" }).click();
+
+  await page.getByLabel("Describe the project in free text").fill("headless pc for local AI");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("Build 1")).toBeVisible();
+  await page.getByRole("button", { name: "Save build" }).click();
+  await expect(page.getByRole("button", { name: "Saved" })).toBeVisible();
+
+  await page.getByRole("button", { name: "New conversation" }).click();
+  await page.getByLabel("Describe the project in free text").fill("a different build request");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("Build 1")).toBeVisible();
+
+  await expect(page.getByRole("button", { name: "Save build" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Saved" })).not.toBeVisible();
+});

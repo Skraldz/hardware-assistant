@@ -2,6 +2,28 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-10-31 – Three live-reported frontend bugs: stale "saved" state, locked name field, extraction prompt
+
+Reported directly from continued live use of the home-server deployment.
+
+**Generated:**
+- **`RecommendView.jsx`'s `saveState` leaking across conversations.** Keyed by `"<messageIndex>-<buildIndex>"`, and `handleReset()` ("New conversation") cleared `messages` but not `saveState` -- a new conversation's first build reused the same key ("0-0") as the previous conversation's first build, so it showed as already "Saved" before the user had touched it. `handleReset()` now also clears `saveState`.
+- **`InventoryView.jsx`'s component-name field staying locked after an extraction.** It was disabled whenever a result was under review (`extracted !== null`) -- a leftover guard from an earlier bug (the code-review-phase fix, see that entry) where `handleConfirmSave` read the *live* `searchName` instead of the name at extraction time. That bug is actually prevented by `confirmName` (frozen independently at extraction time), making the disabled state redundant protection, not a requirement -- removed it, along with the now-dead `isReviewing` variable. Typing a new name and searching again already called `resetSearchFlow()` first (pre-existing), so this was purely an unnecessary lock, not a missing reset path.
+- **`EXTRACT_SYSTEM_PROMPT` strengthened again**: `length_mm`/`pcie_power_connectors` were coming back null on every one of 5 merged search results for a GPU search (previous entry's fix was necessary but insufficient here) -- plausibly because physical dimensions and connector counts are less commonly covered in short search snippets than VRAM/TDP are, even pooled across several results. The prompt now explicitly permits falling back to the model's own general knowledge of the specific, already-identified product for a field the given text doesn't cover (preferring the text whenever it does say something, and never contradicting it) -- extending a precedent that already existed in this codebase for the `ENABLE_WEB_LOOKUP=false` path, which has always relied on the model's own knowledge entirely.
+
+**Assumptions:**
+- **The extraction prompt change trusts the model to only invoke its own knowledge for a product it has "genuinely identified"**, not to fill gaps for an ambiguous or obscure part it's unsure about -- there's no code-level mechanism forcing this distinction (e.g. a confidence score), it relies entirely on the prompt's wording ("don't invent a value for a product or spec you don't actually know"). If this proves too permissive in practice (the model starts inventing specs for parts it doesn't actually know), the fallback-to-own-knowledge permission would need to be scoped back or removed.
+
+**Known risks / weaknesses:**
+- **The extraction prompt change hasn't been verified against the live deployment yet** -- built on reasoning about why the previous (text-only) fix was insufficient, not confirmed against a fresh extraction with logs the way the earlier sparse-extraction bug was. Needs a live retry to confirm `length_mm`/`pcie_power_connectors` actually start filling in now.
+
+**Tests covering it:**
+- `e2e/recommend.spec.js::"a new conversation's builds are not pre-marked as saved"`: saves a build, starts a new conversation, confirms the new conversation's first build shows "Save build", not "Saved".
+- `e2e/inventory.spec.js::"the component name field stays editable after a result is extracted"`: searches, picks a candidate, confirms the name field is still enabled and can be changed while the extraction is under review.
+- `ruff check`/`ruff format --check`/`pytest --cov` green (181 tests, 95% coverage, unaffected -- these were frontend-only fixes plus one prompt-text change). All 12 Playwright specs green.
+
+**Review (filled in by the student):**
+
 ## 2026-10-31 – Playwright end-to-end tests for the frontend
 
 **Generated:**
