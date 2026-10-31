@@ -1,5 +1,5 @@
 {
-  "use_case": "almindelig kontor-pc",
+  "use_case": "general office PC",
   "headless": false,
   "required_categories": [],
   "min_vram_gb": null,
@@ -8,5 +8,6 @@
   "min_cpu_cores": null,
   "prefer_low_power": false,
   "prefer_small_form_factor": false,
+  "prefer_minimal_spec": false,
   "notes": ""
 }

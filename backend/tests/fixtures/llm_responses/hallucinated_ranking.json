@@ -1,5 +1,5 @@
 {
   "ranking": [
-    {"build_id": 999, "reason": "Dette build_id findes ikke i kandidatlisten."}
+    {"build_id": 999, "reason": "This build_id does not exist in the candidate list."}
   ]
 }

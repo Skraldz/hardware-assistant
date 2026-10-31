@@ -105,6 +105,19 @@ def deterministic_score(evaluation: BuildEvaluation, requirements: ProjectRequir
         if supported:
             score -= min((size_rank.get(f, 2) for f in supported), default=2) * 5
 
+    if requirements.prefer_minimal_spec:
+        # Prefer the build that's just sufficient for the stated goal, not
+        # the most capable hardware available -- penalise capability beyond
+        # whatever minimum was inferred (or any capability at all, if no
+        # minimum was given).
+        gpu_vram = evaluation.build.gpu.specs.vram_gb if evaluation.build.gpu else 0
+        vram_over = max((gpu_vram or 0) - (requirements.min_vram_gb or 0), 0)
+        score -= vram_over * 2
+
+        cpu_cores = evaluation.build.cpu.specs.cores or 0
+        cores_over = max(cpu_cores - (requirements.min_cpu_cores or 0), 0)
+        score -= cores_over * 2
+
     return score
 
 
@@ -217,7 +230,7 @@ def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClien
         _to_build_result(
             pool[idx],
             reason=reason_by_index.get(
-                idx, f"Automatisk valgt (score {deterministic_score(pool[idx], requirements):.0f})."
+                idx, f"Automatically selected (score {deterministic_score(pool[idx], requirements):.0f})."
             ),
             score=deterministic_score(pool[idx], requirements),
             headless=requirements.headless,

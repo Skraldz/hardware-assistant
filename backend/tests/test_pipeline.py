@@ -130,13 +130,13 @@ def test_headless_local_ai_scenario_produces_a_build(db_session):
         [load_fixture("valid_requirements_headless_ai.json"), load_fixture("valid_ranking.json")]
     )
 
-    result = recommend(prompt="headless pc til lokal AI", max_builds=3, db=db_session, llm_client=client)
+    result = recommend(prompt="headless pc for local AI", max_builds=3, db=db_session, llm_client=client)
 
     assert result.llm_used.interpret == "ok"
     assert result.llm_used.rank == "ok"
     assert result.missing == []
     assert len(result.builds) == 1
-    assert result.builds[0].reason == "Opfylder VRAM- og RAM-kravene med lavest effektforbrug."
+    assert result.builds[0].reason == "Meets the VRAM and RAM requirements with the lowest power draw."
     categories = {c.category for c in result.builds[0].components}
     assert Category.GPU in categories
 
@@ -160,7 +160,7 @@ def test_incompatible_inventory_produces_no_builds_and_no_ranking_call(db_sessio
     # FakeLLMClient would raise on the second call.
     client = FakeLLMClient([load_fixture("valid_requirements_generic.json")])
 
-    result = recommend(prompt="noget pc", max_builds=3, db=db_session, llm_client=client)
+    result = recommend(prompt="some pc", max_builds=3, db=db_session, llm_client=client)
 
     assert result.builds == []
     assert result.llm_used.interpret == "ok"
@@ -177,12 +177,12 @@ def test_llm_failures_fall_back_to_deterministic_scoring(db_session):
         ]
     )
 
-    result = recommend(prompt="noget pc", max_builds=3, db=db_session, llm_client=client)
+    result = recommend(prompt="some pc", max_builds=3, db=db_session, llm_client=client)
 
     assert result.llm_used.interpret == "fallback"
     assert result.llm_used.rank == "fallback"
     assert len(result.builds) == 1
-    assert result.builds[0].reason.startswith("Automatisk valgt")
+    assert result.builds[0].reason.startswith("Automatically selected")
 
 
 def test_prefilter_excludes_zero_quantity_and_faulty(db_session):
@@ -290,7 +290,7 @@ def test_recommend_reports_missing_gpu_when_no_gpu_meets_min_vram(db_session):
     seed_compatible_inventory(db_session)  # includes only a 6GB GPU
     client = FakeLLMClient([load_fixture("valid_requirements_min_vram_too_high.json")])
 
-    result = recommend(prompt="AI-træning med meget VRAM", max_builds=3, db=db_session, llm_client=client)
+    result = recommend(prompt="AI training with lots of VRAM", max_builds=3, db=db_session, llm_client=client)
 
     assert result.builds == []
     assert Category.GPU in result.missing
@@ -325,6 +325,163 @@ def test_deterministic_score_prefers_small_form_factor_when_requested():
         evaluation, ProjectRequirements(use_case="x", prefer_small_form_factor=True)
     )
     assert score_small_ff < score_default
+
+
+def test_deterministic_score_prefers_minimal_spec_when_requested():
+    from app.compatibility.types import BuildEvaluation
+    from tests.fixtures.sample_inventory import compatible_build, with_specs
+
+    # compatible_build()'s default GPU has 6 GB VRAM; a build with a much
+    # bigger GPU should score worse once prefer_minimal_spec is set and a
+    # modest min_vram_gb is already comfortably met.
+    big_gpu_build = compatible_build(gpu=with_specs(compatible_build().gpu, vram_gb=16))
+    big_gpu_evaluation = BuildEvaluation(build=big_gpu_build, rule_results={})
+    baseline_evaluation = BuildEvaluation(build=compatible_build(), rule_results={})
+
+    requirements = ProjectRequirements(use_case="x", min_vram_gb=2, prefer_minimal_spec=True)
+    score_big = deterministic_score(big_gpu_evaluation, requirements)
+    score_modest = deterministic_score(baseline_evaluation, requirements)
+    assert score_big < score_modest
+
+
+def test_crysis_style_prompt_prefers_the_smaller_sufficient_gpu(db_session):
+    """'I need a pc that can run Crysis 1 at max resolution, but not more
+    powerful than that' -- the LLM is expected to infer modest minimums
+    (min_vram_gb=2, min_cpu_cores=2) and set prefer_minimal_spec=true (see
+    the fixture); with ranking forced to fallback, the deterministic scorer
+    should pick the smallest GPU that still clears the minimum over a
+    massively overpowered one."""
+    insert_component(
+        db_session,
+        category=Category.CPU,
+        name="Budget quad-core",
+        specs={
+            "category": "cpu",
+            "socket": "AM4",
+            "cores": 4,
+            "tdp_w": 65,
+            "integrated_graphics": False,
+            "memory_type": ["DDR4"],
+        },
+    )
+    insert_component(
+        db_session,
+        category=Category.MOTHERBOARD,
+        name="Budget AM4 board",
+        specs={
+            "category": "motherboard",
+            "socket": "AM4",
+            "form_factor": "ATX",
+            "memory_type": ["DDR4"],
+            "memory_slots": 4,
+            "max_memory_gb": 64,
+            "m2_slots": 1,
+            "sata_ports": 4,
+        },
+    )
+    insert_component(
+        db_session,
+        category=Category.RAM,
+        name="8GB kit",
+        specs={
+            "category": "ram",
+            "memory_type": "DDR4",
+            "capacity_gb_per_module": 4,
+            "modules": 2,
+            "form": "DIMM",
+        },
+    )
+    insert_component(
+        db_session,
+        category=Category.STORAGE,
+        name="Small SSD",
+        specs={"category": "storage", "interface": "nvme", "capacity_gb": 256, "form_factor": "m2_2280"},
+    )
+    insert_component(
+        db_session,
+        category=Category.PSU,
+        name="Mid-range PSU",
+        specs={
+            "category": "psu",
+            "wattage_w": 650,
+            "form_factor": "ATX",
+            "pcie_power_connectors": ["8-pin", "8-pin"],
+        },
+    )
+    insert_component(
+        db_session,
+        category=Category.CASE,
+        name="Generic ATX case",
+        specs={
+            "category": "case",
+            "supported_form_factors": ["ATX"],
+            "max_gpu_length_mm": 400,
+            "max_cooler_height_mm": 170,
+            "psu_form_factor": "ATX",
+            "drive_bays_3_5": 2,
+            "drive_bays_2_5": 2,
+        },
+    )
+    insert_component(
+        db_session,
+        category=Category.COOLER,
+        name="Generic air cooler",
+        specs={
+            "category": "cooler",
+            "type": "air",
+            "supported_sockets": ["AM4"],
+            "height_mm": 150,
+            "tdp_rating_w": 100,
+        },
+    )
+    # Two GPUs: one barely over the inferred minimum, one wildly overkill.
+    insert_component(
+        db_session,
+        category=Category.GPU,
+        name="Modest 2GB GPU",
+        specs={
+            "category": "gpu",
+            "vram_gb": 2,
+            "tdp_w": 75,
+            "length_mm": 200,
+            "pcie_power_connectors": [],
+            "vendor": "nvidia",
+        },
+    )
+    insert_component(
+        db_session,
+        category=Category.GPU,
+        name="Overkill 16GB GPU",
+        specs={
+            "category": "gpu",
+            "vram_gb": 16,
+            "tdp_w": 300,
+            "length_mm": 300,
+            "pcie_power_connectors": ["8-pin", "8-pin"],
+            "vendor": "nvidia",
+        },
+    )
+
+    client = FakeLLMClient(
+        [
+            load_fixture("valid_requirements_crysis_minimal.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("hallucinated_ranking.json"),
+        ]
+    )
+
+    result = recommend(
+        prompt="I need a pc that can run crysis 1 at max resolution, but not more powerful than that.",
+        max_builds=3,
+        db=db_session,
+        llm_client=client,
+    )
+
+    assert result.llm_used.interpret == "ok"
+    assert result.llm_used.rank == "fallback"
+    assert len(result.builds) >= 1
+    first_build_gpus = {c.name for c in result.builds[0].components if c.category == Category.GPU}
+    assert first_build_gpus == {"Modest 2GB GPU"}
 
 
 def test_rank_builds_with_empty_pool_is_a_trivial_ok():

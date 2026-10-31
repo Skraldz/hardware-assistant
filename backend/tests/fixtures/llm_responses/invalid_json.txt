@@ -1,1 +1,1 @@
-Her er dit svar: {"use_case": "headless pc til lokal AI", "headless": true,
+Here is your answer: {"use_case": "headless pc for local AI", "headless": true,

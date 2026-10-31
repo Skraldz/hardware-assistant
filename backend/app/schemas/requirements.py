@@ -19,13 +19,19 @@ class ProjectRequirements(BaseModel):
     min_cpu_cores: int | None = None
     prefer_low_power: bool = False
     prefer_small_form_factor: bool = False
+    # Set when the user asks for a build that's no more powerful than
+    # necessary (e.g. "but not more powerful than that") -- the deterministic
+    # scorer (pipeline/recommend.py) then prefers the build that's just
+    # sufficient for the stated goal over the most capable one available,
+    # and the ranking LLM is instructed (llm/prompts.py) to do the same.
+    prefer_minimal_spec: bool = False
     notes: str = ""
 
 
 def fallback_requirements(user_prompt: str) -> ProjectRequirements:
     """Conservative defaults used when the LLM's output never validates
-    (SPEC.md §5 step 1: "fallback til konservative defaults + advarsel")."""
+    (SPEC.md §5 step 1: fall back to conservative defaults + a warning)."""
     return ProjectRequirements(
         use_case=user_prompt,
-        notes="LLM-fortolkning af projektbeskrivelsen fejlede; bruger konservative standardkrav.",
+        notes="LLM interpretation of the project description failed; using conservative defaults.",
     )
