@@ -5,10 +5,25 @@ import { useLanguage } from "../i18n/LanguageContext.jsx";
 const CATEGORIES = ["cpu", "motherboard", "ram", "gpu", "storage", "psu", "case", "cooler"];
 const CONDITIONS = ["new", "used", "faulty"];
 
+function sortValue(component, key) {
+  if (key === "specsVerified") return component.specs_verified ? 1 : 0;
+  return component[key];
+}
+
+function compareComponents(a, b, sortKey) {
+  const av = sortValue(a, sortKey);
+  const bv = sortValue(b, sortKey);
+  if (typeof av === "number" && typeof bv === "number") return av - bv;
+  return String(av).localeCompare(String(bv));
+}
+
 export default function InventoryView() {
   const { t } = useLanguage();
   const [components, setComponents] = useState([]);
   const [loadError, setLoadError] = useState(null);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [sortKey, setSortKey] = useState("category");
+  const [sortDir, setSortDir] = useState("asc");
 
   // Defaults to the project's own default (true) until /api/health answers,
   // so the "Search"/"Extract directly" choice below always matches what the
@@ -52,6 +67,15 @@ export default function InventoryView() {
         /* keep the default; the health badge already surfaces this error */
       });
   }, []);
+
+  function handleSort(key) {
+    if (key === sortKey) {
+      setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
 
   function resetSearchFlow() {
     setCandidates([]);
@@ -164,24 +188,59 @@ export default function InventoryView() {
 
   const isReviewing = extracted !== null;
 
+  const visibleComponents = components
+    .filter((c) => categoryFilter === "all" || c.category === categoryFilter)
+    .sort((a, b) => (sortDir === "asc" ? 1 : -1) * compareComponents(a, b, sortKey));
+
+  function sortableHeader(key, label) {
+    const indicator = sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "";
+    return (
+      <th>
+        <button type="button" className="sortable-header" onClick={() => handleSort(key)}>
+          {label}
+          {indicator}
+        </button>
+      </th>
+    );
+  }
+
   return (
     <>
       <section>
         <h2>{t("inventoryHeading", components.length)}</h2>
         {loadError && <p className="error-message">{loadError}</p>}
+        <div className="chip-row">
+          <button
+            type="button"
+            className={`chip${categoryFilter === "all" ? " active" : ""}`}
+            onClick={() => setCategoryFilter("all")}
+          >
+            {t("allCategories")}
+          </button>
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              className={`chip${categoryFilter === cat ? " active" : ""}`}
+              onClick={() => setCategoryFilter(cat)}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
         <table>
           <thead>
             <tr>
-              <th>{t("colCategory")}</th>
-              <th>{t("colName")}</th>
-              <th>{t("colQuantity")}</th>
-              <th>{t("colCondition")}</th>
-              <th>{t("colSpecsVerified")}</th>
+              {sortableHeader("category", t("colCategory"))}
+              {sortableHeader("name", t("colName"))}
+              {sortableHeader("quantity", t("colQuantity"))}
+              {sortableHeader("condition", t("colCondition"))}
+              {sortableHeader("specsVerified", t("colSpecsVerified"))}
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {components.map((c) => (
+            {visibleComponents.map((c) => (
               <tr key={c.id}>
                 <td>{c.category}</td>
                 <td>{c.name}</td>

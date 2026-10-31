@@ -13,6 +13,22 @@ from app.schemas.search import SearchCandidate
 
 MAX_CANDIDATES = 5
 
+# Marketplace/retailer domains to steer results away from: their listings are
+# written to sell, not to document specs, which was giving the extraction LLM
+# marketing copy instead of the actual numbers it needs (see docs/ai-log.md).
+# `-site:`/`site:` is standard search-operator syntax most of SearXNG's
+# underlying engines (Google, Bing, DuckDuckGo, ...) honor directly in the
+# query text -- not verified against a real SearXNG instance, see Known risks.
+_EXCLUDED_DOMAINS = ["amazon.com", "ebay.com", "dba.dk", "newegg.com"]
+
+
+def _build_query(name: str) -> str:
+    """Biases the search toward pages that actually document specifications
+    (manufacturer product pages, review/database sites like TechPowerUp or
+    PCPartPicker) instead of shopping listings."""
+    exclusions = " ".join(f"-site:{domain}" for domain in _EXCLUDED_DOMAINS)
+    return f"{name} specifications {exclusions}"
+
 
 class SearchUnavailableError(RuntimeError):
     """SearXNG couldn't be reached or returned an error."""
@@ -31,7 +47,7 @@ class SearxngClient:
         try:
             response = httpx.get(
                 f"{self._base_url}/search",
-                params={"q": query, "format": "json"},
+                params={"q": _build_query(query), "format": "json"},
                 timeout=self._timeout,
             )
             response.raise_for_status()

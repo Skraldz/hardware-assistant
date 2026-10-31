@@ -2,6 +2,37 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-10-31 – Interactive recommend chat, sortable/categorized inventory, search-quality fix
+
+**Generated:**
+- `backend/app/schemas/builds.py`: `ConversationMessage` (`role`, `content`) and `RecommendRequest.conversation: list[ConversationMessage]` replace the old single `prompt: str` field. `RecommendResponse` gains `assistant_message: str`.
+- `backend/app/routers/recommend.py`: `_build_transcript()` flattens the conversation into one `"role: content"`-per-line string before handing it to the existing single-prompt pipeline — the pipeline itself (`pipeline/recommend.py`) doesn't need to know multi-turn chat exists at all.
+- `backend/app/llm/prompts.py`: `REQUIREMENTS_SYSTEM_PROMPT` and `build_requirements_prompt()` updated to tell the LLM the input may be a multi-turn transcript, where later user turns refine or override earlier ones and assistant turns are prior responses included only as context.
+- `backend/app/pipeline/recommend.py`: `_assistant_message()` synthesizes a short, deterministic natural-language summary (e.g. "Found 3 compatible builds. Top pick: ...") from the already-computed `builds`/`missing`, attached to every `RecommendResponse`.
+- `frontend/src/components/RecommendView.jsx`: rewritten from a single-shot form into a chat log — every user message and assistant reply (with that turn's builds) is appended to `messages` state and resent in full on the next turn; a "New conversation" button resets it.
+- `frontend/src/components/InventoryView.jsx`: category filter chips (`All` + each category) and clickable, sortable column headers (category/name/quantity/condition/specs verified, with a ▲/▼ indicator), both purely client-side over the already-fetched inventory.
+- `backend/app/search/client.py`: `_build_query()` appends `"specifications"` to the search query and excludes a short list of marketplace/retailer domains (`amazon.com`, `ebay.com`, `dba.dk`, `newegg.com`) via `-site:` — the extraction LLM was getting marketing copy from retailer listings instead of real spec numbers to extract from.
+- `docs/architecture.md`: flow #2 updated to describe the conversation transcript step and the `assistant_message` field.
+
+**Assumptions:**
+- **The backend stays stateless for the conversation** — no new DB table, no session storage. The frontend resends the full conversation on every turn, matching the project's existing "no persistence beyond the inventory itself" posture and avoiding new infrastructure for a feature that's still a thin layer over the existing single-prompt pipeline.
+- **The assistant's reply text is deterministic, not an extra LLM call.** It's built entirely from data the pipeline already computed (`builds`, `missing`) — there's nothing left for an LLM to add, and it avoids doubling the number of LLM calls per turn.
+- **`-site:` exclusion syntax in the SearXNG query is standard search-operator syntax** (Google/Bing/DuckDuckGo etc. all honor it in plain query text), not a SearXNG-specific feature — chosen over `site:`-only inclusion of a curated "good" domain allowlist, which risked zero results for categories (motherboard/PSU/case/cooler) that general spec-database sites don't cover well.
+- **Inventory sorting/filtering is entirely client-side** over the already-fetched component list — proportionate at 55 (or even a few hundred) components; `GET /api/components?category=` already exists server-side if this ever needs to move server-side for a much larger inventory.
+
+**Known risks / weaknesses:**
+- **The `-site:` exclusion query has not been verified against a real, running SearXNG instance** (no SearXNG in this session, same caveat as Phase 3's original search integration). If an underlying engine ignores or mishandles the operator, the practical effect degrades to the plain `"<name> specifications"` keyword boost, not a hard failure — but this should be checked manually on the home server, and the excluded-domain list (`backend/app/search/client.py`'s `_EXCLUDED_DOMAINS`) extended if other marketplace sites keep showing up.
+- **No automated tests for the frontend chat UI or inventory sorting/filtering** — same rationale as the rest of the frontend (SPEC doesn't require it); verified manually in a real browser against a local backend (see Tests).
+- **Multi-turn refinement quality depends entirely on the LLM actually honoring the "later turns override earlier ones" instruction** — not verified against a real Ollama in this session (no Ollama running locally); only verified that the full transcript reaches the prompt correctly (see Tests) and that the conversation UI and deterministic fallback path work end-to-end.
+
+**Tests covering it:**
+- `test_api_llm_endpoints.py`: `/api/recommend` accepts a `conversation` list and returns `assistant_message`; a dedicated test asserts the full transcript (both user turns, labeled `user:`/`assistant:`) reaches the requirements-interpretation LLM prompt; an empty `conversation` is rejected with 422.
+- `test_search_client.py`: `_build_query()` appends `"specifications"` and excludes each configured domain; `SearxngClient.search()` is asserted to actually send the transformed query to SearXNG (mocked `httpx.get`, never a real SearXNG, per SPEC.md §9.1).
+- `ruff check`/`ruff format --check`/`pytest --cov` green: 152 tests, 95% overall coverage.
+- Frontend: `npm run build` clean. Manually verified in a real browser (Claude in Chrome) against a local backend (SQLite, `ENABLE_WEB_LOOKUP=false`, no Ollama running): inventory category chips filter correctly, column headers sort ascending/descending with a visible indicator; the recommend chat sends the first message, shows the assistant's reply and build cards, accepts a follow-up message, and correctly keeps both turns' builds visible in the log (the LLM calls themselves hit the fast `LLMUnavailableError` fallback path, since no Ollama was running — the architecture was verified end-to-end, not live LLM reasoning quality).
+
+**Review (filled in by the student):**
+
 ## 2026-10-19 – Frontend: light/dark mode + language picker (Danish/English)
 
 **Generated:**

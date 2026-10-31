@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from app.search.client import SearchUnavailableError, SearxngClient
+from app.search.client import SearchUnavailableError, SearxngClient, _build_query
 
 
 @patch("app.search.client.httpx.get")
@@ -46,3 +46,16 @@ def test_search_returns_candidates_on_success(mock_get):
 
     assert len(candidates) == 1
     assert candidates[0].title == "RTX 2060 SUPER"
+    sent_query = mock_get.call_args.kwargs["params"]["q"]
+    assert "rtx 2060 super" in sent_query
+    assert "specifications" in sent_query
+    assert "-site:amazon.com" in sent_query
+
+
+def test_build_query_excludes_known_retailer_domains():
+    query = _build_query("rtx 2060 super")
+
+    assert "rtx 2060 super" in query
+    assert "specifications" in query
+    for domain in ("amazon.com", "ebay.com", "dba.dk", "newegg.com"):
+        assert f"-site:{domain}" in query
