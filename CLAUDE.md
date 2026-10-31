@@ -1,44 +1,47 @@
 # CLAUDE.md — Hardware Assistant
 
-Denne fil læses automatisk af Claude Code. Den fulde tekniske spec ligger i **SPEC.md**, og den skal læses før du skriver kode.
+This file is read automatically by Claude Code. The full technical spec lives in **SPEC.md**, and it must be read before writing code.
 
-## Projektet kort
-Eksamensprojekt i valgfaget **Programmering og AI** (Zealand, IT-Teknolog, 3. semester, underviser Zuhair Haroon Khan). Applikationen er en AI-drevet hardwareassistent og et lagersystem:
-- Brugeren registrerer sine egne pc-komponenter i en database (MariaDB).
-- Brugeren beskriver et projekt i fri tekst, fx *"headless pc til lokal AI"*.
-- En lokal LLM (Ollama) fortolker behovet, deterministisk Python-kode verificerer kompatibiliteten, og LLM'en rangerer og begrunder de gyldige builds.
-- Inventaret kan sikkerhedskopieres lokalt eller til Azure Blob Storage. Det vælges i `.env` (`BACKUP_BACKEND=local|azure`).
+## Project in short
+Exam project for the elective **Programmering og AI** ("Programming and AI", Zealand, IT-Teknolog, 3rd semester, instructor Zuhair Haroon Khan). The application is an AI-driven hardware assistant and inventory system:
+- The user registers their own PC components in a database (MariaDB).
+- The user describes a project in free text, e.g. *"headless pc for local AI"*.
+- A local LLM (Ollama) interprets the requirement, deterministic Python code verifies compatibility, and the LLM ranks and justifies the valid builds.
+- The inventory can be backed up locally or to Azure Blob Storage. Selected via `.env` (`BACKUP_BACKEND=local|azure`).
 
-Stack: Docker Compose, Python 3.12, FastAPI, SQLAlchemy 2.0, Pydantic v2, Ollama, MariaDB og en minimal React-frontend. SearXNG er valgfri.
+Stack: Docker Compose, Python 3.12, FastAPI, SQLAlchemy 2.0, Pydantic v2, Ollama, MariaDB, and a minimal React frontend. SearXNG is optional.
 
-## Problemformulering
-**Hovedspørgsmål:** Hvordan kan der udvikles en Python-applikation, som med en lokal sprogmodel kan sammensætte en kompatibel pc-konfiguration ud fra brugerens egen hardwarebeholdning og en projektbeskrivelse i fri tekst? Og hvordan kan AI-værktøjer bruges i udviklingen, samtidig med at kvaliteten af både den genererede kode og modellens forslag sikres?
+## Problem statement
 
-**Underspørgsmål:**
-1. Hvordan modelleres beholdningen i en database, så komponenternes egenskaber kan bruges til automatisk kompatibilitetstjek?
-2. Hvordan oversætter en lokal LLM fri tekst til strukturerede krav, og hvordan valideres output (Pydantic og regelbaseret verifikation), så hallucinerede eller inkompatible forslag bliver afvist?
-3. Hvordan er AI brugt som programmeringsassistent, hvilke fejl blev fundet i AI-genereret kode, og hvordan blev de rettet?
-4. Hvordan sikrer unit tests kompatibilitetsregler, datavalidering og håndtering af ugyldigt AI-output?
-5. Hvordan uploades data til cloud (Azure), og hvilke overvejelser om datasikkerhed og ansvarlig AI-brug er relevante?
+> The problem statement below is a working English translation. The version actually submitted to and approved by the instructor (zukh@zealand.dk) was written and approved in Danish — see `docs/exam-requirements.md` for the exam's own requirements. This translation exists for the student's own reading comfort; if the two ever diverge, the approved Danish version is authoritative for exam purposes.
 
-**Afgrænsning:** Kun desktop- og server-pc-komponenter. Ingen priser eller køb. LLM'en fortolker og rangerer, mens kompatibiliteten altid afgøres af kode. Frontenden er sekundær.
+**Main question:** How can a Python application be developed that, using a local language model, can assemble a compatible PC configuration from the user's own hardware inventory and a free-text project description? And how can AI tools be used in the development itself, while safeguarding the quality of both the generated code and the model's suggestions?
 
-## Eksamenskrav, der påvirker koden
-- Læringsmålene vægter: **AI som udviklingsværktøj**, **vurdering og forbedring af AI-genereret kode**, **unit tests**, **kvalitetssikring** og **kritisk og ansvarlig brug af AI**.
-- Formkrav: applikationen skal kunne **uploade data til clouden** (Azure foretrukket, localhost accepteret).
-- Rapporten er højst 5 normalsider (12.000 anslag). Kode og bilag tæller ikke med. Koden og `docs/ai-log.md` er derfor det, der skal dokumentere arbejdet.
-- Mundtlig eksamen: 5 min fremlæggelse og 5 min eksamination. Hele flowet skal kunne demonstreres hurtigt.
+**Sub-questions:**
+1. How is the inventory modeled in a database so that component properties can be used for automatic compatibility checking?
+2. How does a local LLM translate free text into structured requirements, and how is that output validated (Pydantic and rule-based verification) so hallucinated or incompatible suggestions are rejected?
+3. How is AI used as a programming assistant, what errors were found in AI-generated code, and how were they fixed?
+4. How do unit tests secure the compatibility rules, data validation, and handling of invalid AI output?
+5. How is data uploaded to the cloud (Azure), and what data-security and responsible-AI-use considerations are relevant?
 
-## Arbejdsregler for Claude Code
-1. **Arbejd fase for fase** efter SPEC.md §11. **Stop efter hver fase**, opsummér hvad der er lavet, og vent på review før næste fase.
-2. **Opdatér `docs/ai-log.md` efter hver fase** (format i SPEC.md §10). Vær ærlig om antagelser, usikkerheder og svage steder. Feltet "Review" udfylder den studerende selv. Lad det stå tomt.
-3. Små, fokuserede commits pr. feature med beskrivende commit-beskeder.
-4. Ingen test må kræve Ollama, MariaDB eller Azure. Brug fakes, mocks, SQLite og `LocalStorage`.
-5. Kør `ruff check`, `ruff format` og `pytest` før du siger, at en fase er færdig.
-6. Kode, identifiers og docstrings skrives på engelsk. `docs/`, README og ai-log skrives på dansk.
-7. Ingen secrets i repoet. Nye env-variabler tilføjes til `.env.example`.
-8. Er noget i specen uklart eller selvmodsigende, så **spørg** i stedet for at gætte.
-9. Findes der allerede kode i repoet, så tilpas den til specen frem for at starte forfra, og forklar hvad du ændrer.
+**Scope boundaries:** Desktop and server PC components only. No prices or purchasing. The LLM interprets and ranks, while compatibility is always decided by code. The frontend is secondary.
+
+## Exam requirements that affect the code
+- The learning objectives weight: **AI as a development tool**, **assessing and improving AI-generated code**, **unit tests**, **quality assurance**, and **critical and responsible use of AI**.
+- Formal requirement: the application must be able to **upload data to the cloud** (Azure preferred, localhost accepted).
+- The report is at most 5 standard pages (12,000 characters). Code and appendices don't count toward that. The code and `docs/ai-log.md` are therefore what documents the work.
+- Oral exam: 5 min presentation and 5 min examination. The whole flow must be demonstrable quickly.
+
+## Working rules for Claude Code
+1. **Work phase by phase** per SPEC.md §11. **Stop after each phase**, summarize what was done, and wait for review before the next phase.
+2. **Update `docs/ai-log.md` after each phase** (format in SPEC.md §10). Be honest about assumptions, uncertainties, and weak points. The "Review" field is filled in by the student themselves. Leave it empty.
+3. Small, focused commits per feature with descriptive commit messages.
+4. No test may require Ollama, MariaDB, or Azure. Use fakes, mocks, SQLite, and `LocalStorage`.
+5. Run `ruff check`, `ruff format`, and `pytest` before declaring a phase done.
+6. Code, identifiers, docstrings, UI text, and all project documentation (`docs/`, README, ai-log, this file) are written in English, per the student's explicit request — not the Danish originally planned. The original source documents this project is built from (`SPEC.md`, and the instructor's course materials referenced in `docs/exam-requirements.md`) remain in their original Danish; only the project's own generated code, UI, and documentation have been translated.
+7. No secrets in the repo. New env variables are added to `.env.example`.
+8. If anything in the spec is unclear or self-contradictory, **ask** instead of guessing.
+9. If code already exists in the repo, adapt it to the spec rather than starting over, and explain what you're changing.
 
 ## Agent skills
 

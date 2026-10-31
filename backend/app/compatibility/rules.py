@@ -18,10 +18,12 @@ def cpu_socket_matches_board(build: Build) -> RuleResult:
     cpu_socket = build.cpu.specs.socket
     board_socket = build.motherboard.specs.socket
     if cpu_socket is None or board_socket is None:
-        return RuleResult("unknown", "CPU- eller bundkort-socket er ikke angivet.")
+        return RuleResult("unknown", "CPU or motherboard socket is not specified.")
     if cpu_socket == board_socket:
-        return RuleResult("pass", f"CPU-socket {cpu_socket} matcher bundkortet.")
-    return RuleResult("fail", f"CPU-socket {cpu_socket} passer ikke med bundkortets socket {board_socket}.")
+        return RuleResult("pass", f"CPU socket {cpu_socket} matches the motherboard.")
+    return RuleResult(
+        "fail", f"CPU socket {cpu_socket} does not match the motherboard's socket {board_socket}."
+    )
 
 
 def ram_type_matches(build: Build) -> RuleResult:
@@ -29,32 +31,34 @@ def ram_type_matches(build: Build) -> RuleResult:
     board_types = build.motherboard.specs.memory_type
     cpu_types = build.cpu.specs.memory_type
     if ram_type is None or board_types is None or cpu_types is None:
-        return RuleResult("unknown", "RAM-type, bundkort- eller CPU-hukommelsestype er ikke angivet.")
+        return RuleResult(
+            "unknown", "RAM type, motherboard memory type, or CPU memory type is not specified."
+        )
     if ram_type in board_types and ram_type in cpu_types:
-        return RuleResult("pass", f"{ram_type} understøttes af både CPU og bundkort.")
+        return RuleResult("pass", f"{ram_type} is supported by both the CPU and motherboard.")
     return RuleResult(
         "fail",
-        f"{ram_type}-RAM understøttes ikke af bundkort ({board_types}) og/eller CPU ({cpu_types}).",
+        f"{ram_type} RAM is not supported by the motherboard ({board_types}) and/or CPU ({cpu_types}).",
     )
 
 
 def ram_form_is_dimm(build: Build) -> RuleResult:
     form = build.ram.specs.form
     if form is None:
-        return RuleResult("unknown", "RAM-formfaktor er ikke angivet.")
+        return RuleResult("unknown", "RAM form factor is not specified.")
     if form == "DIMM":
-        return RuleResult("pass", "RAM er DIMM, som desktop-bundkort kræver.")
-    return RuleResult("fail", f"Desktop-bundkort kræver DIMM, RAM er {form}.")
+        return RuleResult("pass", "RAM is DIMM, as required by desktop motherboards.")
+    return RuleResult("fail", f"Desktop motherboards require DIMM, RAM is {form}.")
 
 
 def ram_slots_sufficient(build: Build) -> RuleResult:
     modules = build.ram.specs.modules
     slots = build.motherboard.specs.memory_slots
     if modules is None or slots is None:
-        return RuleResult("unknown", "Antal RAM-moduler eller bundkortets RAM-slots er ikke angivet.")
+        return RuleResult("unknown", "Number of RAM modules or the motherboard's RAM slots is not specified.")
     if modules <= slots:
-        return RuleResult("pass", f"{modules} modul(er) passer i {slots} slot(s).")
-    return RuleResult("fail", f"{modules} modul(er) passer ikke i kun {slots} slot(s).")
+        return RuleResult("pass", f"{modules} module(s) fit in {slots} slot(s).")
+    return RuleResult("fail", f"{modules} module(s) don't fit in only {slots} slot(s).")
 
 
 def ram_capacity_within_board_max(build: Build) -> RuleResult:
@@ -62,11 +66,11 @@ def ram_capacity_within_board_max(build: Build) -> RuleResult:
     modules = build.ram.specs.modules
     max_gb = build.motherboard.specs.max_memory_gb
     if per_module is None or modules is None or max_gb is None:
-        return RuleResult("unknown", "RAM-kapacitet eller bundkortets max. hukommelse er ikke angivet.")
+        return RuleResult("unknown", "RAM capacity or the motherboard's max. memory is not specified.")
     total = per_module * modules
     if total <= max_gb:
-        return RuleResult("pass", f"{total} GB RAM er inden for bundkortets maks ({max_gb} GB).")
-    return RuleResult("fail", f"{total} GB RAM overstiger bundkortets maks ({max_gb} GB).")
+        return RuleResult("pass", f"{total} GB RAM is within the motherboard's maximum ({max_gb} GB).")
+    return RuleResult("fail", f"{total} GB RAM exceeds the motherboard's maximum ({max_gb} GB).")
 
 
 def board_fits_case(build: Build) -> RuleResult:
@@ -74,58 +78,58 @@ def board_fits_case(build: Build) -> RuleResult:
     supported = build.case.specs.supported_form_factors
     if form_factor is None or supported is None:
         return RuleResult(
-            "unknown", "Bundkortets formfaktor eller kabinettets støttede formfaktorer er ikke angivet."
+            "unknown", "Motherboard form factor or the case's supported form factors is not specified."
         )
     if form_factor in supported:
-        return RuleResult("pass", f"Kabinettet understøtter {form_factor}.")
-    return RuleResult("fail", f"Kabinettet understøtter ikke bundkortets formfaktor {form_factor}.")
+        return RuleResult("pass", f"The case supports {form_factor}.")
+    return RuleResult("fail", f"The case does not support the motherboard's form factor {form_factor}.")
 
 
 def gpu_fits_case(build: Build) -> RuleResult:
     if build.gpu is None:
-        return RuleResult("pass", "Intet GPU valgt — reglen er ikke relevant.")
+        return RuleResult("pass", "No GPU selected — this rule does not apply.")
     length = build.gpu.specs.length_mm
     max_length = build.case.specs.max_gpu_length_mm
     if length is None or max_length is None:
-        return RuleResult("unknown", "GPU-længde eller kabinettets maks. GPU-længde er ikke angivet.")
+        return RuleResult("unknown", "GPU length or the case's max. GPU length is not specified.")
     if length <= max_length:
-        return RuleResult("pass", f"GPU ({length} mm) passer i kabinettet (maks {max_length} mm).")
-    return RuleResult("fail", f"GPU ({length} mm) er for lang til kabinettet (maks {max_length} mm).")
+        return RuleResult("pass", f"GPU ({length} mm) fits in the case (max {max_length} mm).")
+    return RuleResult("fail", f"GPU ({length} mm) is too long for the case (max {max_length} mm).")
 
 
 def cooler_fits_case(build: Build) -> RuleResult:
     cooler_type = build.cooler.specs.type
     if cooler_type is None:
-        return RuleResult("unknown", "Kølertype (air/aio) er ikke angivet.")
+        return RuleResult("unknown", "Cooler type (air/aio) is not specified.")
     if cooler_type != "air":
-        return RuleResult("pass", "Reglen gælder kun luftkølere.")
+        return RuleResult("pass", "This rule only applies to air coolers.")
     height = build.cooler.specs.height_mm
     max_height = build.case.specs.max_cooler_height_mm
     if height is None or max_height is None:
-        return RuleResult("unknown", "Luftkølerens højde eller kabinettets maks. kølerhøjde er ikke angivet.")
+        return RuleResult("unknown", "Air cooler height or the case's max. cooler height is not specified.")
     if height <= max_height:
-        return RuleResult("pass", f"Køler ({height} mm) passer i kabinettet (maks {max_height} mm).")
-    return RuleResult("fail", f"Køler ({height} mm) er for høj til kabinettet (maks {max_height} mm).")
+        return RuleResult("pass", f"Cooler ({height} mm) fits in the case (max {max_height} mm).")
+    return RuleResult("fail", f"Cooler ({height} mm) is too tall for the case (max {max_height} mm).")
 
 
 def cooler_supports_socket(build: Build) -> RuleResult:
     socket = build.cpu.specs.socket
     supported = build.cooler.specs.supported_sockets
     if socket is None or supported is None:
-        return RuleResult("unknown", "CPU-socket eller kølerens støttede sockets er ikke angivet.")
+        return RuleResult("unknown", "CPU socket or the cooler's supported sockets is not specified.")
     if socket in supported:
-        return RuleResult("pass", f"Køleren understøtter socket {socket}.")
-    return RuleResult("fail", f"Køleren understøtter ikke CPU-socket {socket}.")
+        return RuleResult("pass", f"The cooler supports socket {socket}.")
+    return RuleResult("fail", f"The cooler does not support CPU socket {socket}.")
 
 
 def cooler_handles_tdp(build: Build) -> RuleResult:
     rating = build.cooler.specs.tdp_rating_w
     cpu_tdp = build.cpu.specs.tdp_w
     if rating is None or cpu_tdp is None:
-        return RuleResult("unknown", "Kølerens TDP-rating eller CPU'ens TDP er ikke angivet.")
+        return RuleResult("unknown", "Cooler TDP rating or the CPU's TDP is not specified.")
     if rating >= cpu_tdp:
-        return RuleResult("pass", f"Køler ({rating} W) dækker CPU'ens {cpu_tdp} W.")
-    return RuleResult("fail", f"Køler ({rating} W) dækker ikke CPU'ens {cpu_tdp} W.")
+        return RuleResult("pass", f"Cooler ({rating} W) covers the CPU's {cpu_tdp} W.")
+    return RuleResult("fail", f"Cooler ({rating} W) does not cover the CPU's {cpu_tdp} W.")
 
 
 def psu_wattage_sufficient(build: Build) -> RuleResult:
@@ -134,72 +138,76 @@ def psu_wattage_sufficient(build: Build) -> RuleResult:
     if build.gpu is not None:
         gpu_tdp = build.gpu.specs.tdp_w
         if gpu_tdp is None:
-            return RuleResult("unknown", "GPU'ens TDP er ikke angivet.")
+            return RuleResult("unknown", "GPU TDP is not specified.")
     psu_w = build.psu.specs.wattage_w
     if cpu_tdp is None or psu_w is None:
-        return RuleResult("unknown", "CPU'ens TDP eller PSU'ens watt er ikke angivet.")
+        return RuleResult("unknown", "CPU TDP or PSU wattage is not specified.")
 
     settings = get_settings()
     required = (cpu_tdp + gpu_tdp + settings.psu_base_watt_w) * settings.psu_safety_margin
     if psu_w >= required:
-        return RuleResult("pass", f"PSU ({psu_w} W) dækker det estimerede behov ({required:.0f} W).")
-    return RuleResult("fail", f"PSU ({psu_w} W) dækker ikke det estimerede behov ({required:.0f} W).")
+        return RuleResult("pass", f"PSU ({psu_w} W) covers the estimated requirement ({required:.0f} W).")
+    return RuleResult("fail", f"PSU ({psu_w} W) does not cover the estimated requirement ({required:.0f} W).")
 
 
 def psu_has_gpu_connectors(build: Build) -> RuleResult:
     if build.gpu is None:
-        return RuleResult("pass", "Intet GPU valgt — reglen er ikke relevant.")
+        return RuleResult("pass", "No GPU selected — this rule does not apply.")
     gpu_connectors = build.gpu.specs.pcie_power_connectors
     psu_connectors = build.psu.specs.pcie_power_connectors
     if gpu_connectors is None or psu_connectors is None:
-        return RuleResult("unknown", "GPU'ens eller PSU'ens strømstik er ikke angivet.")
+        return RuleResult("unknown", "GPU or PSU power connectors are not specified.")
     required = Counter(gpu_connectors)
     available = Counter(psu_connectors)
     if all(available.get(connector, 0) >= count for connector, count in required.items()):
-        return RuleResult("pass", "PSU har de strømstik, GPU'en kræver.")
-    return RuleResult("fail", f"PSU ({psu_connectors}) mangler et af GPU'ens strømstik ({gpu_connectors}).")
+        return RuleResult("pass", "The PSU has the power connectors the GPU requires.")
+    return RuleResult(
+        "fail", f"PSU ({psu_connectors}) is missing one of the GPU's power connectors ({gpu_connectors})."
+    )
 
 
 def psu_fits_case(build: Build) -> RuleResult:
     psu_form_factor = build.psu.specs.form_factor
     case_psu_form_factor = build.case.specs.psu_form_factor
     if psu_form_factor is None or case_psu_form_factor is None:
-        return RuleResult("unknown", "PSU'ens eller kabinettets PSU-formfaktor er ikke angivet.")
+        return RuleResult("unknown", "PSU form factor or the case's PSU form factor is not specified.")
     if psu_form_factor == case_psu_form_factor:
-        return RuleResult("pass", f"Kabinettet understøtter {psu_form_factor}-PSU'er.")
-    return RuleResult("fail", f"Kabinettet kræver en {case_psu_form_factor}-PSU, denne er {psu_form_factor}.")
+        return RuleResult("pass", f"The case supports {psu_form_factor} PSUs.")
+    return RuleResult(
+        "fail", f"The case requires a {case_psu_form_factor} PSU, this one is {psu_form_factor}."
+    )
 
 
 def storage_slots_available(build: Build) -> RuleResult:
     interface = build.storage.specs.interface
     if interface is None:
-        return RuleResult("unknown", "Lagerenhedens interface er ikke angivet.")
+        return RuleResult("unknown", "Storage device interface is not specified.")
     if interface == "nvme":
         slots = build.motherboard.specs.m2_slots
         if slots is None:
-            return RuleResult("unknown", "Bundkortets antal M.2-slots er ikke angivet.")
+            return RuleResult("unknown", "Motherboard's number of M.2 slots is not specified.")
         if slots >= 1:
-            return RuleResult("pass", f"Bundkortet har {slots} M.2-slot(s) til NVMe-drevet.")
-        return RuleResult("fail", "Bundkortet har ingen M.2-slots til NVMe-drevet.")
+            return RuleResult("pass", f"The motherboard has {slots} M.2 slot(s) for the NVMe drive.")
+        return RuleResult("fail", "The motherboard has no M.2 slots for the NVMe drive.")
     ports = build.motherboard.specs.sata_ports
     if ports is None:
-        return RuleResult("unknown", "Bundkortets antal SATA-porte er ikke angivet.")
+        return RuleResult("unknown", "Motherboard's number of SATA ports is not specified.")
     if ports >= 1:
-        return RuleResult("pass", f"Bundkortet har {ports} SATA-port(e) til drevet.")
-    return RuleResult("fail", "Bundkortet har ingen SATA-porte til drevet.")
+        return RuleResult("pass", f"The motherboard has {ports} SATA port(s) for the drive.")
+    return RuleResult("fail", "The motherboard has no SATA ports for the drive.")
 
 
 def display_output_available(build: Build, *, headless: bool = False) -> RuleResult:
     if headless:
-        return RuleResult("pass", "Headless — skærmudgang er ikke nødvendig.")
+        return RuleResult("pass", "Headless — no display output needed.")
     if build.gpu is not None:
-        return RuleResult("pass", "GPU leverer skærmudgang.")
+        return RuleResult("pass", "GPU provides display output.")
     igpu = build.cpu.specs.integrated_graphics
     if igpu is None:
-        return RuleResult("unknown", "Det er ikke angivet, om CPU'en har integreret grafik.")
+        return RuleResult("unknown", "It is not specified whether the CPU has integrated graphics.")
     if igpu:
-        return RuleResult("pass", "CPU'en har integreret grafik.")
-    return RuleResult("fail", "Intet GPU, og CPU'en har ikke integreret grafik — ingen skærmudgang.")
+        return RuleResult("pass", "The CPU has integrated graphics.")
+    return RuleResult("fail", "No GPU, and the CPU does not have integrated graphics — no display output.")
 
 
 ALL_RULES = [

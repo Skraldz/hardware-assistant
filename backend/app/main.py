@@ -42,10 +42,8 @@ class CatchUnhandledExceptionsMiddleware(BaseHTTPMiddleware):
         try:
             return await call_next(request)
         except Exception:
-            logger.exception("Uventet fejl under %s %s", request.method, request.url.path)
-            return JSONResponse(
-                status_code=500, content={"detail": "Der opstod en uventet fejl på serveren."}
-            )
+            logger.exception("Unexpected error during %s %s", request.method, request.url.path)
+            return JSONResponse(status_code=500, content={"detail": "An unexpected server error occurred."})
 
 
 app.add_middleware(CatchUnhandledExceptionsMiddleware)

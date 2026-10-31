@@ -232,7 +232,7 @@ def test_unhandled_exception_still_gets_cors_headers(client):
 
     class ExplodingLLMClient:
         def generate_structured(self, *, system, prompt, schema):
-            raise RuntimeError("uventet fejl i en afhængighed, ikke fanget af call_llm_with_retry")
+            raise RuntimeError("unexpected error in a dependency, not caught by call_llm_with_retry")
 
         def ping(self):
             return True
@@ -249,7 +249,7 @@ def test_unhandled_exception_still_gets_cors_headers(client):
 
     assert response.status_code == 500
     assert response.headers.get("access-control-allow-origin") == "*"
-    assert response.json()["detail"] == "Der opstod en uventet fejl på serveren."
+    assert response.json()["detail"] == "An unexpected server error occurred."
 
 
 # --- /api/recommend ---
@@ -261,7 +261,7 @@ def test_recommend_endpoint_returns_a_build(client):
         [load_fixture("valid_requirements_headless_ai.json"), load_fixture("valid_ranking.json")]
     )
 
-    response = client.post("/api/recommend", json={"prompt": "headless pc til lokal AI", "max_builds": 3})
+    response = client.post("/api/recommend", json={"prompt": "headless pc for local AI", "max_builds": 3})
 
     assert response.status_code == 200
     body = response.json()
@@ -276,7 +276,7 @@ def test_recommend_endpoint_reports_missing_categories_for_empty_inventory(clien
         [load_fixture("valid_requirements_generic.json")]
     )
 
-    response = client.post("/api/recommend", json={"prompt": "noget pc", "max_builds": 3})
+    response = client.post("/api/recommend", json={"prompt": "some pc", "max_builds": 3})
 
     assert response.status_code == 200
     body = response.json()

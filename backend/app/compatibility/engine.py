@@ -3,8 +3,8 @@ pass or unknown (SPEC.md §5 step 3). No LLM involved: candidates are assumed
 already filtered (quantity > 0, condition != faulty, any hard requirements)
 by the caller — that filtering is the pipeline's job (Phase 3).
 
-Combinatorics are bounded by `top_n` per category (SPEC.md §6: "Begræns
-kombinatorikken ... så den kører hurtigt med ~200 komponenter"). Candidates
+Combinatorics are bounded by `top_n` per category (SPEC.md §6: "bound the
+combinatorics ... so it runs quickly with ~200 components"). Candidates
 are taken in the order given — ranking candidates by relevance before
 calling the engine is the caller's responsibility.
 """

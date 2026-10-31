@@ -10,7 +10,7 @@ function getInitialLanguage() {
   } catch {
     // localStorage unavailable (private browsing, blocked storage, …) — fall through to the default.
   }
-  return "da";
+  return "en";
 }
 
 export function LanguageProvider({ children }) {
@@ -25,7 +25,7 @@ export function LanguageProvider({ children }) {
   }, [language]);
 
   function t(key, ...args) {
-    const value = translations[language]?.[key] ?? translations.da[key];
+    const value = translations[language]?.[key] ?? translations.en[key];
     return typeof value === "function" ? value(...args) : value;
   }
 

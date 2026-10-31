@@ -49,7 +49,7 @@ class OllamaClient:
             response.raise_for_status()
             return response.json()["response"]
         except httpx.HTTPError as exc:
-            raise LLMUnavailableError(f"Kunne ikke nå Ollama: {exc}") from exc
+            raise LLMUnavailableError(f"Could not reach Ollama: {exc}") from exc
 
     def ping(self) -> bool:
         try:

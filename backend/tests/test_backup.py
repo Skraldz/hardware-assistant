@@ -94,7 +94,7 @@ def test_restore_rejects_invalid_component_and_changes_nothing(db_session, tmp_p
     )
     storage.upload(info.name, json.dumps(snapshot).encode("utf-8"))
 
-    with pytest.raises(BackupRestoreError, match="Ugyldig komponent"):
+    with pytest.raises(BackupRestoreError, match="Invalid component"):
         restore_backup(db_session, storage, info.name)
 
     assert db_session.query(Component).one().name == "Untouched component"
@@ -110,7 +110,7 @@ def test_restore_rejects_invalid_json(db_session, tmp_path):
     storage = LocalStorage(str(tmp_path))
     storage.upload("inventory-20260101T000000Z.json", b"not valid json {{{")
 
-    with pytest.raises(BackupRestoreError, match="gyldig JSON"):
+    with pytest.raises(BackupRestoreError, match="valid JSON"):
         restore_backup(db_session, storage, "inventory-20260101T000000Z.json")
 
 

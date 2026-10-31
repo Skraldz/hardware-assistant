@@ -1,56 +1,58 @@
-# Eksamenskrav — Programmering og AI
+# Exam Requirements — Programming and AI
 
-> Udtrukket fra `notes/Programmering-og-AI_suan.pptx` (kickoff-slides, underviser Zuhair Haroon Khan)
-> og `notes/Samlet-valgfagskatalog-IT-tek-efteraar-2026.pdf` (kun §2.1 Programmering og AI + §3.1 Eksamen i Programmering og AI — §2.2 IT-sikkerhed og §2.3 Hardwaredesign er andre valgfag og er ikke relevante her).
-> Formål: ét samlet sted at slå eksamensregler op, så de ikke skal genfindes i to kildedokumenter. Denne fil er bilag/arbejdsdokument — tæller ikke med i de 12.000 anslag.
+> Extracted from `notes/Programmering-og-AI_suan.pptx` (kickoff slides, instructor Zuhair Haroon Khan)
+> and `notes/Samlet-valgfagskatalog-IT-tek-efteraar-2026.pdf` (only §2.1 Programmering og AI + §3.1 Eksamen i Programmering og AI — §2.2 IT-sikkerhed and §2.3 Hardwaredesign are other electives and not relevant here).
+> Purpose: one consolidated place to look up exam rules so they don't need to be re-found across two source documents. This file is a supporting/working document — it does not count toward the 12,000-character limit.
+>
+> This is a working English translation of Danish source material (the official course catalog and the instructor's slides). If anything here is ambiguous, the original Danish documents in `notes/` are authoritative.
 
-## Fagets indhold (5 ECTS)
+## Course content (5 ECTS)
 
-Praktisk valgfag: udvikling af moderne softwareløsninger i Python med AI som udviklingsværktøj. Særligt fokus på:
-- AI som programmeringsassistent
-- Udvikling af Python-applikationer med AI
-- Kvalitetssikring af AI-genereret kode
-- Kritisk og ansvarlig brug af AI
+Practical elective: developing modern software solutions in Python with AI as a development tool. Particular focus on:
+- AI as a programming assistant
+- Developing Python applications with AI
+- Quality assurance of AI-generated code
+- Critical and responsible use of AI
 
-## Læringsmål
+## Learning objectives
 
-**Viden:** forståelse for hvordan AI anvendes i softwareudvikling; viden om Python i AI-understøttet programmering; forståelse for test og kvalitetssikring.
+**Knowledge:** understanding of how AI is used in software development; knowledge of Python in AI-assisted programming; understanding of testing and quality assurance.
 
-**Færdigheder:** anvende AI til at udvikle og implementere funktionelle Python-applikationer; vurdere, evaluere og forbedre AI-genereret kode; skrive og anvende unit tests; formidle praksisnære problemstillinger og løsningsmuligheder inden for kvalitetssikring.
+**Skills:** using AI to develop and implement functional Python applications; assessing, evaluating, and improving AI-generated code; writing and applying unit tests; communicating practice-relevant problems and solutions within quality assurance.
 
-**Kompetencer:** håndtere udviklingsorienterede situationer med AI-værktøjer; i strukturerede rammer løbende tilpasse sig nye metoder til AI i programmering og kvalitetssikring.
+**Competencies:** handling development-oriented situations with AI tools; within structured frameworks, continuously adapting to new methods for AI in programming and quality assurance.
 
-→ Dette er hvorfor projektet prioriterer kvalitetssikring af AI-output, unit tests og `docs/ai-log.md` højere end selve featuresættet (se CLAUDE.md §"Eksamenskrav").
+→ This is why the project prioritizes quality assurance of AI output, unit tests, and `docs/ai-log.md` above the feature set itself (see CLAUDE.md §"Exam requirements").
 
-## Skriftligt produkt (formkrav)
+## Written product (formal requirements)
 
-- Dokumentation af design, modellering og udvikling af en Python-applikation med AI, **der kan uploade data til clouden** (Azure foretrukket, localhost accepteret hvis cloud ikke er muligt).
-- **Maks. 5 normalsider = 12.000 anslag** inkl. mellemrum og fodnoter. 1 normalside = 2.400 anslag.
-- Forside, bilag, programkode og lignende tæller **ikke** med i anslag.
-- Udarbejdes individuelt eller i gruppe på højst 2 studerende.
-- **Overholdes formkravet ikke, kan opgaven afvises** → ingen bedømmelse gives, og den studerende har brugt et eksamensforsøg (se "Forsøg og beståkrav" nedenfor).
+- Documentation of the design, modeling, and development of a Python application with AI, **capable of uploading data to the cloud** (Azure preferred, localhost accepted if cloud isn't possible).
+- **Max. 5 standard pages ("normalsider") = 12,000 characters**, including spaces and footnotes. 1 standard page = 2,400 characters.
+- Cover page, appendices, program code, and similar **do not** count toward the character limit.
+- Prepared individually or in a group of at most 2 students.
+- **If the formal requirements aren't met, the submission can be rejected** → no grade is given, and the student has used one exam attempt (see "Attempts and passing requirements" below).
 
-## Mundtlig eksamen
+## Oral exam
 
-- Mundtlig gruppeeksamen med udgangspunkt i det skriftlige produkt. Én studerende tæller som én gruppe.
-- Ingen forudsætninger for deltagelse. Alle hjælpemidler er tilladt.
-- **Fremlæggelse:** 5 min pr. gruppemedlem.
-- **Eksamination:** 5 min pr. gruppemedlem (gruppen eksamineres samlet).
-- **Votering + karaktermeddelelse:** 5 min pr. studerende.
-- For 1 studerende (dette projekt): **15 minutter i alt** (5+5+5).
-- Bedømmelse: intern eksamen, 7-trins-skala. Dokumentation og mundtlig præstation vurderes samlet (helhedsvurdering).
+- Oral group exam based on the written product. One student counts as one group.
+- No prerequisites for participation. All aids are permitted.
+- **Presentation:** 5 min per group member.
+- **Examination:** 5 min per group member (the group is examined together).
+- **Deliberation + grade announcement:** 5 min per student.
+- For 1 student (this project): **15 minutes total** (5+5+5).
+- Grading: internal exam, 7-point grading scale ("7-trins-skala"). Documentation and oral performance are assessed together (holistic assessment).
 
-## Forsøg og beståkrav
+## Attempts and passing requirements
 
-- Alle eksamener skal bestås med mindst karakteren **02**.
-- Den studerende har ret til **3 eksamensforsøg**.
-- Beståede eksamener kan ikke tages om.
-- Ved sygdom/reeksamen: samme grundlag som 1. forsøg; projektet kan redigeres, hvis reeksamen skyldes en ikke-bestået besvarelse.
+- All exams must be passed with at least the grade **02**.
+- The student is entitled to **3 exam attempts**.
+- Passed exams cannot be retaken.
+- In case of illness/re-exam: same basis as the 1st attempt; the project can be revised if the re-exam is due to a failed submission.
 
-## Handling krævet af den studerende (ikke noget Claude Code kan gøre)
+## Action required from the student (not something Claude Code can do)
 
-- **Problemformuleringen skal godkendes af underviseren før aflevering.** Send navn(e) (og evt. gruppemedlemmer til WISEflow) + problemformulering til `zukh@zealand.dk`. CLAUDE.md's problemformulering (se toppen af filen) er udgangspunktet — men selve godkendelsen er en mail, ingen kode kan sende den for dig.
+- **The problem statement must be approved by the instructor before submission.** Send name(s) (and any group members, for WISEflow) + problem statement to `zukh@zealand.dk`. CLAUDE.md's problem statement (see the top of the file) is the starting point — but the actual approval is an email; no code can send it for you.
 
-## Eksempler på projekter nævnt i kickoff (kontekst, ikke et krav)
+## Example projects mentioned at kickoff (context, not a requirement)
 
-Underviseren nævnte frit valgte eksempelprojekter (AI-forskningsassistent, AI-programmeringstutor, AI-baseret studievejleder, et RAG-dokumentsystem — og at projekter fra *andre* fag, fx netværksteknologi, indlejrede systemer eller IT-sikkerhed, også er acceptable, så længe AI + Python-programmering kombineres om en relevant problemstilling). Hardwareassistenten i dette repo er et selvstændigt valgt projekt og opfylder kravet ("programmering i Python kombineret med AI til at løse en relevant problemstilling") — ingen af disse eksempler er bindende for os.
+The instructor mentioned freely chosen example projects (AI research assistant, AI programming tutor, AI-based study advisor, a RAG document system — and noted that projects from *other* courses, e.g. network technology, embedded systems, or IT security, are also acceptable, as long as AI + Python programming are combined to solve a relevant problem). The hardware assistant in this repo is an independently chosen project and satisfies the requirement ("programming in Python combined with AI to solve a relevant problem") — none of these examples are binding for us.

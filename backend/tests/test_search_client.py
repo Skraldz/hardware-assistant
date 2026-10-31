@@ -15,7 +15,7 @@ def test_search_wraps_connection_error(mock_get):
     mock_get.side_effect = httpx.ConnectError("connection refused")
     client = SearxngClient(base_url="http://searxng:8080")
 
-    with pytest.raises(SearchUnavailableError, match="Kunne ikke nå SearXNG"):
+    with pytest.raises(SearchUnavailableError, match="Could not reach SearXNG"):
         client.search("rtx 2060 super")
 
 

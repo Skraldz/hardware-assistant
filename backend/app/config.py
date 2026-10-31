@@ -49,7 +49,7 @@ class Settings(BaseSettings):
             self.azure_storage_connection_string or self.azure_storage_account_url
         ):
             raise ValueError(
-                "BACKUP_BACKEND=azure kræver AZURE_STORAGE_CONNECTION_STRING eller AZURE_STORAGE_ACCOUNT_URL"
+                "BACKUP_BACKEND=azure requires AZURE_STORAGE_CONNECTION_STRING or AZURE_STORAGE_ACCOUNT_URL"
             )
         return self
 

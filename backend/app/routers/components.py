@@ -59,8 +59,8 @@ def search_components(
     if not settings.enable_web_lookup:
         raise HTTPException(
             status_code=400,
-            detail="Websøgning er deaktiveret (ENABLE_WEB_LOOKUP=false). "
-            "Kald /api/components/extract direkte med navnet.",
+            detail="Web lookup is disabled (ENABLE_WEB_LOOKUP=false). "
+            "Call /api/components/extract directly with the name.",
         )
     try:
         candidates = search_client.search(payload.name)
@@ -69,7 +69,7 @@ def search_components(
     if not candidates:
         raise HTTPException(
             status_code=404,
-            detail=f"Ingen søgeresultater fundet for '{payload.name}'. Indtast specifikationerne manuelt.",
+            detail=f"No search results found for '{payload.name}'. Enter the specs manually.",
         )
     return SearchResponse(query=payload.name, candidates=candidates)
 
@@ -86,7 +86,7 @@ def extract_component_specs(
         if payload.candidate is None:
             raise HTTPException(
                 status_code=400,
-                detail="ENABLE_WEB_LOOKUP=true kræver et 'candidate' valgt via /api/components/search.",
+                detail="ENABLE_WEB_LOOKUP=true requires a 'candidate' chosen via /api/components/search.",
             )
         web_snippet = f"{payload.candidate.title}\n{payload.candidate.snippet}"
         specs_source = SpecsSource.WEB_LOOKUP
@@ -103,7 +103,7 @@ def extract_component_specs(
     if envelope is None:
         raise HTTPException(
             status_code=422,
-            detail=f"Kunne ikke udtrække specifikationer for '{payload.name}'. Indtast dem manuelt.",
+            detail=f"Could not extract specifications for '{payload.name}'. Enter them manually.",
         )
 
     return ExtractResponse(

@@ -37,7 +37,7 @@ class SearxngClient:
             response.raise_for_status()
             results = response.json().get("results", [])[:MAX_CANDIDATES]
         except httpx.HTTPError as exc:
-            raise SearchUnavailableError(f"Kunne ikke nå SearXNG: {exc}") from exc
+            raise SearchUnavailableError(f"Could not reach SearXNG: {exc}") from exc
         return [
             SearchCandidate(
                 title=result.get("title", ""),

@@ -20,7 +20,7 @@ def test_generate_structured_wraps_connection_error(mock_post):
     mock_post.side_effect = httpx.ConnectError("connection refused")
     client = OllamaClient(base_url="http://ollama:11434", model="qwen2.5:7b-instruct", timeout=5.0)
 
-    with pytest.raises(LLMUnavailableError, match="Kunne ikke nå Ollama"):
+    with pytest.raises(LLMUnavailableError, match="Could not reach Ollama"):
         client.generate_structured(system="s", prompt="p", schema=DummySchema)
 
 

@@ -11,5 +11,5 @@ class FakeSearchClient:
     def search(self, query: str) -> list[SearchCandidate]:
         self.queries.append(query)
         if self._unavailable:
-            raise SearchUnavailableError("Simuleret: SearXNG kan ikke nås")
+            raise SearchUnavailableError("Simulated: SearXNG cannot be reached")
         return self._candidates

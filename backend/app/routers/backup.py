@@ -44,11 +44,11 @@ def restore_backup_endpoint(
     storage: BackupStorage = Depends(get_backup_storage_dependency),
 ) -> RestoreResponse:
     if not payload.confirm:
-        raise HTTPException(status_code=400, detail="confirm: true er påkrævet for at gendanne en backup.")
+        raise HTTPException(status_code=400, detail="confirm: true is required to restore a backup.")
     try:
         restored_count = restore_backup(db, storage, payload.name)
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=f"Backup '{payload.name}' findes ikke.") from exc
+        raise HTTPException(status_code=404, detail=f"Backup '{payload.name}' does not exist.") from exc
     except BackupRestoreError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return RestoreResponse(restored_count=restored_count)

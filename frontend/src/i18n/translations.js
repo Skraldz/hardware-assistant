@@ -1,10 +1,12 @@
 // All UI chrome text (labels, buttons, headings, static messages) lives
 // here. Backend-generated content — rule messages, LLM reasons, component
-// category/condition enum values, raw spec JSON — is NOT translated: it's
-// produced server-side (mostly in Danish, since that's what the backend's
-// prompts and error messages are written in) and translating it would mean
-// either re-implementing that logic client-side or asking the LLM to
-// translate on the fly, both out of scope for a secondary frontend.
+// category/condition enum values, raw spec JSON — is NOT translated by this
+// dictionary: the backend always produces it in English (its prompts and
+// error messages are written in English), regardless of which language is
+// selected here. Selecting "Dansk" only swaps the UI chrome; data/messages
+// coming from the API stay English. Translating those too would mean either
+// re-implementing that logic client-side or asking the LLM to translate on
+// the fly, both out of scope for a secondary frontend.
 export const translations = {
   da: {
     appTitle: "Hardware Assistant",

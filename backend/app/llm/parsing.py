@@ -51,7 +51,7 @@ def call_llm_with_retry[T: BaseModel](
             # A down/unreachable Ollama won't fix itself within this request —
             # go straight to fallback instead of burning the retry budget
             # (and the user's wait, mid-demo) on a call that will fail again.
-            logger.warning("LLM utilgængelig, bruger fallback uden yderligere forsøg: %s", exc)
+            logger.warning("LLM unavailable, using fallback without further attempts: %s", exc)
             return fallback, "fallback"
         try:
             data = json.loads(raw)
@@ -60,9 +60,9 @@ def call_llm_with_retry[T: BaseModel](
                 validate(parsed)
         except (json.JSONDecodeError, ValidationError, ValueError) as exc:
             last_error = str(exc)
-            logger.warning("LLM-svar ugyldigt (forsøg %d/%d): %s", attempt + 1, max_attempts, last_error)
+            logger.warning("Invalid LLM response (attempt %d/%d): %s", attempt + 1, max_attempts, last_error)
             continue
         return parsed, ("ok" if attempt == 0 else "retried")
 
-    logger.warning("LLM-svar ugyldigt efter %d forsøg, bruger fallback.", max_attempts)
+    logger.warning("LLM response invalid after %d attempts, using fallback.", max_attempts)
     return fallback, "fallback"

@@ -11,7 +11,7 @@ export default function InventoryView() {
   const [loadError, setLoadError] = useState(null);
 
   // Defaults to the project's own default (true) until /api/health answers,
-  // so the "Søg"/"Udtræk direkte" choice below always matches what the
+  // so the "Search"/"Extract directly" choice below always matches what the
   // backend will actually accept — see api.js's getHealth().
   const [webLookupEnabled, setWebLookupEnabled] = useState(true);
 

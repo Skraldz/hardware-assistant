@@ -83,19 +83,19 @@ def restore_backup(db: Session, storage: BackupStorage, name: str) -> int:
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise BackupRestoreError(f"Backup-filen er ikke gyldig JSON: {exc}") from exc
+        raise BackupRestoreError(f"Backup file is not valid JSON: {exc}") from exc
 
     if data.get("schema_version") != SCHEMA_VERSION:
-        raise BackupRestoreError(f"Ukendt schema_version: {data.get('schema_version')!r}")
+        raise BackupRestoreError(f"Unknown schema_version: {data.get('schema_version')!r}")
 
     raw_components = data.get("components", [])
     if data.get("component_count") != len(raw_components):
-        raise BackupRestoreError("component_count passer ikke med antallet af komponenter i filen.")
+        raise BackupRestoreError("component_count does not match the number of components in the file.")
 
     expected_hash = data.get("sha256")
     if expected_hash != _components_hash(raw_components):
         raise BackupRestoreError(
-            "Backup-filens sha256-hash matcher ikke indholdet — filen kan være korrumperet."
+            "The backup file's sha256 hash does not match its contents — the file may be corrupted."
         )
 
     validated: list[ComponentRead] = []
@@ -103,7 +103,7 @@ def restore_backup(db: Session, storage: BackupStorage, name: str) -> int:
         try:
             validated.append(ComponentRead.model_validate(item))
         except ValidationError as exc:
-            raise BackupRestoreError(f"Ugyldig komponent i backup (index {index}): {exc}") from exc
+            raise BackupRestoreError(f"Invalid component in backup (index {index}): {exc}") from exc
 
     try:
         db.query(Component).delete()

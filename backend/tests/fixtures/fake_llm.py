@@ -26,7 +26,7 @@ class FakeLLMClient:
     def generate_structured(self, *, system: str, prompt: str, schema: type[BaseModel]) -> str:
         self.prompts.append(prompt)
         if self._unavailable:
-            raise LLMUnavailableError("Simuleret: Ollama kan ikke nås")
+            raise LLMUnavailableError("Simulated: Ollama cannot be reached")
         if not self._responses:
             raise AssertionError("FakeLLMClient has no more queued responses")
         return self._responses.pop(0)
