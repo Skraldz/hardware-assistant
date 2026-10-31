@@ -188,18 +188,26 @@ def _to_build_result(
     )
 
 
-def _assistant_message(builds: list[BuildResult], missing: list[Category]) -> str:
+def _assistant_message(
+    builds: list[BuildResult], missing: list[Category], requirements: ProjectRequirements
+) -> str:
     """A short, deterministic natural-language summary of the result, shown
     as the assistant's reply in the chat-style recommend UI. Deliberately
-    not an extra LLM call: the result is already fully determined by the
-    structured data above, so there's nothing left for an LLM to add."""
+    not an extra LLM call: the result (and the clarifying question, if the
+    requirements-interpretation LLM asked for one) is already fully
+    determined by the structured data above, so there's nothing left for an
+    LLM to add."""
     missing_note = (
         f" No compatible options were found for: {', '.join(c.value for c in missing)}." if missing else ""
     )
+    question_note = f" {requirements.clarifying_question}" if requirements.clarifying_question else ""
+
     if not builds:
-        return "I couldn't put together a compatible build from the current inventory." + missing_note
-    lead = f"Found {len(builds)} compatible build{'s' if len(builds) != 1 else ''}."
-    return f"{lead} Top pick: {builds[0].reason}{missing_note}"
+        result = "I couldn't put together a compatible build from the current inventory." + missing_note
+    else:
+        lead = f"Found {len(builds)} compatible build{'s' if len(builds) != 1 else ''}."
+        result = f"{lead} Top pick: {builds[0].reason}{missing_note}"
+    return result + question_note
 
 
 def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClient) -> RecommendResponse:
@@ -226,7 +234,7 @@ def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClien
             builds=[],
             missing=missing,
             llm_used=LlmUsed(interpret=interpret_status, rank="ok"),
-            assistant_message=_assistant_message([], missing),
+            assistant_message=_assistant_message([], missing, requirements),
         )
 
     pool_size = max(max_builds * 3, 10)
@@ -259,5 +267,5 @@ def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClien
         builds=builds,
         missing=missing,
         llm_used=LlmUsed(interpret=interpret_status, rank=rank_status),
-        assistant_message=_assistant_message(builds, missing),
+        assistant_message=_assistant_message(builds, missing, requirements),
     )

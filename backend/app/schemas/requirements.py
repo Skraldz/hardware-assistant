@@ -25,6 +25,12 @@ class ProjectRequirements(BaseModel):
     # sufficient for the stated goal over the most capable one available,
     # and the ranking LLM is instructed (llm/prompts.py) to do the same.
     prefer_minimal_spec: bool = False
+    # Set by the LLM when the conversation so far is too vague to confidently
+    # fill in the fields above (e.g. no hint of budget/power constraints,
+    # intended use, or whether a display output is needed) -- surfaced to
+    # the user as part of the assistant's chat reply (pipeline/recommend.py)
+    # instead of silently guessing. Left null once enough is known.
+    clarifying_question: str | None = None
     notes: str = ""
 
 

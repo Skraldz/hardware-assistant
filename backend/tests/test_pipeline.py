@@ -141,6 +141,17 @@ def test_headless_local_ai_scenario_produces_a_build(db_session):
     assert Category.GPU in categories
 
 
+def test_clarifying_question_is_surfaced_in_the_assistant_message(db_session):
+    seed_compatible_inventory(db_session)
+    client = FakeLLMClient(
+        [load_fixture("valid_requirements_needs_clarification.json"), load_fixture("valid_ranking.json")]
+    )
+
+    result = recommend(prompt="a new pc", max_builds=3, db=db_session, llm_client=client)
+
+    assert "What will you mainly use this PC for" in result.assistant_message
+
+
 def test_incompatible_inventory_produces_no_builds_and_no_ranking_call(db_session):
     insert_component(
         db_session,
