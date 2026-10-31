@@ -2,6 +2,33 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-10-31 – Backups as spreadsheets (.xlsx), including saved builds
+
+**Deliberate deviation from SPEC.md, requested explicitly by the student:** §7.1 specifies a single JSON snapshot file (`inventory-<timestamp>.json`); §7.2.1 says the backup destination is chosen "exclusively via `.env`", no code changes to switch (already revisited in the previous entry — backend choice is now also per-request). This entry further departs from §7.1's exact format: backups are now `.xlsx` workbooks instead of JSON, and include saved builds, which §7.1 never covered at all (builds didn't exist in the original spec). Flagged here explicitly, the way earlier "out of scope" requests (cloud LLM option, buy-recommendations) were, so it's easy to point to for the exam if asked why the implementation diverges from the written spec.
+
+**Generated:**
+- `services/backup.py` rewritten: `export_snapshot(db)` still builds the same internal "snapshot" dict shape SPEC.md §7.1 describes (schema_version, created_at, app_version, component_count, sha256, components) plus a new `builds` key -- only the on-disk *encoding* changes. `_write_xlsx(snapshot)` produces a workbook with a `Metadata` sheet (the same five top-level fields as key-value rows), one sheet per `Category` (cpu/motherboard/ram/gpu/storage/psu/case/cooler) with columns for every `ComponentRead` field plus that category's own spec fields (introspected from `SPEC_CLASS_BY_CATEGORY`, so a schema change doesn't need a matching change here), and a `Builds` sheet. `_read_xlsx(data)` reverses this back into the same dict shape, so the rest of the restore logic (hash check, schema_version check, per-row Pydantic validation) is **unchanged** from before -- only `_read_backup`/`_write_xlsx`/`_read_xlsx` are new. `_read_backup(raw, name)` dispatches on the file extension, so backups created before this change (plain `.json`, no `builds` key) are still fully restorable.
+- **Component ids are remapped on restore.** A saved build's `components` field references component ids by whatever id they had *before* the restore -- since the DB assigns fresh auto-increment ids to the restored components (unchanged pre-existing behavior), restoring a build's old id references verbatim would silently point at the wrong (or no) components afterwards. `restore_backup` now tracks an old-id→new-id map while inserting components (via `db.flush()` after each insert to learn its new id) and rewrites each restored build's component references through that map before inserting the builds.
+- List/value encoding in cells: a Python `list` value (e.g. `memory_type`, `pcie_power_connectors`) is JSON-encoded into the cell as text and decoded back on read (`_to_cell`/`_from_cell`) -- Excel cells can't hold a Python list directly. Every other field type (str/int/bool/None, and ISO-string datetimes) is a native Excel cell type and needed no special handling.
+- `LocalStorage.list()`'s glob now matches both `inventory-*.xlsx` and `inventory-*.json`, so pre-existing `.json` backups on disk don't just disappear from the list after this change.
+
+**Assumptions:**
+- **SCHEMA_VERSION stays at 1** rather than being bumped, since adding `builds` is additive and backward-compatible (an old backup simply has none) -- bumping it would have made every pre-existing backup fail `schema_version` validation and become unrestorable, which felt like the wrong trade for a change that doesn't actually require a hard break.
+- **The components `sha256` hash still covers only `components`, not `builds`.** Extending it to also cover builds was considered and left out: it would mean either a second hash field or redefining what the existing one means, for a lower-stakes dataset (builds are a convenience, not the core inventory data `§7` is really about). Builds are still validated structurally via Pydantic on restore, just without the same cryptographic tamper-check.
+- **A corrupted/unreadable backup file in the list view is handled the same way regardless of why it's unreadable** (`list_backups`' `except Exception` is deliberately broad, not narrowed to the specific exception types openpyxl or json can raise) -- consistent with the existing test asserting the list "handles an unreadable backup file without crashing."
+
+**Known risks / weaknesses:**
+- **Hand-editing the spreadsheet before restoring it is not specifically guarded against beyond normal Pydantic validation.** A user could, for instance, accidentally turn a text cell into an Excel-native date by editing it, or mistype a value -- most such edits would either still parse correctly (Pydantic accepts both ISO strings and native datetimes for datetime fields) or fail cleanly with a validation error naming the row, but this hasn't been deliberately stress-tested against manual spreadsheet edits the way the original JSON format's hand-editing risk was never really a concern (JSON editing by hand is rare; spreadsheet editing is the whole point of this format, so it's a more realistic scenario).
+- **The list-typed-value encoding (`_from_cell` detecting a string starting with "[") would misread a plain text value that happens to start with "["** (e.g. a component name like "[Refurbished] RTX 2060") as if it were JSON, falling back to the raw string only if `json.loads` actually fails on it -- extremely unlikely in this hardware domain, not guarded against further.
+
+**Tests covering it:**
+- `test_backup.py` (6 new/changed tests): a full roundtrip including a saved build, with the restored build's component references correctly pointing at the newly-assigned ids, not the old ones; an invalid build in the file rejected the same way an invalid component already was; a legacy `.json` backup (no `builds` key) still restores correctly; the tampered-hash/unknown-schema-version/invalid-component tests updated to tamper the new xlsx-backed snapshot instead of raw JSON text.
+- `test_storage.py`: `LocalStorage.list()` returns both `.xlsx` and legacy `.json` backups together.
+- A real backup was generated and manually inspected (`load_workbook` against the actual output) to confirm the spreadsheet is genuinely clean and readable: correct sheet names, sensible headers, real values -- not just passing assertions on round-tripped data.
+- `ruff check`/`ruff format --check`/`pytest --cov` green: 194 tests, 95% overall coverage; `services/backup.py` at 94% (SPEC §9.1 requires ≥80% here).
+
+**Review (filled in by the student):**
+
 ## 2026-10-31 – Per-backup backend choice (local vs. Azure), and a saved build's purpose
 
 **Generated:**

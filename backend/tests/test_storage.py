@@ -126,3 +126,16 @@ def test_local_storage_ignores_unrelated_files(tmp_path):
     storage.upload("inventory-20260101T000000Z.json", b"{}")
 
     assert [b.name for b in storage.list()] == ["inventory-20260101T000000Z.json"]
+
+
+def test_local_storage_lists_both_xlsx_and_legacy_json_backups(tmp_path):
+    # .xlsx is the current (spreadsheet) format; .json backups created
+    # before that switch must still show up, not just silently disappear.
+    storage = LocalStorage(str(tmp_path))
+    storage.upload("inventory-20260102T000000Z.xlsx", b"PK\x03\x04fake-xlsx-bytes")
+    storage.upload("inventory-20260101T000000Z.json", b"{}")
+
+    assert {b.name for b in storage.list()} == {
+        "inventory-20260102T000000Z.xlsx",
+        "inventory-20260101T000000Z.json",
+    }

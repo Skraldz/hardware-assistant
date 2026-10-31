@@ -19,8 +19,12 @@ class LocalStorage:
         return str(path)
 
     def list(self) -> list[BackupInfo]:
+        # Matches both the current .xlsx format and any older .json backups
+        # already on disk from before the spreadsheet-format switch, so
+        # pre-existing backups don't just disappear from the list.
+        paths = [*self._directory.glob("inventory-*.xlsx"), *self._directory.glob("inventory-*.json")]
         infos = []
-        for path in sorted(self._directory.glob("inventory-*.json")):
+        for path in sorted(paths):
             stat = path.stat()
             infos.append(
                 BackupInfo(

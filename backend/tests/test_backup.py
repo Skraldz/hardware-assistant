@@ -2,13 +2,21 @@
 no real Azure/MariaDB) plus the API-level flows (confirm required, 404 for
 unknown backups, health never leaking secrets)."""
 
+import hashlib
 import json
 
 import pytest
 
 from app.enums import Category, Condition, SpecsSource
-from app.models import Component
-from app.services.backup import BackupRestoreError, create_backup, list_backups, restore_backup
+from app.models import Component, SavedBuild
+from app.services.backup import (
+    BackupRestoreError,
+    _read_xlsx,
+    _write_xlsx,
+    create_backup,
+    list_backups,
+    restore_backup,
+)
 from app.storage.local import LocalStorage
 
 
@@ -51,14 +59,109 @@ def test_backup_roundtrip_restores_identical_inventory(db_session, tmp_path):
     assert names == {"AMD Ryzen 5 3600", "RTX 2060"}
 
 
+def test_backup_roundtrip_restores_saved_builds_with_remapped_component_ids(db_session, tmp_path):
+    cpu = insert_component(db_session, name="AMD Ryzen 5 3600")
+    gpu = insert_component(db_session, name="RTX 2060", category=Category.GPU)
+    db_session.add(
+        SavedBuild(
+            name="My gaming PC",
+            components=[
+                {"id": cpu.id, "category": "cpu", "name": cpu.name},
+                {"id": gpu.id, "category": "gpu", "name": gpu.name},
+            ],
+            purpose="play Baldur's Gate 3 at max resolution and 60 FPS",
+            reason="Meets the stated requirements.",
+        )
+    )
+    db_session.commit()
+    storage = LocalStorage(str(tmp_path))
+
+    info = create_backup(db_session, storage)
+    assert info.component_count == 2
+
+    db_session.query(Component).delete()
+    db_session.query(SavedBuild).delete()
+    db_session.commit()
+
+    restore_backup(db_session, storage, info.name)
+
+    restored_build = db_session.query(SavedBuild).one()
+    assert restored_build.name == "My gaming PC"
+    assert restored_build.purpose == "play Baldur's Gate 3 at max resolution and 60 FPS"
+    # The restored components get fresh ids (auto-increment) -- the build's
+    # own component references must point at those new ids, not the old
+    # (now-meaningless) ones from before the restore.
+    restored_components = {c.name: c.id for c in db_session.query(Component).all()}
+    build_component_ids = {c["id"] for c in restored_build.components}
+    assert build_component_ids == set(restored_components.values())
+
+
+def test_restore_rejects_invalid_build_and_changes_nothing(db_session, tmp_path):
+    cpu = insert_component(db_session, name="Untouched component")
+    db_session.add(
+        SavedBuild(components=[{"id": cpu.id, "category": "cpu", "name": cpu.name}], completed=False)
+    )
+    db_session.commit()
+    storage = LocalStorage(str(tmp_path))
+    info = create_backup(db_session, storage)
+
+    snapshot = _read_xlsx(storage.download(info.name))
+    # A ComponentSummary missing its required fields -- invalid against
+    # SavedBuildRead's nested schema.
+    snapshot["builds"][0]["components"] = [{"id": 999}]
+    storage.upload(info.name, _write_xlsx(snapshot))
+
+    with pytest.raises(BackupRestoreError, match="Invalid saved build"):
+        restore_backup(db_session, storage, info.name)
+
+    assert db_session.query(Component).one().name == "Untouched component"
+    assert db_session.query(SavedBuild).count() == 1
+
+
+def test_restore_still_works_for_a_legacy_json_backup_without_a_builds_key(db_session, tmp_path):
+    insert_component(db_session, name="Legacy component")
+    storage = LocalStorage(str(tmp_path))
+    snapshot = {
+        "schema_version": 1,
+        "created_at": "2026-01-01T00:00:00",
+        "app_version": "0.1.0",
+        "component_count": 1,
+        "components": [
+            {
+                "id": 1,
+                "name": "Legacy component",
+                "manufacturer": None,
+                "quantity": 1,
+                "condition": "new",
+                "specs_source": "manual",
+                "specs_verified": True,
+                "notes": None,
+                "category": "cpu",
+                "specs": {"category": "cpu"},
+                "created_at": "2026-01-01T00:00:00",
+                "updated_at": "2026-01-01T00:00:00",
+            }
+        ],
+    }
+    snapshot["sha256"] = hashlib.sha256(
+        json.dumps(snapshot["components"], sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    storage.upload("inventory-20260101T000000Z.json", json.dumps(snapshot).encode("utf-8"))
+
+    restored_count = restore_backup(db_session, storage, "inventory-20260101T000000Z.json")
+
+    assert restored_count == 1
+    assert db_session.query(SavedBuild).count() == 0
+
+
 def test_restore_rejects_tampered_hash(db_session, tmp_path):
     insert_component(db_session, name="Original component")
     storage = LocalStorage(str(tmp_path))
     info = create_backup(db_session, storage)
 
-    snapshot = json.loads(storage.download(info.name))
+    snapshot = _read_xlsx(storage.download(info.name))
     snapshot["components"][0]["name"] = "Tampered name"  # sha256 now stale
-    storage.upload(info.name, json.dumps(snapshot).encode("utf-8"))
+    storage.upload(info.name, _write_xlsx(snapshot))
 
     with pytest.raises(BackupRestoreError, match="sha256"):
         restore_backup(db_session, storage, info.name)
@@ -72,9 +175,9 @@ def test_restore_rejects_unknown_schema_version(db_session, tmp_path):
     storage = LocalStorage(str(tmp_path))
     info = create_backup(db_session, storage)
 
-    snapshot = json.loads(storage.download(info.name))
+    snapshot = _read_xlsx(storage.download(info.name))
     snapshot["schema_version"] = 99
-    storage.upload(info.name, json.dumps(snapshot).encode("utf-8"))
+    storage.upload(info.name, _write_xlsx(snapshot))
 
     with pytest.raises(BackupRestoreError, match="schema_version"):
         restore_backup(db_session, storage, info.name)
@@ -85,14 +188,12 @@ def test_restore_rejects_invalid_component_and_changes_nothing(db_session, tmp_p
     storage = LocalStorage(str(tmp_path))
     info = create_backup(db_session, storage)
 
-    snapshot = json.loads(storage.download(info.name))
-    del snapshot["components"][0]["category"]  # now invalid against ComponentRead
-    snapshot["sha256"] = (
-        __import__("hashlib")
-        .sha256(json.dumps(snapshot["components"], sort_keys=True).encode("utf-8"))
-        .hexdigest()
-    )
-    storage.upload(info.name, json.dumps(snapshot).encode("utf-8"))
+    snapshot = _read_xlsx(storage.download(info.name))
+    snapshot["components"][0]["quantity"] = -1  # violates ComponentBase's quantity >= 0
+    snapshot["sha256"] = hashlib.sha256(
+        json.dumps(snapshot["components"], sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    storage.upload(info.name, _write_xlsx(snapshot))
 
     with pytest.raises(BackupRestoreError, match="Invalid component"):
         restore_backup(db_session, storage, info.name)
@@ -119,9 +220,9 @@ def test_restore_rejects_component_count_mismatch(db_session, tmp_path):
     storage = LocalStorage(str(tmp_path))
     info = create_backup(db_session, storage)
 
-    snapshot = json.loads(storage.download(info.name))
+    snapshot = _read_xlsx(storage.download(info.name))
     snapshot["component_count"] = 99
-    storage.upload(info.name, json.dumps(snapshot).encode("utf-8"))
+    storage.upload(info.name, _write_xlsx(snapshot))
 
     with pytest.raises(BackupRestoreError, match="component_count"):
         restore_backup(db_session, storage, info.name)

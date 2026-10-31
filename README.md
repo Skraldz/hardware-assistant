@@ -54,6 +54,8 @@ AZURE_STORAGE_CONNECTION_STRING=...   # or AZURE_STORAGE_ACCOUNT_URL — either 
 
 The Backup tab shows which backends are actually usable and lets you switch between them; `GET /api/health`/`GET /api/backup` show the active backend and destination (never secrets).
 
+Backups are `.xlsx` spreadsheets — one sheet per hardware category (cpu, motherboard, ram, gpu, storage, psu, case, cooler), plus a `Builds` sheet for everything saved from the Builds tab and a `Metadata` sheet (schema version, timestamp, integrity hash) — directly openable and reviewable in Excel/LibreOffice/Google Sheets, not just a flat JSON blob. Backups created before this format existed (plain `.json`) are still listed and restorable.
+
 Backup endpoints: `POST /api/backup` (`{"backend": "local" | "azure" | null}`, create a backup — `null`/omitted uses the configured default), `GET /api/backup?backend=...` (list backups for a backend), `POST /api/backup/restore` (`{"name": "...", "confirm": true, "backend": "..."}`  — replaces the entire inventory in a single transaction).
 
 ## Development and tests (without Docker)
