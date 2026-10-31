@@ -10,6 +10,10 @@ from app.schemas.requirements import ProjectRequirements
 
 REQUIREMENTS_SYSTEM_PROMPT = (
     "You translate a user's free-text description of a PC project into structured requirements. "
+    "The input may be a multi-turn conversation transcript (lines prefixed 'user:'/'assistant:') "
+    "rather than a single message — if so, treat it as one evolving request: later user turns "
+    "refine or override earlier ones (e.g. a later 'actually, I only have 16GB RAM' replaces an "
+    "earlier assumption), and assistant turns are prior responses, included only as context. "
     'If the user names specific software or a specific game (e.g. "run Crysis 1 at max settings"), '
     "use your general knowledge of that title's system requirements to estimate reasonable values for "
     "min_vram_gb, min_cpu_cores, min_ram_gb, and min_storage_gb — do not leave them empty just because "
@@ -48,7 +52,8 @@ def _data_block(label: str, text: str) -> str:
 
 def build_requirements_prompt(user_prompt: str, *, error_feedback: str | None = None) -> str:
     parts = [
-        "Translate the following project description into structured requirements (ProjectRequirements).",
+        "Translate the following project description (possibly a multi-turn conversation transcript) "
+        "into structured requirements (ProjectRequirements).",
         _data_block("project_description", user_prompt),
     ]
     if error_feedback:

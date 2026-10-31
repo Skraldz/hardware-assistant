@@ -88,7 +88,7 @@ def test_validate_callback_rejects_hallucinated_build_id_and_falls_back():
         known_ids = {0}
         for entry in ranking.ranking:
             if entry.build_id not in known_ids:
-                raise ValueError(f"Opfundet build_id: {entry.build_id}")
+                raise ValueError(f"Invented build_id: {entry.build_id}")
 
     fallback = BuildRanking(ranking=[])
     parsed, status = call_llm_with_retry(
@@ -111,7 +111,7 @@ def test_validate_callback_accepts_known_build_id():
         known_ids = {0}
         for entry in ranking.ranking:
             if entry.build_id not in known_ids:
-                raise ValueError(f"Opfundet build_id: {entry.build_id}")
+                raise ValueError(f"Invented build_id: {entry.build_id}")
 
     parsed, status = call_llm_with_retry(
         client,

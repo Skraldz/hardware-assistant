@@ -261,7 +261,13 @@ def test_recommend_endpoint_returns_a_build(client):
         [load_fixture("valid_requirements_headless_ai.json"), load_fixture("valid_ranking.json")]
     )
 
-    response = client.post("/api/recommend", json={"prompt": "headless pc for local AI", "max_builds": 3})
+    response = client.post(
+        "/api/recommend",
+        json={
+            "conversation": [{"role": "user", "content": "headless pc for local AI"}],
+            "max_builds": 3,
+        },
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -269,6 +275,7 @@ def test_recommend_endpoint_returns_a_build(client):
     assert body["llm_used"]["rank"] == "ok"
     assert len(body["builds"]) == 1
     assert body["missing"] == []
+    assert "build" in body["assistant_message"].lower()
 
 
 def test_recommend_endpoint_reports_missing_categories_for_empty_inventory(client):
@@ -276,7 +283,10 @@ def test_recommend_endpoint_reports_missing_categories_for_empty_inventory(clien
         [load_fixture("valid_requirements_generic.json")]
     )
 
-    response = client.post("/api/recommend", json={"prompt": "some pc", "max_builds": 3})
+    response = client.post(
+        "/api/recommend",
+        json={"conversation": [{"role": "user", "content": "some pc"}], "max_builds": 3},
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -290,3 +300,36 @@ def test_recommend_endpoint_reports_missing_categories_for_empty_inventory(clien
         "case",
         "cooler",
     }
+
+
+def test_recommend_endpoint_passes_the_full_conversation_to_the_requirements_llm(client):
+    seed_compatible_inventory(client)
+    fake_client = FakeLLMClient(
+        [load_fixture("valid_requirements_headless_ai.json"), load_fixture("valid_ranking.json")]
+    )
+    app.dependency_overrides[get_llm_client] = lambda: fake_client
+
+    response = client.post(
+        "/api/recommend",
+        json={
+            "conversation": [
+                {"role": "user", "content": "headless pc for local AI"},
+                {"role": "assistant", "content": "Found 1 compatible build."},
+                {"role": "user", "content": "actually, make it as low-power as possible"},
+            ],
+            "max_builds": 3,
+        },
+    )
+
+    assert response.status_code == 200
+    requirements_prompt = fake_client.prompts[0]
+    assert "headless pc for local AI" in requirements_prompt
+    assert "actually, make it as low-power as possible" in requirements_prompt
+    assert "user:" in requirements_prompt
+    assert "assistant:" in requirements_prompt
+
+
+def test_recommend_endpoint_rejects_an_empty_conversation(client):
+    response = client.post("/api/recommend", json={"conversation": [], "max_builds": 3})
+
+    assert response.status_code == 422

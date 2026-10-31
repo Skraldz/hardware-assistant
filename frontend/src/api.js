@@ -50,8 +50,11 @@ export const api = {
   extractComponent: (name, candidate) =>
     request("/api/components/extract", { method: "POST", body: JSON.stringify({ name, candidate }) }),
 
-  recommend: (prompt, maxBuilds) =>
-    request("/api/recommend", { method: "POST", body: JSON.stringify({ prompt, max_builds: maxBuilds }) }),
+  recommend: (conversation, maxBuilds) =>
+    request("/api/recommend", {
+      method: "POST",
+      body: JSON.stringify({ conversation, max_builds: maxBuilds }),
+    }),
 
   listBackups: () => request("/api/backup"),
   createBackup: () => request("/api/backup", { method: "POST" }),

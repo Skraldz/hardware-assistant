@@ -11,21 +11,56 @@ function StatusBadge({ label, status }) {
   );
 }
 
+function BuildCards({ result, t }) {
+  return (
+    <>
+      <p>
+        <StatusBadge label={t("interpretLabel")} status={result.llm_used.interpret} />
+        <StatusBadge label={t("rankLabel")} status={result.llm_used.rank} />
+      </p>
+      {result.builds.map((build, index) => (
+        <div className="build-card" key={index}>
+          <strong>{t("buildLabel", index + 1)}</strong>{" "}
+          <span className="muted">{t("scoreLabel", build.score.toFixed(0))}</span>
+          <ul>
+            {build.components.map((c) => (
+              <li key={c.id}>
+                {c.category}: {c.name}
+              </li>
+            ))}
+          </ul>
+          <p>{build.reason}</p>
+          {build.warnings.length > 0 && <p className="muted">⚠ {build.warnings.join(" · ")}</p>}
+        </div>
+      ))}
+    </>
+  );
+}
+
 export default function RecommendView() {
   const { t } = useLanguage();
-  const [prompt, setPrompt] = useState(() => t("defaultPrompt"));
+  // {role: "user"|"assistant", content, result?}. `result` (only on
+  // assistant turns) carries the full structured response for that turn, so
+  // every reply in the conversation keeps showing its own builds.
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState(() => t("defaultPrompt"));
   const [maxBuilds, setMaxBuilds] = useState(3);
-  const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(event) {
+  async function handleSend(event) {
     event.preventDefault();
-    setLoading(true);
+    const content = input.trim();
+    if (!content || loading) return;
+
+    const conversation = [...messages.map(({ role, content: c }) => ({ role, content: c })), { role: "user", content }];
+    setMessages((prev) => [...prev, { role: "user", content }]);
+    setInput("");
     setError(null);
-    setResult(null);
+    setLoading(true);
     try {
-      setResult(await api.recommend(prompt, Number(maxBuilds)));
+      const result = await api.recommend(conversation, Number(maxBuilds));
+      setMessages((prev) => [...prev, { role: "assistant", content: result.assistant_message, result }]);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -33,59 +68,65 @@ export default function RecommendView() {
     }
   }
 
+  function handleReset() {
+    setMessages([]);
+    setError(null);
+    setInput(t("defaultPrompt"));
+  }
+
   return (
     <section>
       <h2>{t("recommendHeading")}</h2>
-      <form onSubmit={handleSubmit}>
-        <label>
-          <span>{t("promptLabel")}</span>
-          <textarea rows={3} value={prompt} onChange={(e) => setPrompt(e.target.value)} required />
-        </label>
-        <div className="row">
-          <label>
-            <span>{t("maxBuildsLabel")}</span>
-            <input type="number" min="1" max="10" value={maxBuilds} onChange={(e) => setMaxBuilds(e.target.value)} />
-          </label>
-          <button className="btn" type="submit" disabled={loading}>
-            {loading ? t("thinking") : t("recommend")}
-          </button>
-        </div>
-      </form>
 
-      {error && <p className="error-message">{error}</p>}
-
-      {result && (
-        <div style={{ marginTop: "1rem" }}>
-          <p>
-            <StatusBadge label={t("interpretLabel")} status={result.llm_used.interpret} />
-            <StatusBadge label={t("rankLabel")} status={result.llm_used.rank} />
-          </p>
-
-          {result.missing.length > 0 && (
-            <p className="error-message">{t("missingInInventory", result.missing.join(", "))}</p>
-          )}
-
-          {result.builds.length === 0 && result.missing.length === 0 && (
-            <p className="muted">{t("noCompatibleBuilds")}</p>
-          )}
-
-          {result.builds.map((build, index) => (
-            <div className="build-card" key={index}>
-              <strong>{t("buildLabel", index + 1)}</strong>{" "}
-              <span className="muted">{t("scoreLabel", build.score.toFixed(0))}</span>
-              <ul>
-                {build.components.map((c) => (
-                  <li key={c.id}>
-                    {c.category}: {c.name}
-                  </li>
-                ))}
-              </ul>
-              <p>{build.reason}</p>
-              {build.warnings.length > 0 && <p className="muted">⚠ {build.warnings.join(" · ")}</p>}
+      {messages.length > 0 && (
+        <div className="chat-log">
+          {messages.map((m, i) => (
+            <div className={`chat-message chat-${m.role}`} key={i}>
+              <strong>{m.role === "user" ? t("youLabel") : t("assistantLabel")}</strong>
+              <p>{m.content}</p>
+              {m.result && m.result.builds.length === 0 && m.result.missing.length === 0 && (
+                <p className="muted">{t("noCompatibleBuilds")}</p>
+              )}
+              {m.result && m.result.missing.length > 0 && (
+                <p className="error-message">{t("missingInInventory", m.result.missing.join(", "))}</p>
+              )}
+              {m.result && m.result.builds.length > 0 && <BuildCards result={m.result} t={t} />}
             </div>
           ))}
         </div>
       )}
+
+      {error && <p className="error-message">{error}</p>}
+
+      <form onSubmit={handleSend}>
+        <label>
+          <span>{t("promptLabel")}</span>
+          <textarea rows={3} value={input} onChange={(e) => setInput(e.target.value)} required />
+        </label>
+        <div className="row">
+          <label>
+            <span>{t("maxBuildsLabel")}</span>
+            <input
+              type="number"
+              min="1"
+              max="10"
+              value={maxBuilds}
+              onChange={(e) => setMaxBuilds(e.target.value)}
+            />
+          </label>
+          <button className="btn" type="submit" disabled={loading}>
+            {loading ? t("thinking") : t("send")}
+          </button>
+          <button
+            className="btn btn-secondary"
+            type="button"
+            onClick={handleReset}
+            disabled={loading || messages.length === 0}
+          >
+            {t("newConversation")}
+          </button>
+        </div>
+      </form>
     </section>
   );
 }

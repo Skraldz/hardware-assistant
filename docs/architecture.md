@@ -39,18 +39,24 @@ User types "RTX 2060 SUPER"
 
 If `ENABLE_WEB_LOOKUP=false`, the search step is skipped, and `/extract` instead asks Ollama to guess specs from its own knowledge (`specs_source=llm_extracted`, still `specs_verified=false` until the user confirms).
 
-### 2. Recommend a build (free text → verified build)
+### 2. Recommend a build (chat → verified build)
 
 ```
 User types "headless pc for local AI"
-  → POST /api/recommend
-    1. Ollama interprets the text into structured requirements (ProjectRequirements)
+  → POST /api/recommend {conversation: [...], max_builds}
+    0. The backend flattens the conversation so far (user + assistant turns) into one transcript
+    1. Ollama interprets the transcript into structured requirements (ProjectRequirements) —
+       later user turns refine or override earlier ones, so the user can say
+       "actually, make it as low-power as possible" on a second turn
     2. Backend deterministically prefilters the inventory (quantity > 0, not faulty, hard minimum requirements)
     3. The compatibility engine (compatibility/) combines candidates and keeps only verified builds
     4. Ollama ranks the verified builds — invented build_id values are rejected
     5. The chosen build(s) are re-verified before the response is returned
-  → Response: builds (with rule results + warnings), missing categories, and the status of each LLM call (ok/retried/fallback)
+  → Response: builds (with rule results + warnings), missing categories, a short deterministic
+    assistant_message summarizing the result, and the status of each LLM call (ok/retried/fallback)
 ```
+
+The frontend's Recommend tab is a chat: every reply (including its builds) is appended to the conversation, and the next message's request carries the full history — so the user can keep refining a build across multiple turns instead of only getting one shot at a single prompt. The backend itself stays stateless; the frontend resends the whole conversation each turn.
 
 The core point: **the LLM proposes, the rules verify** (SPEC.md §2). No build is ever returned without `compatibility/engine.py` itself having run every rule against it.
 

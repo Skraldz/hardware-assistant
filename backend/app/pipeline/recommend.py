@@ -147,7 +147,7 @@ def rank_builds(
     def validate(ranking: BuildRanking) -> None:
         for entry in ranking.ranking:
             if entry.build_id not in known_ids:
-                raise ValueError(f"Opfundet build_id: {entry.build_id}")
+                raise ValueError(f"Invented build_id: {entry.build_id}")
 
     ranking, status = call_llm_with_retry(
         llm_client,
@@ -188,6 +188,20 @@ def _to_build_result(
     )
 
 
+def _assistant_message(builds: list[BuildResult], missing: list[Category]) -> str:
+    """A short, deterministic natural-language summary of the result, shown
+    as the assistant's reply in the chat-style recommend UI. Deliberately
+    not an extra LLM call: the result is already fully determined by the
+    structured data above, so there's nothing left for an LLM to add."""
+    missing_note = (
+        f" No compatible options were found for: {', '.join(c.value for c in missing)}." if missing else ""
+    )
+    if not builds:
+        return "I couldn't put together a compatible build from the current inventory." + missing_note
+    lead = f"Found {len(builds)} compatible build{'s' if len(builds) != 1 else ''}."
+    return f"{lead} Top pick: {builds[0].reason}{missing_note}"
+
+
 def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClient) -> RecommendResponse:
     settings = get_settings()
 
@@ -209,7 +223,10 @@ def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClien
 
     if not evaluations:
         return RecommendResponse(
-            builds=[], missing=missing, llm_used=LlmUsed(interpret=interpret_status, rank="ok")
+            builds=[],
+            missing=missing,
+            llm_used=LlmUsed(interpret=interpret_status, rank="ok"),
+            assistant_message=_assistant_message([], missing),
         )
 
     pool_size = max(max_builds * 3, 10)
@@ -239,5 +256,8 @@ def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClien
     ]
 
     return RecommendResponse(
-        builds=builds, missing=missing, llm_used=LlmUsed(interpret=interpret_status, rank=rank_status)
+        builds=builds,
+        missing=missing,
+        llm_used=LlmUsed(interpret=interpret_status, rank=rank_status),
+        assistant_message=_assistant_message(builds, missing),
     )
