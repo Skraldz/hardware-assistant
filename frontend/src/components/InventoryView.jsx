@@ -5,6 +5,79 @@ import { useLanguage } from "../i18n/LanguageContext.jsx";
 const CATEGORIES = ["cpu", "motherboard", "ram", "gpu", "storage", "psu", "case", "cooler"];
 const CONDITIONS = ["new", "used", "faulty"];
 
+// One template per category, listing every field that schemas/components.py
+// accepts for it (see CpuSpecs/MotherboardSpecs/etc.) so the manual-add JSON
+// box always shows the full set of fields you can fill in, not just
+// "category". Regenerated whenever the category dropdown changes.
+const SPEC_TEMPLATES = {
+  cpu: {
+    category: "cpu",
+    socket: null,
+    cores: null,
+    threads: null,
+    tdp_w: null,
+    integrated_graphics: null,
+    memory_type: null,
+  },
+  motherboard: {
+    category: "motherboard",
+    socket: null,
+    form_factor: null,
+    memory_type: null,
+    memory_slots: null,
+    max_memory_gb: null,
+    m2_slots: null,
+    sata_ports: null,
+    pcie_x16_slots: null,
+  },
+  ram: {
+    category: "ram",
+    memory_type: null,
+    capacity_gb_per_module: null,
+    modules: null,
+    speed_mts: null,
+    form: null,
+  },
+  gpu: {
+    category: "gpu",
+    vram_gb: null,
+    tdp_w: null,
+    length_mm: null,
+    pcie_power_connectors: null,
+    vendor: null,
+  },
+  storage: {
+    category: "storage",
+    interface: null,
+    capacity_gb: null,
+    form_factor: null,
+  },
+  psu: {
+    category: "psu",
+    wattage_w: null,
+    form_factor: null,
+    pcie_power_connectors: null,
+    efficiency_rating: null,
+  },
+  case: {
+    category: "case",
+    supported_form_factors: null,
+    max_gpu_length_mm: null,
+    max_cooler_height_mm: null,
+    psu_form_factor: null,
+    drive_bays_3_5: null,
+    drive_bays_2_5: null,
+  },
+  cooler: {
+    category: "cooler",
+    type: null,
+    supported_sockets: null,
+    height_mm: null,
+    radiator_mm: null,
+    tdp_rating_w: null,
+  },
+};
+
 function sortValue(component, key) {
   if (key === "specsVerified") return component.specs_verified ? 1 : 0;
   return component[key];
@@ -44,10 +117,15 @@ export default function InventoryView() {
 
   const [manualName, setManualName] = useState("");
   const [manualCategory, setManualCategory] = useState("cpu");
-  const [manualSpecsJson, setManualSpecsJson] = useState('{\n  "category": "cpu"\n}');
+  const [manualSpecsJson, setManualSpecsJson] = useState(JSON.stringify(SPEC_TEMPLATES.cpu, null, 2));
   const [manualQuantity, setManualQuantity] = useState(1);
   const [manualCondition, setManualCondition] = useState("new");
   const [manualError, setManualError] = useState(null);
+
+  function handleManualCategoryChange(category) {
+    setManualCategory(category);
+    setManualSpecsJson(JSON.stringify(SPEC_TEMPLATES[category], null, 2));
+  }
 
   async function loadComponents() {
     try {
@@ -228,34 +306,36 @@ export default function InventoryView() {
             </button>
           ))}
         </div>
-        <table>
-          <thead>
-            <tr>
-              {sortableHeader("category", t("colCategory"))}
-              {sortableHeader("name", t("colName"))}
-              {sortableHeader("quantity", t("colQuantity"))}
-              {sortableHeader("condition", t("colCondition"))}
-              {sortableHeader("specsVerified", t("colSpecsVerified"))}
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleComponents.map((c) => (
-              <tr key={c.id}>
-                <td>{c.category}</td>
-                <td>{c.name}</td>
-                <td>{c.quantity}</td>
-                <td>{c.condition}</td>
-                <td>{c.specs_verified ? t("yes") : t("no")}</td>
-                <td>
-                  <button className="btn btn-danger" onClick={() => handleDelete(c.id)}>
-                    {t("delete")}
-                  </button>
-                </td>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                {sortableHeader("category", t("colCategory"))}
+                {sortableHeader("name", t("colName"))}
+                {sortableHeader("quantity", t("colQuantity"))}
+                {sortableHeader("condition", t("colCondition"))}
+                {sortableHeader("specsVerified", t("colSpecsVerified"))}
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {visibleComponents.map((c) => (
+                <tr key={c.id}>
+                  <td>{c.category}</td>
+                  <td>{c.name}</td>
+                  <td>{c.quantity}</td>
+                  <td>{c.condition}</td>
+                  <td>{c.specs_verified ? t("yes") : t("no")}</td>
+                  <td>
+                    <button className="btn btn-danger" onClick={() => handleDelete(c.id)}>
+                      {t("delete")}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section>
@@ -335,7 +415,7 @@ export default function InventoryView() {
             </label>
             <label>
               <span>{t("categoryLabel")}</span>
-              <select value={manualCategory} onChange={(e) => setManualCategory(e.target.value)}>
+              <select value={manualCategory} onChange={(e) => handleManualCategoryChange(e.target.value)}>
                 {CATEGORIES.map((c) => (
                   <option key={c} value={c}>
                     {c}

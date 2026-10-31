@@ -2,6 +2,30 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-10-31 – Clarifying questions, manual-add JSON template, scrollable inventory
+
+**Generated:**
+- `backend/app/schemas/requirements.py`: `ProjectRequirements.clarifying_question: str | None = None`. Set by the requirements-interpretation LLM when the conversation so far is too vague to confidently fill in the other fields (no hint of intended use, performance target, display-output need, or power/budget constraints).
+- `backend/app/llm/prompts.py`: `REQUIREMENTS_SYSTEM_PROMPT` instructs the LLM to ask exactly one specific clarifying question when genuinely needed, to still fill in a best guess for every other field regardless (so a build is shown even before the user answers), and to stop asking once the conversation already gives it enough or the user has moved on without answering.
+- `backend/app/pipeline/recommend.py`: `_assistant_message()` now also takes `requirements` and appends `requirements.clarifying_question` (if set) to the chat reply.
+- `frontend/src/components/InventoryView.jsx`: `SPEC_TEMPLATES`, one per category, listing every field `schemas/components.py` accepts for it. The manual-add JSON box now starts from the full template for the selected category (not just `{"category": "cpu"}`) and regenerates when the category dropdown changes (previously it silently kept showing the old category's JSON after switching).
+- `frontend/src/styles.css` / `InventoryView.jsx`: the inventory table is wrapped in a `.table-scroll` container (`max-height: 50vh`, `overflow-y: auto`, sticky header) so a 55+ row inventory no longer pushes the "add component" sections off-screen.
+
+**Assumptions:**
+- **The clarifying question is additive, not a separate conversational mode.** The pipeline still always runs end-to-end and returns builds every turn (using the LLM's best guess for whatever wasn't asked about) — the question is just prepended to the chat reply. A stricter "pause and wait for an answer before showing any build" flow was considered and rejected: it would need new state (has this question been asked/answered yet?) the stateless backend doesn't otherwise need, for a marginal UX gain over "here's a reasonable guess, and by the way...".
+- **Switching the manual-add category always replaces the JSON box wholesale**, discarding whatever the user had typed. Consistent with the fact that a category switch already requires the JSON's `category` field to match (existing mismatch guard) — treated as "starting a new entry for a different category," not an edit to preserve.
+
+**Known risks / weaknesses:**
+- **The clarifying-question behavior is implemented but not yet verified against a real Ollama response** — the home-server deployment had no model pulled at all (`ollama list` was empty) when this was built, so every LLM call was hitting the deterministic fallback, not real model output. Once a model is pulled, this should be checked manually: does the model actually ask a sensible, single question, and does it stop asking once the user answers?
+- **No limit on how many turns a clarifying question can keep being asked** beyond the prompt's own instruction not to repeat itself — relies entirely on the LLM following that instruction, with no code-level guard (e.g. "never ask twice in a row"). Worth revisiting if it turns out to pester the user in practice.
+
+**Tests covering it:**
+- `test_pipeline.py::test_clarifying_question_is_surfaced_in_the_assistant_message`: a fixture response with `clarifying_question` set produces an `assistant_message` containing that question.
+- `ruff check`/`ruff format --check`/`pytest --cov` green: 153 tests, 95% overall coverage.
+- Frontend: `npm run build` clean. Manually verified in a real browser: switching the manual-add category dropdown (cpu → gpu) correctly regenerates the JSON box with that category's full field list; the inventory table scrolls within its own box instead of pushing the add-component forms off-screen.
+
+**Review (filled in by the student):**
+
 ## 2026-10-31 – Interactive recommend chat, sortable/categorized inventory, search-quality fix
 
 **Generated:**
