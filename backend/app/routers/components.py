@@ -13,7 +13,13 @@ from app.llm.prompts import (
     build_category_prompt,
     build_extract_prompt,
 )
-from app.schemas.components import SPEC_CLASS_BY_CATEGORY, ComponentCreate, ComponentRead, ComponentUpdate
+from app.schemas.components import (
+    EXTRACT_SCHEMA_BY_CATEGORY,
+    SPEC_CLASS_BY_CATEGORY,
+    ComponentCreate,
+    ComponentRead,
+    ComponentUpdate,
+)
 from app.schemas.search import (
     CategoryGuess,
     ExtractRequest,
@@ -117,20 +123,22 @@ def extract_component_specs(
         )
 
     spec_class = SPEC_CLASS_BY_CATEGORY[guess.category]
-    specs, specs_status = call_llm_with_retry(
+    extract_schema = EXTRACT_SCHEMA_BY_CATEGORY[guess.category]
+    extracted, specs_status = call_llm_with_retry(
         llm_client,
         system=EXTRACT_SYSTEM_PROMPT,
         build_prompt=lambda error: build_extract_prompt(
             payload.name, guess.category.value, web_snippet=web_snippet, error_feedback=error
         ),
-        schema=spec_class,
+        schema=extract_schema,
         fallback=None,
     )
-    if specs is None:
+    if extracted is None:
         raise HTTPException(
             status_code=422,
             detail=f"Could not extract specifications for '{payload.name}'. Enter them manually.",
         )
+    specs = spec_class.model_validate(extracted.model_dump())
 
     return ExtractResponse(
         name=payload.name,

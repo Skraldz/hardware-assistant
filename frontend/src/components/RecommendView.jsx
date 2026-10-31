@@ -2,6 +2,17 @@ import { useState } from "react";
 import { api } from "../api.js";
 import { useLanguage } from "../i18n/LanguageContext.jsx";
 
+function buildsSignature(builds) {
+  return JSON.stringify(
+    builds.map((b) =>
+      b.components
+        .map((c) => c.id)
+        .slice()
+        .sort((a, b2) => a - b2),
+    ),
+  );
+}
+
 function StatusBadge({ label, status }) {
   const cls = status === "ok" ? "badge-ok" : status === "retried" ? "badge-warn" : "badge-error";
   return (
@@ -86,7 +97,21 @@ export default function RecommendView() {
     setLoading(true);
     try {
       const result = await api.recommend(conversation, Number(maxBuilds));
-      setMessages((prev) => [...prev, { role: "assistant", content: result.assistant_message, result }]);
+      // The pipeline reruns in full on every turn (SPEC.md §5), so a pure
+      // follow-up question ("how much FPS will I get on build 1?") still
+      // comes back with a fresh `builds` array -- usually identical to what
+      // was already shown, since nothing about the requirements changed.
+      // Re-rendering the same cards would make a plain answer look like a
+      // brand new recommendation, so only show them again if they actually
+      // differ from the last turn that had any.
+      const previousWithBuilds = [...messages].reverse().find((m) => m.result);
+      const buildsUnchanged =
+        !!previousWithBuilds &&
+        buildsSignature(result.builds) === buildsSignature(previousWithBuilds.result.builds);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: result.assistant_message, result, buildsUnchanged },
+      ]);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -116,7 +141,10 @@ export default function RecommendView() {
               {m.result && m.result.missing.length > 0 && (
                 <p className="error-message">{t("missingInInventory", m.result.missing.join(", "))}</p>
               )}
-              {m.result && m.result.builds.length > 0 && (
+              {m.result && m.result.builds.length > 0 && m.buildsUnchanged && (
+                <p className="muted">{t("buildsUnchangedNote")}</p>
+              )}
+              {m.result && m.result.builds.length > 0 && !m.buildsUnchanged && (
                 <BuildCards
                   result={m.result}
                   t={t}

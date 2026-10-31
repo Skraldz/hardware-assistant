@@ -8,7 +8,7 @@ knowledge, and the compatibility rules (Phase 2) treat a missing field as
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, create_model
 
 from app.enums import Category, Condition, SpecsSource
 
@@ -110,6 +110,35 @@ SPEC_CLASS_BY_CATEGORY: dict[Category, type[BaseModel]] = {
     Category.PSU: PsuSpecs,
     Category.CASE: CaseSpecs,
     Category.COOLER: CoolerSpecs,
+}
+
+
+def _required_variant(model_cls: type[BaseModel]) -> type[BaseModel]:
+    """A schema with the same fields/types as `model_cls`, but every field
+    marked required -- the JSON key must be present, though its value may
+    still be null. Used only as the schema handed to Ollama's
+    structured-output `format` during extraction (routers/components.py).
+
+    Every domain spec field has a default of None (so a component can be
+    entered manually with partial knowledge), which means the JSON schema
+    generated from the class as-is has no "required" list at all -- an
+    empty `{}` already satisfies it. In practice this let the model skip
+    straight past fields it wasn't fully confident about rather than
+    committing to a value or an explicit null, extracting 1-2 fields out
+    of 6 even when the rest were plainly stated in the given text. Forcing
+    every key to be present closes that loophole without weakening the
+    domain model itself (manual entry still needs genuinely optional
+    fields, which this variant is never used for)."""
+    fields = {name: (field.annotation, ...) for name, field in model_cls.model_fields.items()}
+    return create_model(f"{model_cls.__name__}Extraction", **fields)
+
+
+# Reused by /api/components/extract: the schema actually handed to Ollama's
+# `format`, one "every field required" variant per category (see
+# _required_variant). The response is re-validated against
+# SPEC_CLASS_BY_CATEGORY afterwards to get back the real domain type.
+EXTRACT_SCHEMA_BY_CATEGORY: dict[Category, type[BaseModel]] = {
+    category: _required_variant(spec_class) for category, spec_class in SPEC_CLASS_BY_CATEGORY.items()
 }
 
 
