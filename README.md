@@ -75,6 +75,17 @@ npm install
 npm run dev   # http://localhost:5173, expects the backend on :8000
 ```
 
+## Frontend end-to-end tests (Playwright)
+
+Like the backend's test suite, these never require a real backend, Ollama, or database — every `/api/*` call is intercepted with canned responses (`frontend/e2e/mocks.js`). Only the frontend dev server itself is needed; Playwright starts it automatically.
+
+```bash
+cd frontend
+npm install
+npx playwright install chromium   # one-time browser download
+npm run test:e2e
+```
+
 ## Status
 
 See `docs/ai-log.md` for a logged walkthrough of each phase (what was generated, assumptions, known risks, test coverage).

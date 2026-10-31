@@ -2,6 +2,27 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-10-31 – Playwright end-to-end tests for the frontend
+
+**Generated:**
+- `frontend/playwright.config.js`: Chromium only (keeps install/run time down), `webServer` starts `npm run dev` on a dedicated port (5174, separate from a developer's own `npm run dev` on 5173) and reuses it locally if already running.
+- `frontend/e2e/mocks.js`: canned responses matching the real backend schemas (`backend/app/schemas/*.py`) and one `mockApi(page, overrides)` helper that intercepts every `/api/*` call the app makes via `page.route()`. Same "no test requires a real backend/Ollama/database" rule the backend's own suite follows (SPEC.md §9.1), extended to the frontend: these tests never start the Python backend, Ollama, SearXNG, or MariaDB at all -- only the Vite dev server.
+- `frontend/e2e/{inventory,recommend,tabs,builds}.spec.js` (10 tests): inventory loads/filters/sorts and the manual-add JSON template switches with category; the Recommend chat sends a prompt, shows the reply/builds/score guide, and a build can be saved; the tab-state-persistence fix (two entries up) actually survives a tab switch, for both the Recommend chat and an in-progress Inventory form; the Builds tab lists a saved build, drives the native `confirm()` for "Mark as built" directly (Playwright can do this safely, unlike the manual browser-automation tooling used earlier in this session, which must avoid triggering native dialogs), and shows the correct empty state.
+- `README.md`: new "Frontend end-to-end tests" section; `package.json` gains a `test:e2e` script.
+
+**Assumptions:**
+- **Chromium only, not the full cross-browser matrix** -- proportionate for a secondary, demo-oriented frontend (SPEC.md §1.1), consistent with every other frontend-testing decision already made in this project (no Vitest/RTL either, per earlier phases' entries).
+- **Mocked responses, not a real backend.** The alternative -- spinning up the actual FastAPI backend with SQLite for E2E runs -- was considered and rejected: it would mean either a second test-only backend configuration living outside backend/tests/, or entangling the frontend suite's reliability with the backend's, when the two are already independently covered. Mocking at the HTTP boundary keeps the frontend suite fast (~2s for all 10 tests) and focused on what it should actually verify: the UI's own behavior given a known response shape.
+
+**Known risks / weaknesses:**
+- **Two real Chromium accessibility-tree quirks were hit and worked around while writing these**, both worth knowing if more tests are added later: (1) a `<details><summary>` element's `<summary>` does *not* expose an ARIA "button" role in Chromium (`getByRole("button", ...)` times out against it; target it by text instead) -- the scoring guide test runs into this directly; (2) a `<select>` wrapped in a `<label>` gets an accessible *name* that Chromium concatenates from the label text plus every `<option>`'s text, which silently breaks `getByLabel` for that control (it also incorrectly cross-matched an unrelated textarea in testing here) -- worked around by locating the select structurally (`page.locator("select").filter({ has: page.locator('option[value="..."]') })`) instead of by label.
+- **Keeping all four tabs mounted simultaneously** (App.jsx's tab-persistence fix, two entries up) means identical text can legitimately exist twice in the DOM at once (visible in the active tab, hidden in another) -- plain `getByText()` assertions can hit Playwright's strict-mode ambiguity error even though only one copy is actually visible. Worked around with `e2e/mocks.js`'s `activePane()` helper (`main > div:not([hidden])`), used wherever a test's text could plausibly also appear in another tab's hidden content; not exhaustively applied to every assertion, so a similar collision could still surface if more overlapping sample text is introduced later.
+- **No CI wiring** -- these run locally via `npm run test:e2e`; nothing executes them automatically on push, unlike `ruff`/`pytest` which the student runs manually before each phase per CLAUDE.md rule 5.
+
+**Tests covering it:** the 10 Playwright specs themselves (see above); re-run twice back-to-back during development to confirm no flakiness (10/10 both times, ~2s each run).
+
+**Review (filled in by the student):**
+
 ## 2026-10-31 – Fixed a real performance regression from multi-drive builds, plus a gentler always-on scoring nudge and its in-app guide
 
 While testing the multi-drive feature live (previous entry) against the real 75-component seed data, `POST /api/recommend` took **~16-26 seconds** -- the exact combinatorics risk flagged (but never measured) since the Phase 2 log entry, now actually tripped by the 2-drive storage combos tripling the size of the already-large search space. Profiled directly (`generate_builds()` in isolation against the real seed data) rather than guessed at.

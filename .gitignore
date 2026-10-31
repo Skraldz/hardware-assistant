@@ -12,6 +12,10 @@ backups/
 node_modules/
 dist/
 build/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 
 # Instructor-provided course materials (copied in locally); extracted
 # content lives in docs/exam-requirements.md instead.
