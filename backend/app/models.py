@@ -43,3 +43,19 @@ class Component(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class SavedBuild(Base):
+    __tablename__ = "saved_builds"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # A snapshot of the build's components (id/category/name) at save time,
+    # so the saved build stays fully displayable even if a component is
+    # later edited or deleted -- completing the build (routers/builds.py)
+    # still acts on the live components by id, for whichever still exist.
+    components: Mapped[list] = mapped_column(JSON, nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    completed: Mapped[bool] = mapped_column(nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

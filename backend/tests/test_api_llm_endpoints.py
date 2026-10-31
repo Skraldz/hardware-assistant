@@ -165,7 +165,9 @@ def test_search_returns_503_when_searxng_unavailable(client):
 
 
 def test_extract_with_candidate_returns_specs_from_web_lookup(client):
-    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient([load_fixture("valid_extract_gpu.json")])
+    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient(
+        [load_fixture("valid_category_gpu.json"), load_fixture("valid_extract_gpu.json")]
+    )
     response = client.post(
         "/api/components/extract",
         json={
@@ -180,6 +182,7 @@ def test_extract_with_candidate_returns_specs_from_web_lookup(client):
     assert response.status_code == 200
     body = response.json()
     assert body["specs"]["category"] == "gpu"
+    assert body["specs"]["vram_gb"] == 8
     assert body["specs_source"] == "web_lookup"
     assert body["llm_used"] == "ok"
 
@@ -191,7 +194,9 @@ def test_extract_without_candidate_when_web_lookup_enabled_returns_400(client):
 
 def test_extract_without_web_lookup_uses_llm_knowledge_directly(client, monkeypatch):
     monkeypatch.setattr("app.routers.components.get_settings", lambda: Settings(enable_web_lookup=False))
-    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient([load_fixture("valid_extract_gpu.json")])
+    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient(
+        [load_fixture("valid_category_gpu.json"), load_fixture("valid_extract_gpu.json")]
+    )
     response = client.post("/api/components/extract", json={"name": "RTX 2060 SUPER"})
     assert response.status_code == 200
     assert response.json()["specs_source"] == "llm_extracted"
@@ -258,7 +263,11 @@ def test_unhandled_exception_still_gets_cors_headers(client):
 def test_recommend_endpoint_returns_a_build(client):
     seed_compatible_inventory(client)
     app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient(
-        [load_fixture("valid_requirements_headless_ai.json"), load_fixture("valid_ranking.json")]
+        [
+            load_fixture("valid_requirements_headless_ai.json"),
+            load_fixture("valid_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
     )
 
     response = client.post(
@@ -280,7 +289,7 @@ def test_recommend_endpoint_returns_a_build(client):
 
 def test_recommend_endpoint_reports_missing_categories_for_empty_inventory(client):
     app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient(
-        [load_fixture("valid_requirements_generic.json")]
+        [load_fixture("valid_requirements_generic.json"), load_fixture("valid_chat_reply.json")]
     )
 
     response = client.post(
@@ -305,7 +314,11 @@ def test_recommend_endpoint_reports_missing_categories_for_empty_inventory(clien
 def test_recommend_endpoint_passes_the_full_conversation_to_the_requirements_llm(client):
     seed_compatible_inventory(client)
     fake_client = FakeLLMClient(
-        [load_fixture("valid_requirements_headless_ai.json"), load_fixture("valid_ranking.json")]
+        [
+            load_fixture("valid_requirements_headless_ai.json"),
+            load_fixture("valid_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
     )
     app.dependency_overrides[get_llm_client] = lambda: fake_client
 

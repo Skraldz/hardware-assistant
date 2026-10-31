@@ -32,14 +32,18 @@ All services are defined in `docker-compose.yml` and started together with `dock
 User types "RTX 2060 SUPER"
   → POST /api/components/search  → SearXNG → candidate list (title + snippet)
   → User picks a candidate
-  → POST /api/components/extract → Ollama extracts specs from the snippet → shown for confirmation
+  → POST /api/components/extract
+    1. Ollama identifies the category alone, from a tiny schema (just "category")
+    2. Ollama extracts the fields for that category, from a flat, single-category schema
+       (not the full discriminated-union schema -- see Known risks in docs/ai-log.md)
+  → Shown for confirmation
   → User confirms (and adjusts quantity/condition if needed)
   → POST /api/components       → saved with specs_verified=true
 ```
 
 If `ENABLE_WEB_LOOKUP=false`, the search step is skipped, and `/extract` instead asks Ollama to guess specs from its own knowledge (`specs_source=llm_extracted`, still `specs_verified=false` until the user confirms).
 
-### 2. Recommend a build (chat → verified build)
+### 2. Recommend a build (chat → verified build → optionally saved)
 
 ```
 User types "headless pc for local AI"
@@ -52,17 +56,25 @@ User types "headless pc for local AI"
     3. The compatibility engine (compatibility/) combines candidates and keeps only verified builds
     4. Ollama ranks the verified builds — invented build_id values are rejected
     5. The chosen build(s) are re-verified before the response is returned
-  → Response: builds (with rule results + warnings), missing categories, a short deterministic
-    assistant_message summarizing the result, and the status of each LLM call (ok/retried/fallback)
+    6. Ollama writes a reply to the user's latest message, given the builds and their actual specs as
+       context -- so a genuine question ("what model can I run on these?") gets answered, not just a
+       restated build summary, and a game/software request gets that title's requirements explained
+       alongside a comment on each build's chances (falls back to a deterministic summary if unavailable)
+  → Response: builds (with rule results + warnings), missing categories, the chat reply
+    (assistant_message), and the status of each LLM call (ok/retried/fallback)
 ```
 
 The frontend's Recommend tab is a chat: every reply (including its builds) is appended to the conversation, and the next message's request carries the full history — so the user can keep refining a build across multiple turns instead of only getting one shot at a single prompt. The backend itself stays stateless; the frontend resends the whole conversation each turn.
+
+Any build shown in the chat can be saved (`POST /api/builds`) to the **Builds** tab for later. A saved build can be marked as physically assembled (`POST /api/builds/{id}/complete`), which decrements the inventory quantity of each component it used by 1 — so a component that's now built into a PC stops showing up as available stock for future recommendations. Saved builds keep a snapshot of their components, so they stay displayable even if a component is later edited or deleted.
 
 The core point: **the LLM proposes, the rules verify** (SPEC.md §2). No build is ever returned without `compatibility/engine.py` itself having run every rule against it.
 
 ## Data model
 
 See SPEC.md §4 for the full data model. In short: a single `components` table with a discriminated JSON `specs` column per category (cpu/motherboard/ram/gpu/storage/psu/case/cooler), validated by Pydantic (`backend/app/schemas/components.py`) both when writing and reading.
+
+A `saved_builds` table (added for the Builds tab, outside SPEC.md's original scope) holds builds the user chose to keep: a JSON snapshot of their components, an optional reason/name, and a `completed`/`completed_at` pair set when the build is marked as physically assembled.
 
 ## Security and responsible AI use (SPEC.md §9.3)
 

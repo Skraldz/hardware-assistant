@@ -96,6 +96,22 @@ ComponentSpecs = Annotated[
 # JSON dict back into the right category-specific spec model.
 ComponentSpecsAdapter: TypeAdapter = TypeAdapter(ComponentSpecs)
 
+# Reused by /api/components/extract (routers/components.py) to hand Ollama a
+# flat, single-category schema instead of the full discriminated union above
+# once the category is already known -- Ollama's structured-output grammar
+# handles a plain object far more reliably than a `oneOf`/discriminator
+# schema, which was leading the model to emit little beyond `category` itself.
+SPEC_CLASS_BY_CATEGORY: dict[Category, type[BaseModel]] = {
+    Category.CPU: CpuSpecs,
+    Category.MOTHERBOARD: MotherboardSpecs,
+    Category.RAM: RamSpecs,
+    Category.GPU: GpuSpecs,
+    Category.STORAGE: StorageSpecs,
+    Category.PSU: PsuSpecs,
+    Category.CASE: CaseSpecs,
+    Category.COOLER: CoolerSpecs,
+}
+
 
 class ComponentBase(BaseModel):
     name: str = Field(min_length=1, max_length=200)

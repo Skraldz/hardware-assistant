@@ -12,6 +12,7 @@ export const translations = {
     appTitle: "Hardware Assistant",
     tabInventory: "Lager",
     tabRecommend: "Anbefaling",
+    tabBuilds: "Builds",
     tabBackup: "Backup",
 
     healthChecking: "Tjekker status…",
@@ -74,6 +75,20 @@ export const translations = {
     noCompatibleBuilds: "Ingen kompatible builds kunne sammensættes ud fra lageret.",
     buildLabel: (n) => `Build ${n}`,
     scoreLabel: (score) => `(score ${score})`,
+    saveBuild: "Gem build",
+    buildSaved: "Gemt ✓",
+    saving: "Gemmer…",
+
+    buildsHeading: "Gemte builds",
+    noSavedBuilds: "Ingen gemte builds endnu. Gem en build fra Anbefaling-fanen.",
+    notBuiltYet: "Ikke samlet endnu",
+    completedOn: (date) => `Samlet ${date}`,
+    markComplete: "Markér som samlet",
+    completing: "Markerer…",
+    deleting: "Sletter…",
+    confirmCompleteBuild:
+      "Markér denne build som samlet? Antallet af hver komponent i lageret nedsættes med 1.",
+    confirmDeleteBuild: "Slet denne gemte build? Dette påvirker ikke selve lagerkomponenterne.",
 
     backupHeading: "Backup",
     activeBackendLabel: "Aktiv backend:",
@@ -93,6 +108,7 @@ export const translations = {
     appTitle: "Hardware Assistant",
     tabInventory: "Inventory",
     tabRecommend: "Recommend",
+    tabBuilds: "Builds",
     tabBackup: "Backup",
 
     healthChecking: "Checking status…",
@@ -155,6 +171,20 @@ export const translations = {
     noCompatibleBuilds: "No compatible builds could be assembled from the inventory.",
     buildLabel: (n) => `Build ${n}`,
     scoreLabel: (score) => `(score ${score})`,
+    saveBuild: "Save build",
+    buildSaved: "Saved ✓",
+    saving: "Saving…",
+
+    buildsHeading: "Saved builds",
+    noSavedBuilds: "No saved builds yet. Save one from the Recommend tab.",
+    notBuiltYet: "Not built yet",
+    completedOn: (date) => `Built ${date}`,
+    markComplete: "Mark as built",
+    completing: "Marking…",
+    deleting: "Deleting…",
+    confirmCompleteBuild:
+      "Mark this build as built? Each component's inventory quantity will be reduced by 1.",
+    confirmDeleteBuild: "Delete this saved build? This does not affect the inventory components themselves.",
 
     backupHeading: "Backup",
     activeBackendLabel: "Active backend:",

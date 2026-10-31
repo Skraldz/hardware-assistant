@@ -60,4 +60,9 @@ export const api = {
   createBackup: () => request("/api/backup", { method: "POST" }),
   restoreBackup: (name) =>
     request("/api/backup/restore", { method: "POST", body: JSON.stringify({ name, confirm: true }) }),
+
+  listBuilds: () => request("/api/builds"),
+  saveBuild: (build) => request("/api/builds", { method: "POST", body: JSON.stringify(build) }),
+  deleteBuild: (id) => request(`/api/builds/${id}`, { method: "DELETE" }),
+  completeBuild: (id) => request(`/api/builds/${id}/complete`, { method: "POST" }),
 };

@@ -11,7 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.config import Settings, get_settings
 from app.db import get_db
 from app.llm.client import LLMClient, get_llm_client
-from app.routers import backup, components, recommend
+from app.routers import backup, builds, components, recommend
 from app.storage import get_backup_storage_dependency
 from app.storage.base import BackupStorage
 
@@ -64,6 +64,7 @@ app.add_middleware(
 app.include_router(components.router)
 app.include_router(recommend.router)
 app.include_router(backup.router)
+app.include_router(builds.router)
 
 
 def _backup_destination(settings: Settings) -> str:

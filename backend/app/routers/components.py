@@ -6,11 +6,16 @@ from app.config import get_settings
 from app.db import get_db
 from app.enums import Category, SpecsSource
 from app.llm.client import LLMClient, get_llm_client
-from app.llm.parsing import call_llm_with_retry
-from app.llm.prompts import EXTRACT_SYSTEM_PROMPT, build_extract_prompt
-from app.schemas.components import ComponentCreate, ComponentRead, ComponentUpdate
+from app.llm.parsing import call_llm_with_retry, combine_status
+from app.llm.prompts import (
+    CATEGORY_SYSTEM_PROMPT,
+    EXTRACT_SYSTEM_PROMPT,
+    build_category_prompt,
+    build_extract_prompt,
+)
+from app.schemas.components import SPEC_CLASS_BY_CATEGORY, ComponentCreate, ComponentRead, ComponentUpdate
 from app.schemas.search import (
-    ExtractedSpecsEnvelope,
+    CategoryGuess,
     ExtractRequest,
     ExtractResponse,
     SearchRequest,
@@ -91,23 +96,47 @@ def extract_component_specs(
         web_snippet = f"{payload.candidate.title}\n{payload.candidate.snippet}"
         specs_source = SpecsSource.WEB_LOOKUP
 
-    envelope, status = call_llm_with_retry(
+    # Two LLM calls instead of one: a tiny category-only schema first, then a
+    # flat category-specific schema for the fields. Ollama's structured-output
+    # grammar handles a plain object far more reliably than the full
+    # discriminated-union schema, which was leading the model to emit little
+    # beyond "category" itself (see docs/ai-log.md).
+    guess, category_status = call_llm_with_retry(
+        llm_client,
+        system=CATEGORY_SYSTEM_PROMPT,
+        build_prompt=lambda error: build_category_prompt(
+            payload.name, web_snippet=web_snippet, error_feedback=error
+        ),
+        schema=CategoryGuess,
+        fallback=None,
+    )
+    if guess is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Could not determine the hardware category for '{payload.name}'. Enter it manually.",
+        )
+
+    spec_class = SPEC_CLASS_BY_CATEGORY[guess.category]
+    specs, specs_status = call_llm_with_retry(
         llm_client,
         system=EXTRACT_SYSTEM_PROMPT,
         build_prompt=lambda error: build_extract_prompt(
-            payload.name, web_snippet=web_snippet, error_feedback=error
+            payload.name, guess.category.value, web_snippet=web_snippet, error_feedback=error
         ),
-        schema=ExtractedSpecsEnvelope,
+        schema=spec_class,
         fallback=None,
     )
-    if envelope is None:
+    if specs is None:
         raise HTTPException(
             status_code=422,
             detail=f"Could not extract specifications for '{payload.name}'. Enter them manually.",
         )
 
     return ExtractResponse(
-        name=payload.name, specs=envelope.specs, specs_source=specs_source, llm_used=status
+        name=payload.name,
+        specs=specs,
+        specs_source=specs_source,
+        llm_used=combine_status(category_status, specs_status),
     )
 
 

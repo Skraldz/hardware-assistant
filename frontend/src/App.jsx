@@ -2,6 +2,7 @@ import { useState } from "react";
 import HealthBadge from "./components/HealthBadge.jsx";
 import InventoryView from "./components/InventoryView.jsx";
 import RecommendView from "./components/RecommendView.jsx";
+import BuildsView from "./components/BuildsView.jsx";
 import BackupView from "./components/BackupView.jsx";
 import { useLanguage } from "./i18n/LanguageContext.jsx";
 import { LANGUAGES } from "./i18n/translations.js";
@@ -10,6 +11,7 @@ import { useTheme } from "./theme/ThemeContext.jsx";
 const TABS = {
   inventory: { labelKey: "tabInventory", Component: InventoryView },
   recommend: { labelKey: "tabRecommend", Component: RecommendView },
+  builds: { labelKey: "tabBuilds", Component: BuildsView },
   backup: { labelKey: "tabBackup", Component: BackupView },
 };
 

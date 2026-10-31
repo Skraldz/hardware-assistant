@@ -127,7 +127,11 @@ def seed_compatible_inventory(db) -> None:
 def test_headless_local_ai_scenario_produces_a_build(db_session):
     seed_compatible_inventory(db_session)
     client = FakeLLMClient(
-        [load_fixture("valid_requirements_headless_ai.json"), load_fixture("valid_ranking.json")]
+        [
+            load_fixture("valid_requirements_headless_ai.json"),
+            load_fixture("valid_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
     )
 
     result = recommend(prompt="headless pc for local AI", max_builds=3, db=db_session, llm_client=client)
@@ -141,15 +145,41 @@ def test_headless_local_ai_scenario_produces_a_build(db_session):
     assert Category.GPU in categories
 
 
-def test_clarifying_question_is_surfaced_in_the_assistant_message(db_session):
+def test_chat_reply_prompt_includes_actual_build_specs(db_session):
     seed_compatible_inventory(db_session)
     client = FakeLLMClient(
-        [load_fixture("valid_requirements_needs_clarification.json"), load_fixture("valid_ranking.json")]
+        [
+            load_fixture("valid_requirements_headless_ai.json"),
+            load_fixture("valid_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
+    )
+
+    recommend(prompt="headless pc for local AI", max_builds=3, db=db_session, llm_client=client)
+
+    chat_reply_prompt = client.prompts[-1]
+    assert "'vram_gb': 6" in chat_reply_prompt
+    assert "'cores'" in chat_reply_prompt
+
+
+def test_clarifying_question_is_surfaced_in_the_assistant_message(db_session):
+    seed_compatible_inventory(db_session)
+    # The chat-reply call is forced to fall back (two invalid responses), so
+    # the assistant_message comes from the deterministic fallback, which is
+    # the one place that appends requirements.clarifying_question.
+    client = FakeLLMClient(
+        [
+            load_fixture("valid_requirements_needs_clarification.json"),
+            load_fixture("valid_ranking.json"),
+            load_fixture("invalid_json.txt"),
+            load_fixture("invalid_json.txt"),
+        ]
     )
 
     result = recommend(prompt="a new pc", max_builds=3, db=db_session, llm_client=client)
 
     assert "What will you mainly use this PC for" in result.assistant_message
+    assert result.llm_used.reply == "fallback"
 
 
 def test_incompatible_inventory_produces_no_builds_and_no_ranking_call(db_session):
@@ -166,10 +196,12 @@ def test_incompatible_inventory_produces_no_builds_and_no_ranking_call(db_sessio
         specs={"category": "motherboard", "socket": "LGA1700", "form_factor": "ATX"},
     )
 
-    # Only one fixture queued: if the pipeline tried to call the LLM again
-    # for ranking (it shouldn't, since there's nothing to rank),
-    # FakeLLMClient would raise on the second call.
-    client = FakeLLMClient([load_fixture("valid_requirements_generic.json")])
+    # Two fixtures: requirements interpretation, then the chat reply. If the
+    # pipeline tried to call the LLM for ranking too (it shouldn't, since
+    # there's nothing to rank), FakeLLMClient would raise on a third call.
+    client = FakeLLMClient(
+        [load_fixture("valid_requirements_generic.json"), load_fixture("valid_chat_reply.json")]
+    )
 
     result = recommend(prompt="some pc", max_builds=3, db=db_session, llm_client=client)
 
@@ -185,6 +217,7 @@ def test_llm_failures_fall_back_to_deterministic_scoring(db_session):
             load_fixture("invalid_json.txt"),
             load_fixture("hallucinated_ranking.json"),
             load_fixture("hallucinated_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
         ]
     )
 
@@ -299,7 +332,12 @@ def test_prefilter_applies_hard_minimum_cpu_cores(db_session):
 
 def test_recommend_reports_missing_gpu_when_no_gpu_meets_min_vram(db_session):
     seed_compatible_inventory(db_session)  # includes only a 6GB GPU
-    client = FakeLLMClient([load_fixture("valid_requirements_min_vram_too_high.json")])
+    client = FakeLLMClient(
+        [
+            load_fixture("valid_requirements_min_vram_too_high.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
+    )
 
     result = recommend(prompt="AI training with lots of VRAM", max_builds=3, db=db_session, llm_client=client)
 
@@ -478,6 +516,7 @@ def test_crysis_style_prompt_prefers_the_smaller_sufficient_gpu(db_session):
             load_fixture("valid_requirements_crysis_minimal.json"),
             load_fixture("hallucinated_ranking.json"),
             load_fixture("hallucinated_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
         ]
     )
 

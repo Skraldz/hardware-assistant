@@ -11,28 +11,40 @@ function StatusBadge({ label, status }) {
   );
 }
 
-function BuildCards({ result, t }) {
+function BuildCards({ result, t, messageIndex, saveState, onSaveBuild }) {
   return (
     <>
       <p>
         <StatusBadge label={t("interpretLabel")} status={result.llm_used.interpret} />
         <StatusBadge label={t("rankLabel")} status={result.llm_used.rank} />
       </p>
-      {result.builds.map((build, index) => (
-        <div className="build-card" key={index}>
-          <strong>{t("buildLabel", index + 1)}</strong>{" "}
-          <span className="muted">{t("scoreLabel", build.score.toFixed(0))}</span>
-          <ul>
-            {build.components.map((c) => (
-              <li key={c.id}>
-                {c.category}: {c.name}
-              </li>
-            ))}
-          </ul>
-          <p>{build.reason}</p>
-          {build.warnings.length > 0 && <p className="muted">⚠ {build.warnings.join(" · ")}</p>}
-        </div>
-      ))}
+      {result.builds.map((build, index) => {
+        const key = `${messageIndex}-${index}`;
+        const state = saveState[key];
+        return (
+          <div className="build-card" key={index}>
+            <strong>{t("buildLabel", index + 1)}</strong>{" "}
+            <span className="muted">{t("scoreLabel", build.score.toFixed(0))}</span>
+            <ul>
+              {build.components.map((c) => (
+                <li key={c.id}>
+                  {c.category}: {c.name}
+                </li>
+              ))}
+            </ul>
+            <p>{build.reason}</p>
+            {build.warnings.length > 0 && <p className="muted">⚠ {build.warnings.join(" · ")}</p>}
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => onSaveBuild(key, build)}
+              disabled={state === "saving" || state === "saved"}
+            >
+              {state === "saved" ? t("buildSaved") : state === "saving" ? t("saving") : t("saveBuild")}
+            </button>
+          </div>
+        );
+      })}
     </>
   );
 }
@@ -47,6 +59,20 @@ export default function RecommendView() {
   const [maxBuilds, setMaxBuilds] = useState(3);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  // Keyed by "<messageIndex>-<buildIndex>" -> "saving" | "saved", since a
+  // build has no stable id of its own until it's actually saved.
+  const [saveState, setSaveState] = useState({});
+
+  async function handleSaveBuild(key, build) {
+    setSaveState((prev) => ({ ...prev, [key]: "saving" }));
+    try {
+      await api.saveBuild({ components: build.components, reason: build.reason });
+      setSaveState((prev) => ({ ...prev, [key]: "saved" }));
+    } catch (err) {
+      setSaveState((prev) => ({ ...prev, [key]: undefined }));
+      setError(err.message);
+    }
+  }
 
   async function handleSend(event) {
     event.preventDefault();
@@ -90,7 +116,15 @@ export default function RecommendView() {
               {m.result && m.result.missing.length > 0 && (
                 <p className="error-message">{t("missingInInventory", m.result.missing.join(", "))}</p>
               )}
-              {m.result && m.result.builds.length > 0 && <BuildCards result={m.result} t={t} />}
+              {m.result && m.result.builds.length > 0 && (
+                <BuildCards
+                  result={m.result}
+                  t={t}
+                  messageIndex={i}
+                  saveState={saveState}
+                  onSaveBuild={handleSaveBuild}
+                />
+              )}
             </div>
           ))}
         </div>

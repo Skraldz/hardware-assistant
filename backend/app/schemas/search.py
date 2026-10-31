@@ -10,7 +10,7 @@ knowledge of `name` alone).
 
 from pydantic import BaseModel
 
-from app.enums import SpecsSource
+from app.enums import Category, SpecsSource
 from app.schemas.components import ComponentSpecs
 
 
@@ -37,9 +37,21 @@ class ExtractRequest(BaseModel):
 class ExtractedSpecsEnvelope(BaseModel):
     """Wraps the ComponentSpecs discriminated union so it has a JSON schema
     to hand to Ollama's structured-output `format` (a bare `Annotated[Union[...]]`
-    type alias doesn't have `.model_json_schema()` of its own)."""
+    type alias doesn't have `.model_json_schema()` of its own). Currently
+    unused by /extract itself (see CategoryGuess below), kept for any other
+    caller that wants a single schema covering every category."""
 
     specs: ComponentSpecs
+
+
+class CategoryGuess(BaseModel):
+    """First step of /api/components/extract: ask the LLM only for the
+    category, using a tiny schema (a single enum field) that Ollama's
+    structured-output grammar can satisfy reliably. The category then
+    selects a flat, single-category schema (SPEC_CLASS_BY_CATEGORY) for the
+    second call that actually extracts the fields."""
+
+    category: Category
 
 
 class ExtractResponse(BaseModel):

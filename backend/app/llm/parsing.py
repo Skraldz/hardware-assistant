@@ -66,3 +66,14 @@ def call_llm_with_retry[T: BaseModel](
 
     logger.warning("LLM response invalid after %d attempts, using fallback.", max_attempts)
     return fallback, "fallback"
+
+
+def combine_status(*statuses: LlmCallStatus) -> LlmCallStatus:
+    """Collapses several LlmCallStatus values (e.g. from a multi-step flow
+    like /api/components/extract's category-then-specs calls) into one,
+    worst-first: any fallback wins, then any retry, else ok."""
+    if "fallback" in statuses:
+        return "fallback"
+    if "retried" in statuses:
+        return "retried"
+    return "ok"

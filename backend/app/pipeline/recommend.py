@@ -1,4 +1,5 @@
-"""Orchestrates the 5-step recommend pipeline (SPEC.md §5):
+"""Orchestrates the recommend pipeline (SPEC.md §5, extended with a chat
+reply step):
 
 1. Interpret the free-text prompt into ProjectRequirements (LLM).
 2. Deterministically prefilter inventory (quantity>0, not faulty, hard
@@ -6,7 +7,11 @@
 3. Generate verified-compatible builds (compatibility engine, Phase 2).
 4. Rank the builds by fit to the requirements (LLM), rejecting any
    hallucinated build_id.
-5. Re-verify the chosen builds (defense in depth) and return them.
+5. Re-verify the chosen builds (defense in depth).
+6. Write a conversational reply to the user's latest message (LLM), using
+   the already-computed builds as context -- so a genuine question ("what
+   model can I run on these?") gets answered instead of only ever
+   restating that builds were found.
 
 No agentic tool-calling: this is a fixed sequence of plain function calls.
 """
@@ -20,8 +25,10 @@ from app.enums import Category, Condition
 from app.llm.client import LLMClient
 from app.llm.parsing import LlmCallStatus, call_llm_with_retry
 from app.llm.prompts import (
+    CHAT_REPLY_SYSTEM_PROMPT,
     RANKING_SYSTEM_PROMPT,
     REQUIREMENTS_SYSTEM_PROMPT,
+    build_chat_reply_prompt,
     build_ranking_prompt,
     build_requirements_prompt,
 )
@@ -29,6 +36,7 @@ from app.models import Component
 from app.schemas.builds import (
     BuildRanking,
     BuildResult,
+    ChatReply,
     ComponentSummary,
     LlmUsed,
     RecommendResponse,
@@ -188,15 +196,15 @@ def _to_build_result(
     )
 
 
-def _assistant_message(
+def _fallback_message(
     builds: list[BuildResult], missing: list[Category], requirements: ProjectRequirements
 ) -> str:
-    """A short, deterministic natural-language summary of the result, shown
-    as the assistant's reply in the chat-style recommend UI. Deliberately
-    not an extra LLM call: the result (and the clarifying question, if the
-    requirements-interpretation LLM asked for one) is already fully
-    determined by the structured data above, so there's nothing left for an
-    LLM to add."""
+    """A short, deterministic natural-language summary of the result, used
+    as generate_chat_reply()'s fallback when the chat-reply LLM call is
+    unavailable or never returns valid JSON -- the result (and the
+    clarifying question, if the requirements-interpretation LLM asked for
+    one) is already fully determined by the structured data above, so a
+    reasonable message can always be produced without an LLM."""
     missing_note = (
         f" No compatible options were found for: {', '.join(c.value for c in missing)}." if missing else ""
     )
@@ -208,6 +216,56 @@ def _assistant_message(
         lead = f"Found {len(builds)} compatible build{'s' if len(builds) != 1 else ''}."
         result = f"{lead} Top pick: {builds[0].reason}{missing_note}"
     return result + question_note
+
+
+def _chat_build_summary(index: int, build_result: BuildResult, evaluation: BuildEvaluation) -> dict:
+    """A build summary for the chat-reply prompt that includes actual specs
+    (not just component names), so the LLM can ground a comment like "this
+    GPU's 6GB VRAM comfortably exceeds Crysis's minimum" in real numbers
+    instead of guessing them from a product name."""
+    build = evaluation.build
+    ram_gb = None
+    if build.ram.specs.capacity_gb_per_module and build.ram.specs.modules:
+        ram_gb = build.ram.specs.capacity_gb_per_module * build.ram.specs.modules
+    return {
+        "build": index + 1,
+        "cpu": {"name": build.cpu.name, "cores": build.cpu.specs.cores, "threads": build.cpu.specs.threads},
+        "gpu": {"name": build.gpu.name, "vram_gb": build.gpu.specs.vram_gb} if build.gpu else None,
+        "ram_gb": ram_gb,
+        "reason": build_result.reason,
+        "warnings": build_result.warnings,
+    }
+
+
+def generate_chat_reply(
+    prompt: str,
+    requirements: ProjectRequirements,
+    builds: list[BuildResult],
+    evaluations: list[BuildEvaluation],
+    missing: list[Category],
+    llm_client: LLMClient,
+) -> tuple[str, LlmCallStatus]:
+    """Writes the assistant's reply to the user's latest message (the last
+    line of `prompt`, the flattened conversation transcript), using the
+    already-computed builds (with their actual specs, via `evaluations`,
+    parallel to `builds`) as context -- so a genuine question ("what model
+    can I run on these?") gets an actual answer, not just a restated build
+    summary. Falls back to a deterministic summary (_fallback_message) if
+    the LLM is unavailable or never returns valid JSON."""
+    build_summaries = [
+        _chat_build_summary(idx, build, evaluation)
+        for idx, (build, evaluation) in enumerate(zip(builds, evaluations, strict=True))
+    ]
+    reply, status = call_llm_with_retry(
+        llm_client,
+        system=CHAT_REPLY_SYSTEM_PROMPT,
+        build_prompt=lambda error: build_chat_reply_prompt(
+            prompt, build_summaries, [c.value for c in missing], error_feedback=error
+        ),
+        schema=ChatReply,
+        fallback=ChatReply(reply=_fallback_message(builds, missing, requirements)),
+    )
+    return reply.reply, status
 
 
 def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClient) -> RecommendResponse:
@@ -230,11 +288,12 @@ def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClien
         evaluations = [e for e in evaluations if e.build.gpu is not None]
 
     if not evaluations:
+        reply, reply_status = generate_chat_reply(prompt, requirements, [], [], missing, llm_client)
         return RecommendResponse(
             builds=[],
             missing=missing,
-            llm_used=LlmUsed(interpret=interpret_status, rank="ok"),
-            assistant_message=_assistant_message([], missing, requirements),
+            llm_used=LlmUsed(interpret=interpret_status, rank="ok", reply=reply_status),
+            assistant_message=reply,
         )
 
     pool_size = max(max_builds * 3, 10)
@@ -263,9 +322,13 @@ def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClien
         for idx in final_indices
     ]
 
+    chosen_evaluations = [pool[idx] for idx in final_indices]
+    reply, reply_status = generate_chat_reply(
+        prompt, requirements, builds, chosen_evaluations, missing, llm_client
+    )
     return RecommendResponse(
         builds=builds,
         missing=missing,
-        llm_used=LlmUsed(interpret=interpret_status, rank=rank_status),
-        assistant_message=_assistant_message(builds, missing, requirements),
+        llm_used=LlmUsed(interpret=interpret_status, rank=rank_status, reply=reply_status),
+        assistant_message=reply,
     )
