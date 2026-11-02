@@ -59,6 +59,34 @@ def test_backup_roundtrip_restores_identical_inventory(db_session, tmp_path):
     assert names == {"AMD Ryzen 5 3600", "RTX 2060"}
 
 
+def test_backup_roundtrip_survives_categories_inserted_out_of_sheet_order(db_session, tmp_path):
+    """Regression test for a real bug found via a live Azure restore: the
+    sha256 hash is computed over export_snapshot's `ORDER BY id` list, but
+    _write_xlsx groups rows into one sheet per category for readability, so
+    _read_xlsx's reconstructed list comes back ordered by category/sheet
+    instead. json.dumps's sort_keys only sorts each dict's own keys, never
+    the list itself -- any inventory whose insertion order doesn't already
+    happen to match Category's own enum order (CPU, MOTHERBOARD, RAM, GPU,
+    STORAGE, PSU, CASE, COOLER) would previously fail this check on every
+    single restore, despite nothing actually being corrupted. Insertion
+    order here (PSU, CPU, GPU, MOTHERBOARD) is deliberately not that order."""
+    insert_component(db_session, name="PSU first", category=Category.PSU)
+    insert_component(db_session, name="CPU second", category=Category.CPU)
+    insert_component(db_session, name="GPU third", category=Category.GPU)
+    insert_component(db_session, name="Motherboard fourth", category=Category.MOTHERBOARD)
+    storage = LocalStorage(str(tmp_path))
+
+    info = create_backup(db_session, storage)
+
+    db_session.query(Component).delete()
+    db_session.commit()
+    restored_count = restore_backup(db_session, storage, info.name)
+
+    assert restored_count == 4
+    names = {c.name for c in db_session.query(Component).all()}
+    assert names == {"PSU first", "CPU second", "GPU third", "Motherboard fourth"}
+
+
 def test_backup_roundtrip_restores_saved_builds_with_remapped_component_ids(db_session, tmp_path):
     cpu = insert_component(db_session, name="AMD Ryzen 5 3600")
     gpu = insert_component(db_session, name="RTX 2060", category=Category.GPU)

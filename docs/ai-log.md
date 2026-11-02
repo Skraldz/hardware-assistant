@@ -2,6 +2,26 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-11-03 – Fixed a real Azure-restore bug: the sha256 check was order-sensitive
+
+**Generated:**
+- `services/backup.py`'s `_components_hash()` now sorts the given components by `id` before hashing, making the hash invariant to the list's order rather than just its content.
+
+**Root cause (live-reported: a backup to Azure succeeded, and the downloaded file visibly had the right data, but restoring it failed with "sha256 hash does not match"):** `export_snapshot()`'s hash is computed over `db.query(Component).order_by(Component.id)` -- a single list ordered by id, mixing every category together in insertion order. `_write_xlsx` then groups those same components into one sheet per category (CPU sheet, motherboard sheet, ...) for human readability, and `_read_xlsx` reconstructs the list by reading sheet-by-sheet in `Category` enum order (CPU, MOTHERBOARD, RAM, GPU, STORAGE, PSU, CASE, COOLER) -- a completely different order whenever the inventory's insertion order doesn't happen to already match that exact sequence. `json.dumps(..., sort_keys=True)` only sorts each dict's own keys; it never reorders the list itself, so any multi-category inventory whose components weren't inserted in that one specific order would hash differently after the round-trip, despite nothing being corrupted. This bug has existed since the `.xlsx` format itself was introduced (2026-10-31's entry) -- it was never caught earlier because every existing test's hand-crafted inventory happened to insert components in (or close enough to) `Category`'s own enum order, and the Azure path had never actually been exercised against a real account with a real, large inventory until now (flagged as a known gap in an earlier readiness review).
+
+**Assumptions:**
+- **Fixing the hash function itself, not `_write_xlsx`/`_read_xlsx`'s sheet grouping.** Reordering the xlsx reader to reconstruct the original id order was considered, but the hash's actual job is verifying *content* integrity, not row order -- a tamper check that happens to also enforce a specific row order is stricter than it needs to be, and was the actual source of this false positive. Sorting inside `_components_hash` fixes the real problem at its root and is a one-line, obviously-correct change, versus making the xlsx reader reconstruct an ordering it has no real need to preserve.
+
+**Known risks / weaknesses:**
+- None specific to this fix -- it tightens an existing check to be strictly more correct (fewer false positives) without weakening what it actually verifies (every component's content still has to match exactly, still via a cryptographic hash).
+
+**Tests covering it:**
+- `backend/tests/test_backup.py` (1 new test): components inserted in an order deliberately different from `Category`'s own enum order (PSU, then CPU, then GPU, then motherboard) round-trip and restore successfully. Verified this test actually fails with the old code (reverted the fix locally, confirmed the exact same "sha256 hash does not match" error the student hit, then reapplied the fix) before trusting it as a real regression test, not just a passing assertion.
+- Re-ran the full 210-component real seed data through `export_snapshot` → `_write_xlsx` → `_read_xlsx` → `_components_hash` end to end and confirmed the hash now matches (previously confirmed to mismatch with the same data before this fix).
+- `ruff check`/`ruff format --check`/`pytest --cov` green: 222 tests, 96% overall coverage.
+
+**Review (filled in by the student):**
+
 ## 2026-11-02 – Deliberately diversify the suggested builds (not just swap minor parts)
 
 **Generated:**

@@ -48,7 +48,16 @@ class BackupRestoreError(Exception):
 
 
 def _components_hash(components: list[dict]) -> str:
-    canonical = json.dumps(components, sort_keys=True).encode("utf-8")
+    # Order-independent: _write_xlsx groups rows into one sheet per category
+    # (for human readability), so _read_xlsx's reconstructed list is ordered
+    # by category/sheet, not by id the way export_snapshot's original
+    # `ORDER BY id` list was. json.dumps's `sort_keys` only sorts each
+    # dict's keys, never the list itself -- any inventory spanning more
+    # than one category would otherwise *always* fail this check on
+    # restore, having never actually been tampered with. Sorting by id
+    # first makes the hash itself insensitive to that reordering.
+    ordered = sorted(components, key=lambda c: c["id"])
+    canonical = json.dumps(ordered, sort_keys=True).encode("utf-8")
     return hashlib.sha256(canonical).hexdigest()
 
 
