@@ -296,6 +296,7 @@ def restore_backup(db: Session, storage: BackupStorage, name: str) -> int:
                 category=item.category,
                 name=item.name,
                 manufacturer=item.manufacturer,
+                release_year=item.release_year,
                 quantity=item.quantity,
                 condition=item.condition,
                 specs=item.specs.model_dump(mode="json"),

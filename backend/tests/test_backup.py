@@ -20,10 +20,13 @@ from app.services.backup import (
 from app.storage.local import LocalStorage
 
 
-def insert_component(db, *, name="AMD Ryzen 5 3600", category=Category.CPU, quantity=1) -> Component:
+def insert_component(
+    db, *, name="AMD Ryzen 5 3600", category=Category.CPU, quantity=1, release_year=None
+) -> Component:
     component = Component(
         category=category,
         name=name,
+        release_year=release_year,
         quantity=quantity,
         condition=Condition.NEW,
         specs={"category": category.value},
@@ -85,6 +88,27 @@ def test_backup_roundtrip_survives_categories_inserted_out_of_sheet_order(db_ses
     assert restored_count == 4
     names = {c.name for c in db_session.query(Component).all()}
     assert names == {"PSU first", "CPU second", "GPU third", "Motherboard fourth"}
+
+
+def test_restore_preserves_release_year(db_session, tmp_path):
+    """Regression test: restore_backup's Component(...) reconstruction
+    didn't copy release_year, so every restored component silently got
+    release_year=None regardless of what the backup file actually had --
+    the same "a field was added to the model, but a sibling reconstruction
+    site wasn't updated" bug class as the purpose column and
+    _COMMON_COLUMNS fixes, here breaking every era-based recommend request
+    (max_release_year/min_release_year, prefer_oldest/prefer_newest) for
+    any inventory that had ever been through a restore."""
+    insert_component(db_session, name="Old CPU", release_year=2008)
+    storage = LocalStorage(str(tmp_path))
+    info = create_backup(db_session, storage)
+
+    db_session.query(Component).delete()
+    db_session.commit()
+    restore_backup(db_session, storage, info.name)
+
+    restored = db_session.query(Component).one()
+    assert restored.release_year == 2008
 
 
 def test_backup_roundtrip_restores_saved_builds_with_remapped_component_ids(db_session, tmp_path):

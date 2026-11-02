@@ -121,7 +121,10 @@ def _overshoot_rank(category: Category, specs, requirements: ProjectRequirements
 
 
 def _sort_candidates_by_relevance(
-    candidates: dict[Category, list[CandidateComponent]], requirements: ProjectRequirements
+    candidates: dict[Category, list[CandidateComponent]],
+    requirements: ProjectRequirements,
+    *,
+    top_n_hint: int,
 ) -> dict[Category, list[CandidateComponent]]:
     """The compatibility engine (engine.py) only ever looks at the first
     `top_n` candidates per category, in whatever order it receives them --
@@ -133,8 +136,14 @@ def _sort_candidates_by_relevance(
     recommendation regardless of what was actually asked for -- the root
     cause of a real live-deployment bug (docs/ai-log.md) where every build
     kept using the same handful of components no matter the prompt.
-    `id` is the final, stable tiebreaker so results stay reproducible."""
-    return {
+    `id` is the final, stable tiebreaker so results stay reproducible.
+
+    `top_n_hint` should match whatever top_n the compatibility engine will
+    actually use (settings.recommend_top_n) -- used below only to decide
+    how many motherboard/CPU candidates count as "the ones that will
+    actually be tried", for the cross-category checks that follow.
+    """
+    ranked = {
         category: sorted(
             items,
             key=lambda c: (
@@ -146,9 +155,57 @@ def _sort_candidates_by_relevance(
         for category, items in candidates.items()
     }
 
+    # cpu_socket_matches_board (rules.py) is a strict, no-exceptions match --
+    # unlike case/cooler fit, which is usually forgiving (an ATX case fits
+    # mATX too; most coolers list several sockets), a CPU and motherboard
+    # either share a socket or can never be paired at all. Sorting CPU
+    # candidates purely by overshoot/era, independently of which sockets
+    # the top motherboards actually have, let several same-overshoot CPUs
+    # from older, incompatible sockets crowd out the one CPU that would
+    # have actually paired with something -- the real cause of a live
+    # "no compatible builds" report despite a proven-compatible combination
+    # existing elsewhere in the inventory (docs/ai-log.md has the full
+    # trace: ten historical CPUs tied at "exactly meets min_cpu_cores"
+    # spanned six different sockets, none of which matched any of the
+    # independently-ranked top motherboards). Re-rank CPU to prefer a
+    # socket among the top motherboards, ahead of (not instead of) the
+    # existing overshoot/era preference.
+    motherboards = ranked.get(Category.MOTHERBOARD, [])[:top_n_hint]
+    board_sockets = {m.specs.socket for m in motherboards if m.specs.socket}
+    if board_sockets and Category.CPU in ranked:
+        ranked[Category.CPU] = sorted(
+            ranked[Category.CPU],
+            key=lambda c: (
+                c.specs.socket is not None and c.specs.socket not in board_sockets,
+                _era_rank(c.release_year, requirements),
+                _overshoot_rank(Category.CPU, c.specs, requirements),
+                c.id,
+            ),
+        )
+
+    # Same failure mode, same fix: ram_type_matches (rules.py) needs the
+    # RAM's single memory_type to appear in both the motherboard's and the
+    # CPU's supported lists -- also a strict, no-exceptions match.
+    cpus = ranked.get(Category.CPU, [])[:top_n_hint]
+    cpu_mem_types = {t for c in cpus if c.specs.memory_type for t in c.specs.memory_type}
+    board_mem_types = {t for m in motherboards if m.specs.memory_type for t in m.specs.memory_type}
+    allowed_mem_types = (cpu_mem_types & board_mem_types) or cpu_mem_types or board_mem_types
+    if allowed_mem_types and Category.RAM in ranked:
+        ranked[Category.RAM] = sorted(
+            ranked[Category.RAM],
+            key=lambda c: (
+                c.specs.memory_type is not None and c.specs.memory_type not in allowed_mem_types,
+                _era_rank(c.release_year, requirements),
+                _overshoot_rank(Category.RAM, c.specs, requirements),
+                c.id,
+            ),
+        )
+
+    return ranked
+
 
 def prefilter_candidates(
-    db: Session, requirements: ProjectRequirements
+    db: Session, requirements: ProjectRequirements, *, top_n_hint: int = 5
 ) -> dict[Category, list[CandidateComponent]]:
     candidates: dict[Category, list[CandidateComponent]] = {}
     rows = db.query(Component).filter(Component.quantity > 0, Component.condition != Condition.FAULTY).all()
@@ -159,7 +216,7 @@ def prefilter_candidates(
         candidates.setdefault(row.category, []).append(
             CandidateComponent(id=row.id, name=row.name, specs=specs, release_year=row.release_year)
         )
-    return _sort_candidates_by_relevance(candidates, requirements)
+    return _sort_candidates_by_relevance(candidates, requirements, top_n_hint=top_n_hint)
 
 
 def deterministic_score(evaluation: BuildEvaluation, requirements: ProjectRequirements) -> float:
@@ -467,7 +524,7 @@ def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClien
 
     requirements, interpret_status = interpret_requirements(prompt, llm_client)
 
-    candidates = prefilter_candidates(db, requirements)
+    candidates = prefilter_candidates(db, requirements, top_n_hint=settings.recommend_top_n)
     forced_missing: list[Category] = []
     if requirements.min_vram_gb is not None and not candidates.get(Category.GPU):
         forced_missing.append(Category.GPU)

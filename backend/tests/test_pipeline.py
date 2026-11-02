@@ -921,3 +921,171 @@ def test_recommend_diversifies_cpu_across_the_returned_builds(db_session):
     assert len(result.builds) == 3
     cpu_names = {c.name for build in result.builds for c in build.components if c.category == Category.CPU}
     assert len(cpu_names) == 3
+
+
+# --- Cross-category relevance sort (socket/memory-type aware) ---
+# Regression tests for a real live bug: sorting CPU candidates purely by
+# how closely they match a stated min_cpu_cores, independently of which
+# sockets the top motherboard candidates actually have, let many
+# same-overshoot CPUs from incompatible sockets crowd out the one CPU that
+# would have actually paired with something. Confirmed against the real
+# seed data: ten historical CPUs tied at "exactly meets min_cpu_cores=4"
+# spanned six different sockets, none of which matched any of the top-5
+# independently-ranked motherboards -- "no compatible builds" despite a
+# proven-compatible combination (AMD Ryzen 5 3600 + its own motherboard)
+# existing elsewhere in the same inventory.
+
+
+def test_prefilter_promotes_a_socket_compatible_cpu_over_many_tied_incompatible_ones(db_session):
+    insert_component(
+        db_session,
+        category=Category.MOTHERBOARD,
+        name="AM4 board",
+        specs={"category": "motherboard", "socket": "AM4", "form_factor": "ATX", "memory_type": ["DDR4"]},
+    )
+    # Five CPUs that exactly meet min_cpu_cores=4 (overshoot 0), none AM4.
+    for socket in ["LGA775", "AM2+", "LGA1366", "AM3", "FM2+"]:
+        insert_component(
+            db_session,
+            category=Category.CPU,
+            name=f"Old {socket} CPU",
+            specs={"category": "cpu", "socket": socket, "cores": 4},
+        )
+    # One CPU that overshoots (6 cores) but actually matches the board.
+    insert_component(
+        db_session,
+        category=Category.CPU,
+        name="AM4 CPU",
+        specs={"category": "cpu", "socket": "AM4", "cores": 6, "memory_type": ["DDR4"]},
+    )
+
+    candidates = prefilter_candidates(
+        db_session, ProjectRequirements(use_case="x", min_cpu_cores=4), top_n_hint=5
+    )
+
+    top_cpu_names = [c.name for c in candidates[Category.CPU][:5]]
+    assert "AM4 CPU" in top_cpu_names
+
+
+def test_prefilter_promotes_ram_matching_motherboard_and_cpu_memory_type(db_session):
+    insert_component(
+        db_session,
+        category=Category.MOTHERBOARD,
+        name="DDR4 board",
+        specs={"category": "motherboard", "socket": "AM4", "form_factor": "ATX", "memory_type": ["DDR4"]},
+    )
+    insert_component(
+        db_session,
+        category=Category.CPU,
+        name="DDR4 CPU",
+        specs={"category": "cpu", "socket": "AM4", "cores": 6, "memory_type": ["DDR4"]},
+    )
+    # Several lower-id, non-matching-type RAM kits, plus one DDR4 kit with
+    # a higher id (so it would lose a plain id tiebreak).
+    for mem_type in ["DDR2", "DDR3", "DDR", "DDR2"]:
+        insert_component(
+            db_session,
+            category=Category.RAM,
+            name=f"{mem_type} kit",
+            specs={"category": "ram", "memory_type": mem_type},
+        )
+    insert_component(
+        db_session, category=Category.RAM, name="DDR4 kit", specs={"category": "ram", "memory_type": "DDR4"}
+    )
+
+    candidates = prefilter_candidates(db_session, ProjectRequirements(use_case="x"), top_n_hint=5)
+
+    top_ram_names = [c.name for c in candidates[Category.RAM][:5]]
+    assert "DDR4 kit" in top_ram_names
+
+
+def test_recommend_finds_a_build_despite_many_overshoot_tied_incompatible_cpus(db_session):
+    """End-to-end reproduction of the live bug, using the exact shape that
+    triggered it: a stated min_cpu_cores with far more than top_n
+    exactly-matching but socket-incompatible CPUs ahead of the one CPU
+    that actually pairs with the available motherboard/RAM/GPU."""
+    insert_component(
+        db_session,
+        category=Category.MOTHERBOARD,
+        name="AM4 board",
+        specs={
+            "category": "motherboard",
+            "socket": "AM4",
+            "form_factor": "ATX",
+            "memory_type": ["DDR4"],
+            "memory_slots": 4,
+            "max_memory_gb": 64,
+            "sata_ports": 4,
+        },
+    )
+    for socket in ["LGA775", "AM2+", "LGA1366", "AM3", "FM2+", "LGA1151"]:
+        insert_component(
+            db_session,
+            category=Category.CPU,
+            name=f"Old {socket} CPU",
+            specs={"category": "cpu", "socket": socket, "cores": 4, "tdp_w": 65},
+        )
+    insert_component(
+        db_session,
+        category=Category.CPU,
+        name="AMD Ryzen 5 3600",
+        specs={
+            "category": "cpu",
+            "socket": "AM4",
+            "cores": 6,
+            "tdp_w": 65,
+            "integrated_graphics": False,
+            "memory_type": ["DDR4"],
+        },
+    )
+    insert_component(
+        db_session,
+        category=Category.RAM,
+        name="DDR4 16GB",
+        specs={
+            "category": "ram",
+            "memory_type": "DDR4",
+            "capacity_gb_per_module": 8,
+            "modules": 2,
+            "form": "DIMM",
+        },
+    )
+    insert_component(
+        db_session,
+        category=Category.STORAGE,
+        name="NVMe 1TB",
+        specs={"category": "storage", "interface": "nvme", "capacity_gb": 1000, "form_factor": "m2_2280"},
+    )
+    insert_component(
+        db_session,
+        category=Category.PSU,
+        name="650W PSU",
+        specs={"category": "psu", "wattage_w": 650, "form_factor": "ATX", "pcie_power_connectors": []},
+    )
+    insert_component(
+        db_session,
+        category=Category.CASE,
+        name="ATX case",
+        specs={"category": "case", "supported_form_factors": ["ATX"], "psu_form_factor": "ATX"},
+    )
+    insert_component(
+        db_session,
+        category=Category.COOLER,
+        name="AM4 cooler",
+        specs={"category": "cooler", "type": "air", "supported_sockets": ["AM4"], "height_mm": 150},
+    )
+
+    client = FakeLLMClient(
+        [
+            load_fixture("valid_requirements_min_cpu_cores_4.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
+    )
+
+    result = recommend(prompt="a pc with at least 4 cores", max_builds=3, db=db_session, llm_client=client)
+
+    assert len(result.builds) >= 1
+    cpu_names = {c.name for build in result.builds for c in build.components if c.category == Category.CPU}
+    assert "AMD Ryzen 5 3600" in cpu_names
