@@ -33,6 +33,7 @@ services:
       PSU_SAFETY_MARGIN: ${PSU_SAFETY_MARGIN:-1.3}
       OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b-instruct}
+      OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-8192}
       ENABLE_WEB_LOOKUP: ${ENABLE_WEB_LOOKUP:-true}
       SEARXNG_BASE_URL: http://searxng:8080
       RECOMMEND_TOP_N: ${RECOMMEND_TOP_N:-5}
