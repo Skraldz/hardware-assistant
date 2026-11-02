@@ -23,7 +23,8 @@ export const translations = {
     healthTitle: (h) =>
       `DB: ${h.db} · Ollama: ${h.ollama} · Storage: ${h.storage} · Backup: ${h.backup_backend} (${h.backup_destination})`,
 
-    inventoryHeading: (count) => `Lager (${count})`,
+    inventoryHeading: (count, outOfStock) =>
+      outOfStock > 0 ? `Lager (${count}, ${outOfStock} udgået)` : `Lager (${count})`,
     allCategories: "Alle",
     colCategory: "Kategori",
     colName: "Navn",
@@ -152,7 +153,8 @@ export const translations = {
     healthTitle: (h) =>
       `DB: ${h.db} · Ollama: ${h.ollama} · Storage: ${h.storage} · Backup: ${h.backup_backend} (${h.backup_destination})`,
 
-    inventoryHeading: (count) => `Inventory (${count})`,
+    inventoryHeading: (count, outOfStock) =>
+      outOfStock > 0 ? `Inventory (${count}, ${outOfStock} out of stock)` : `Inventory (${count})`,
     allCategories: "All",
     colCategory: "Category",
     colName: "Name",

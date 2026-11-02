@@ -332,7 +332,13 @@ export default function InventoryView({ active = true }) {
   return (
     <>
       <section>
-        <h2>{t("inventoryHeading", components.length)}</h2>
+        <h2>
+          {t(
+            "inventoryHeading",
+            components.length,
+            components.filter((c) => c.quantity === 0).length,
+          )}
+        </h2>
         {loadError && <p className="error-message">{loadError}</p>}
         <div className="chip-row">
           <button

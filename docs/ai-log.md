@@ -2,6 +2,19 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-11-03 – Inventory heading shows out-of-stock count separately from the total
+
+**Generated:**
+- `InventoryView.jsx`'s heading now reads e.g. "Inventory (211, 3 out of stock)" instead of just "Inventory (211)" whenever at least one component is at quantity 0.
+
+**Context (live question, not a bug):** after marking a build complete, the student correctly saw the used components' quantity drop to 0, but the heading's count stayed at 211 and read as if nothing had changed. The count was always the number of inventory *rows* (component listings), not total units in stock -- a component at quantity 0 keeps its row (so it can be seen, re-stocked, or removed deliberately) rather than disappearing, which is also why it's correctly excluded from future recommendations via the existing `quantity > 0` prefilter. Clarified behavior, then added the requested visibility into it rather than changing what the base count means.
+
+**Tests covering it:**
+- `frontend/e2e/inventory.spec.js` (1 new test): the heading shows the out-of-stock count alongside the total when at least one component is at quantity 0, and omits it entirely otherwise (covered incidentally by every other existing test, none of which has an out-of-stock component).
+- `npx playwright test` green (20 e2e tests).
+
+**Review (filled in by the student):**
+
 ## 2026-11-03 – Multi-drive builds could never actually surface, and release_year now extracted from the web too
 
 **Generated:**

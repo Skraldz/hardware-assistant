@@ -78,6 +78,18 @@ test("open-in-new-tab link on a search result does not select it as the match", 
   await expect(page.getByText(/Extracted specs for/)).not.toBeVisible();
 });
 
+test("the heading counts out-of-stock components separately from the total", async ({ page }) => {
+  await mockApi(page, {
+    components: [
+      { ...SAMPLE_COMPONENTS[0], quantity: 0 },
+      { ...SAMPLE_COMPONENTS[1], quantity: 1 },
+    ],
+  });
+  await page.goto("/");
+
+  await expect(page.getByText("Inventory (2, 1 out of stock)")).toBeVisible();
+});
+
 test("extracted release year is prefilled and editable before saving", async ({ page }) => {
   await mockApi(page);
   await page.goto("/");
