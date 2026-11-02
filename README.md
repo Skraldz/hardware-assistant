@@ -5,7 +5,7 @@ AI-driven hardware assistant and inventory system. See `SPEC.md` for the full te
 ## Features
 
 - **Hardware inventory**: register your own PC components (CPU, motherboard, RAM, GPU, storage, PSU, case, cooler) with category-specific specifications.
-- **Automatic spec lookup**: type a component name (e.g. "RTX 2060 SUPER"), let the system search the web, fetch and clean the actual page you pick (not just the search engine's short preview of it), and extract specs with a local AI model — you confirm the result before it's saved.
+- **Automatic spec lookup**: type a component name (e.g. "RTX 2060 SUPER"), let the system search the web, fetch and clean the actual page you pick (not just the search engine's short preview of it), and extract specs with a local AI model — you confirm the result before it's saved. The page the specs came from is recorded, and the component's name links to it in the inventory, so a claim can be checked later.
 - **AI-driven build recommendations**: describe a project in free text (e.g. "headless pc for local AI"), and get compatible builds suggested, assembled solely from your own inventory.
 - **Deterministic compatibility checking**: every suggested build is verified by rule-based code (socket, RAM type, power draw, physical fit, etc.) — the AI never suggests anything the rules haven't approved.
 - **Backup/restore**: back up the entire inventory to disk or Azure Blob Storage, and restore it with integrity checks (sha256, schema version).
@@ -17,8 +17,9 @@ The core principle is **"the LLM proposes, the rules verify"** (see `SPEC.md` §
 
 1. A local language model (Ollama) interprets the user's free text into structured requirements.
 2. Deterministic Python code (`backend/app/compatibility/`) combines candidates from the inventory and keeps only the builds where every compatibility rule is satisfied.
-3. The language model ranks and justifies among the already-verified builds — it can never suggest anything the code hasn't approved.
-4. All structured AI output is validated with Pydantic; invalid output gets one retry, then a safe fallback. The system never crashes and never returns an unverified build because of a bad AI response.
+3. A diversity-aware step picks the pool that gets ranked, spanning distinct CPUs and GPUs — without it, one high-scoring CPU fills the pool and every suggestion is a minor variation of the same build.
+4. The language model ranks and justifies among the already-verified builds — it can never suggest anything the code hasn't approved.
+5. All structured AI output is validated with Pydantic; invalid output gets one retry, then a safe fallback. The system never crashes and never returns an unverified build because of a bad AI response.
 
 All AI inference runs locally (Ollama on your own server) — only inventory snapshots ever leave the machine, and only if you choose Azure as the backup destination.
 
@@ -39,6 +40,24 @@ docker compose up -d --build
 The backend starts on `http://localhost:8000` (see `/docs` for OpenAPI). The frontend starts on `http://localhost:4173`. The database is created and seeded automatically on first start (empty database).
 
 If you open the frontend from a different machine than the server (e.g. `http://192.168.1.50:4173`), it finds the backend on the same hostname, port `APP_PORT`, automatically — no configuration needed.
+
+### A setting worth knowing about
+
+`OLLAMA_NUM_CTX` (default `8192`) is set explicitly, because Ollama otherwise applies its own
+context window and **does not fail on overflow — it silently drops the oldest tokens**. For
+`/api/components/extract` that means dropping the fetched page text the web lookup exists to
+supply, and the model then fills the fields from its own vague recollection of the product
+instead. Measured against `qwen2.5:7b-instruct`: at a 2048 context only 2 of 5 extracted values
+matched the page, at 4096 and 8192 all 5 did.
+
+```bash
+cd backend
+python -m scripts.measure_prompt_budget          # prompt sizes; needs nothing running
+python -m scripts.measure_prompt_budget --live   # also calls a running Ollama
+# in Docker: docker compose exec backend python -m scripts.measure_prompt_budget --live
+```
+
+Lower it first if the host is short on memory — a larger context costs KV-cache per loaded model.
 
 ## Backup: local or Azure
 
@@ -91,4 +110,28 @@ npm run test:e2e
 
 ## Status
 
-See `docs/ai-log.md` for a logged walkthrough of each phase (what was generated, assumptions, known risks, test coverage).
+248 backend tests and 23 end-to-end tests, 96% coverage overall and 100% on the compatibility
+rules and the build engine. No test requires Ollama, MariaDB or Azure, so the suite runs
+deterministically in about three seconds.
+
+See `docs/ai-log.md` for a logged walkthrough of each phase — what was generated, which
+assumptions were made, known risks, and the tests covering it. Every bug found in running
+deployment has a regression test that was first verified to fail against the pre-fix code.
+
+## Known limitations
+
+These are open and documented rather than hidden. Each has a proposed fix and the design
+questions that are actually blocking it:
+
+- [#5](https://github.com/Skraldz/hardware-assistant/issues/5) — no rule checks that the
+  motherboard has a PCIe x16 slot for the GPU.
+- [#6](https://github.com/Skraldz/hardware-assistant/issues/6) — `min_storage_gb` is evaluated
+  per drive instead of per build, so two 1 TB drives do not satisfy a 2 TB request.
+- [#7](https://github.com/Skraldz/hardware-assistant/issues/7) — the model only partially fills
+  the preference flags, so some different prompts return identical builds.
+- [#8](https://github.com/Skraldz/hardware-assistant/issues/8) — build diversification can force
+  a contextually poor third suggestion when only two good options exist.
+
+Beyond these: specification values come from web pages and the model's general knowledge rather
+than from datasheets, so the system verifies *compatibility* but cannot verify that the
+specifications themselves are correct. That is why extraction always requires user confirmation.
