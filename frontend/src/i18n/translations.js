@@ -34,6 +34,7 @@ export const translations = {
     no: "Nej",
     delete: "Slet",
     confirmDeleteComponent: "Slet denne komponent fra lageret?",
+    bulkActionsHeading: "Lagerhandlinger",
     clearInventory: "Tøm lager",
     clearing: "Tømmer…",
     confirmClearInventory:
@@ -159,6 +160,7 @@ export const translations = {
     no: "No",
     delete: "Delete",
     confirmDeleteComponent: "Delete this component from the inventory?",
+    bulkActionsHeading: "Inventory actions",
     clearInventory: "Clear inventory",
     clearing: "Clearing…",
     confirmClearInventory:

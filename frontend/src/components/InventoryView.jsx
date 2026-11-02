@@ -326,24 +326,6 @@ export default function InventoryView({ active = true }) {
       <section>
         <h2>{t("inventoryHeading", components.length)}</h2>
         {loadError && <p className="error-message">{loadError}</p>}
-        <div className="row">
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleReseedInventory}
-            disabled={bulkAction !== null}
-          >
-            {bulkAction === "reseed" ? t("reseeding") : t("reseedInventory")}
-          </button>
-          <button
-            type="button"
-            className="btn btn-danger"
-            onClick={handleClearInventory}
-            disabled={bulkAction !== null}
-          >
-            {bulkAction === "clear" ? t("clearing") : t("clearInventory")}
-          </button>
-        </div>
         <div className="chip-row">
           <button
             type="button"
@@ -392,6 +374,28 @@ export default function InventoryView({ active = true }) {
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>{t("bulkActionsHeading")}</h2>
+        <div className="row">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleReseedInventory}
+            disabled={bulkAction !== null}
+          >
+            {bulkAction === "reseed" ? t("reseeding") : t("reseedInventory")}
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger"
+            onClick={handleClearInventory}
+            disabled={bulkAction !== null}
+          >
+            {bulkAction === "clear" ? t("clearing") : t("clearInventory")}
+          </button>
         </div>
       </section>
 
