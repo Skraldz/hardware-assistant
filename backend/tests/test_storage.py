@@ -139,3 +139,18 @@ def test_local_storage_lists_both_xlsx_and_legacy_json_backups(tmp_path):
         "inventory-20260102T000000Z.xlsx",
         "inventory-20260101T000000Z.json",
     }
+
+
+def test_local_storage_rejects_a_name_that_escapes_the_backup_directory(tmp_path):
+    """Regression test: the backup name reaches LocalStorage straight from
+    the API (RestoreRequest.name), and `directory / name` resolves `..` or
+    an absolute path to somewhere else entirely -- so a restore request
+    could read an arbitrary file off the host. An escaping name must be
+    indistinguishable from a missing one."""
+    secret = tmp_path / "secret.txt"
+    secret.write_text("do not leak me")
+    storage = LocalStorage(str(tmp_path / "backups"))
+
+    for name in ["../secret.txt", "../../secret.txt", str(secret)]:
+        with pytest.raises(FileNotFoundError):
+            storage.download(name)

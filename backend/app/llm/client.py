@@ -55,9 +55,18 @@ class OllamaClient:
                 timeout=self._timeout,
             )
             response.raise_for_status()
-            return response.json()["response"]
         except httpx.HTTPError as exc:
             raise LLMUnavailableError(f"Could not reach Ollama: {exc}") from exc
+        try:
+            # A 200 whose body isn't the JSON shape we expect (a truncated
+            # response, a proxy's error page, an Ollama API change) must be
+            # treated as "LLM unavailable" like any transport failure --
+            # otherwise it escapes call_llm_with_retry's error handling as a
+            # raw KeyError/JSONDecodeError and becomes a 500, breaking the
+            # invariant that a misbehaving Ollama never crashes a request.
+            return response.json()["response"]
+        except (ValueError, KeyError, TypeError) as exc:
+            raise LLMUnavailableError(f"Unexpected response from Ollama: {exc}") from exc
 
     def ping(self) -> bool:
         try:

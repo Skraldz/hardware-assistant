@@ -181,6 +181,7 @@ class ComponentCreate(ComponentBase):
 class ComponentUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     manufacturer: str | None = Field(default=None, max_length=100)
+    release_year: int | None = None
     quantity: int | None = Field(default=None, ge=0)
     condition: Condition | None = None
     specs: ComponentSpecs | None = None

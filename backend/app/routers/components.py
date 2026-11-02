@@ -55,6 +55,7 @@ def create_component(payload: ComponentCreate, db: Session = Depends(get_db)) ->
         category=Category(payload.specs.category),
         name=payload.name,
         manufacturer=payload.manufacturer,
+        release_year=payload.release_year,
         quantity=payload.quantity,
         condition=payload.condition,
         specs=payload.specs.model_dump(),

@@ -51,9 +51,20 @@ class SearxngClient:
                 timeout=self._timeout,
             )
             response.raise_for_status()
-            results = response.json().get("results", [])[:MAX_CANDIDATES]
         except httpx.HTTPError as exc:
             raise SearchUnavailableError(f"Could not reach SearXNG: {exc}") from exc
+        try:
+            # SearXNG ships with its `json` output format *disabled* by
+            # default, and then answers /search?format=json with HTTP 200
+            # and an HTML error page. Without this, response.json() raises a
+            # bare JSONDecodeError that escapes both this method's error
+            # contract and the router's `except SearchUnavailableError`, so
+            # the user gets an opaque 500 instead of the intended 503.
+            results = response.json().get("results", [])[:MAX_CANDIDATES]
+        except (ValueError, AttributeError) as exc:
+            raise SearchUnavailableError(
+                f"SearXNG did not return JSON results (is the 'json' output format enabled?): {exc}"
+            ) from exc
         return [
             SearchCandidate(
                 title=result.get("title", ""),

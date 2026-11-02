@@ -16,6 +16,9 @@ reply step):
 No agentic tool-calling: this is a fixed sequence of plain function calls.
 """
 
+import logging
+
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.compatibility.engine import evaluate_build, generate_builds
@@ -44,6 +47,8 @@ from app.schemas.builds import (
 )
 from app.schemas.components import ComponentSpecsAdapter
 from app.schemas.requirements import ProjectRequirements, fallback_requirements
+
+logger = logging.getLogger(__name__)
 
 
 def interpret_requirements(
@@ -226,7 +231,21 @@ def prefilter_candidates(
     candidates: dict[Category, list[CandidateComponent]] = {}
     rows = db.query(Component).filter(Component.quantity > 0, Component.condition != Condition.FAULTY).all()
     for row in rows:
-        specs = ComponentSpecsAdapter.validate_python(row.specs)
+        try:
+            specs = ComponentSpecsAdapter.validate_python(row.specs)
+        except ValidationError:
+            # One row whose stored specs JSON no longer satisfies its spec
+            # class (a hand-edited row, a category changed out of band, a
+            # literal removed from the schema) must not take down every
+            # recommendation. Skip it and log it: a degraded result beats a
+            # 500 on an endpoint whose whole job is "work with what's there".
+            logger.warning(
+                "Skipping component %s (%r): stored specs are not valid for category %s",
+                row.id,
+                row.name,
+                row.category,
+            )
+            continue
         if not _meets_hard_requirements(row.category, row.release_year, specs, requirements):
             continue
         candidates.setdefault(row.category, []).append(
@@ -372,9 +391,16 @@ def rank_builds(
     known_ids = {summary["build_id"] for summary in summaries}
 
     def validate(ranking: BuildRanking) -> None:
+        seen: set[int] = set()
         for entry in ranking.ranking:
             if entry.build_id not in known_ids:
                 raise ValueError(f"Invented build_id: {entry.build_id}")
+            # A repeated id isn't invented, but it would show the user the
+            # same build twice (and make _select_diverse_builds treat the
+            # second copy as a CPU repeat), so it's rejected the same way.
+            if entry.build_id in seen:
+                raise ValueError(f"Duplicate build_id: {entry.build_id}")
+            seen.add(entry.build_id)
 
     ranking, status = call_llm_with_retry(
         llm_client,

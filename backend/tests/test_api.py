@@ -237,3 +237,24 @@ def test_reseed_twice_does_not_duplicate_rows(client):
 
     assert response.json() == {"added": 0, "skipped": len(SEED_COMPONENTS)}
     assert len(client.get("/api/components").json()) == len(SEED_COMPONENTS)
+
+
+def test_create_component_persists_release_year(client):
+    """Regression test: create_component's Component(...) construction
+    didn't pass release_year, so every manually added or web-extracted
+    component silently got release_year=None -- which then failed every
+    hard era bound and sorted last. Fourth occurrence of the same bug
+    class as the purpose column, _COMMON_COLUMNS and restore_backup."""
+    created = client.post("/api/components", json={**CPU_PAYLOAD, "release_year": 2019}).json()
+
+    assert created["release_year"] == 2019
+    assert client.get(f"/api/components/{created['id']}").json()["release_year"] == 2019
+
+
+def test_update_component_can_change_release_year(client):
+    created = client.post("/api/components", json={**CPU_PAYLOAD, "release_year": 2019}).json()
+
+    response = client.put(f"/api/components/{created['id']}", json={"release_year": 2015})
+
+    assert response.status_code == 200
+    assert response.json()["release_year"] == 2015
