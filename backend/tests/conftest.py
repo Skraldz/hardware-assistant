@@ -8,9 +8,11 @@ from app.config import Settings
 from app.db import Base, get_db
 from app.llm.client import get_llm_client
 from app.main import app
+from app.search.page_fetch import get_page_fetcher
 from app.storage import get_backup_storage_dependency
 from app.storage.local import LocalStorage
 from tests.fixtures.fake_llm import FakeLLMClient
+from tests.fixtures.fake_page_fetcher import FakePageFetcher
 
 
 @pytest.fixture()
@@ -38,6 +40,10 @@ def client(db_session, tmp_path, monkeypatch):
     # No test may require a real Ollama (SPEC.md §9.1). Endpoints that need
     # specific canned responses override this again themselves.
     app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient([])
+    # No test may fetch a real web page either (SPEC.md §9.1). Returns None
+    # by default (snippet-only behavior); tests that want page text override
+    # this again themselves.
+    app.dependency_overrides[get_page_fetcher] = lambda: FakePageFetcher(None)
     # SPEC.md §9.1: LocalStorage (real filesystem, via tmp_path) is used in
     # all tests — never a real Azure account. /api/health still resolves
     # storage via this dependency (unchanged); /api/backup's own endpoints

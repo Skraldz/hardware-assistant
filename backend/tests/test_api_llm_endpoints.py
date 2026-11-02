@@ -8,7 +8,9 @@ from app.llm.client import get_llm_client
 from app.main import app
 from app.schemas.search import SearchCandidate
 from app.search.client import get_search_client
+from app.search.page_fetch import get_page_fetcher
 from tests.fixtures.fake_llm import FakeLLMClient, load_fixture
+from tests.fixtures.fake_page_fetcher import FakePageFetcher
 from tests.fixtures.fake_search import FakeSearchClient
 
 RAM_PAYLOAD = {
@@ -215,6 +217,57 @@ def test_extract_merges_other_candidates_snippets_into_the_prompt(client):
     specs_prompt = fake_client.prompts[1]
     assert "Launched April 2023" in specs_prompt
     assert "12 GB GDDR6X, TDP 200W" in specs_prompt
+
+
+def test_extract_merges_fetched_page_text_ahead_of_the_short_snippets(client):
+    """The snippet alone ("8GB GDDR6, 175W TDP") never mentions PCIe power
+    connectors -- this asserts the fetched page's own text (which does) is
+    what actually reaches the extraction prompt, not just the snippet."""
+    fake_client = FakeLLMClient(
+        [load_fixture("valid_category_gpu.json"), load_fixture("valid_extract_gpu.json")]
+    )
+    app.dependency_overrides[get_llm_client] = lambda: fake_client
+    fake_fetcher = FakePageFetcher("Full spec table:\nPCIe power connectors: 1x 8-pin\nLength: 229mm")
+    app.dependency_overrides[get_page_fetcher] = lambda: fake_fetcher
+
+    response = client.post(
+        "/api/components/extract",
+        json={
+            "name": "RTX 2060 SUPER",
+            "candidate": {
+                "title": "NVIDIA GeForce RTX 2060 SUPER specs",
+                "url": "https://example.com/rtx-2060-super",
+                "snippet": "8GB GDDR6, 175W TDP",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    specs_prompt = fake_client.prompts[1]
+    assert "PCIe power connectors: 1x 8-pin" in specs_prompt
+    assert fake_fetcher.fetched_urls == ["https://example.com/rtx-2060-super"]
+
+
+def test_extract_falls_back_to_snippets_when_the_page_fetch_fails(client):
+    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient(
+        [load_fixture("valid_category_gpu.json"), load_fixture("valid_extract_gpu.json")]
+    )
+    app.dependency_overrides[get_page_fetcher] = lambda: FakePageFetcher(None)
+
+    response = client.post(
+        "/api/components/extract",
+        json={
+            "name": "RTX 2060 SUPER",
+            "candidate": {
+                "title": "NVIDIA GeForce RTX 2060 SUPER specs",
+                "url": "https://example.com",
+                "snippet": "8GB GDDR6, 175W TDP",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["specs_source"] == "web_lookup"
 
 
 def test_extract_without_candidate_when_web_lookup_enabled_returns_400(client):

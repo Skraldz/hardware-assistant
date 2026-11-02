@@ -2,6 +2,33 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-11-02 – Fetch and clean the actual page for extraction, not just its search snippet
+
+**Generated:**
+- `backend/app/search/page_fetch.py`: `HttpPageFetcher`/`PageFetcher` (a `Protocol`, same pattern as `search/client.py`'s `SearchClient`, so tests never make a real HTTP request -- SPEC.md §9.1). `/api/components/extract` (`routers/components.py`) now fetches the *chosen* search candidate's actual page (not the others, to keep this to one extra request) with `httpx`, strips `script`/`style`/`nav`/`header`/`footer`/`noscript`/`svg`/`form` tags with BeautifulSoup, and takes the remaining visible text (capped at `PAGE_FETCH_MAX_CHARS`, default 8000 characters) as extraction context -- prepended ahead of the existing short snippets, which stay as a fallback/supplement rather than being dropped.
+- New settings: `FETCH_FULL_PAGE` (default true, an escape hatch back to snippet-only behavior), `PAGE_FETCH_TIMEOUT_S` (8s), `PAGE_FETCH_MAX_CHARS` (8000).
+- `pyproject.toml` gains `beautifulsoup4` as a core (not dev-only) dependency -- it's used at request time, not just in tests.
+
+**Root cause (live-reported: "the sites it recommends from have pcie power connector information, but it does not get extracted"):** a SearXNG search result's `snippet` is a short preview the search engine itself generated (often the page's meta description), not the page's actual content -- it was never a prompt-engineering problem, the LLM genuinely never saw the information at all. Confirmed directly against a real page during this fix: fetching `techpowerup.com`'s GeForce RTX 2060 spec page returns "*draws power from 1x 8-pin power connector*" and its physical dimensions in the cleaned text, neither of which SearXNG's snippet for that same page ever included.
+
+**Assumptions:**
+- **Only the chosen candidate's page is fetched, not every `other_candidate`'s.** Fetching N pages per extraction request would add N round-trips of latency to a single user action; the chosen result is the one the user already judged most relevant, and the existing merged-snippets behavior (2026-10-31's entry) still covers anything only a different result's *snippet* happens to state.
+- **A fetch failure (timeout, 404, non-HTML content type, blocked by the site) is silent, not an error** -- `extract_component_specs` simply falls back to exactly the snippet-only behavior that already existed before this change. This was judged the right trade for a best-effort enhancement layered on top of an already-working flow: a page that can't be fetched shouldn't make extraction worse or fail outright, only as good as before.
+- **8000 characters was chosen empirically**, not from a stated requirement: large enough to comfortably include a spec table/section on real hardware-database pages (confirmed on the TechPowerUp example above, where the power-connector sentence appears within the first 2000 characters of cleaned text), small enough to stay a reasonable addition to the LLM prompt's size/latency.
+
+**Known risks / weaknesses:**
+- Some sites render their spec table via client-side JavaScript; a plain HTTP GET + static HTML parse (no headless browser) won't see content that only exists after JS execution. Not handled -- would need a much heavier tool (e.g. Playwright-driven rendering) to fix, judged disproportionate for this project's scope. `search/client.py`'s own domain exclusions already bias results toward simpler, spec-table-style sites (TechPowerUp, manufacturer pages) over heavier retail/marketplace pages, which helps in practice.
+- No robots.txt handling or rate limiting on this new outbound request -- acceptable for a single-user tool making one fetch per manual add-component action, but worth knowing if this code were ever reused somewhere higher-volume.
+- `get_text(separator="\n", strip=True)` keeps some residual chrome on some pages (e.g. "Report an Error", breadcrumb-style labels) alongside the real spec text -- harmless noise for the extraction LLM to skip past, not attempted to filter further.
+
+**Tests covering it:**
+- `backend/tests/test_page_fetch.py` (6 tests): script/style/nav/footer text is excluded while real content and a value needed for extraction survive; truncation to the configured `page_fetch_max_chars`; a connection error, an HTTP error status, and a non-HTML `content-type` all return `None` rather than raising; `fetch_full_page=False` skips the request entirely.
+- `backend/tests/test_api_llm_endpoints.py` (2 new tests): the fetched page's text (containing a PCIe connector line the snippet alone never had) actually reaches the extraction prompt, ahead of the short snippets; a failed fetch (`None`) falls back to the pre-existing snippet-only behavior without error.
+- A real page (`techpowerup.com`'s RTX 2060 spec page) was fetched and manually inspected during this fix to confirm the cleaned output is genuinely useful, not just passing mocked assertions.
+- `ruff check`/`ruff format --check`/`pytest --cov` green: 217 tests, 96% overall coverage.
+
+**Review (filled in by the student):**
+
 ## 2026-11-02 – Diagnosed and fixed a live "cannot save builds" bug: stale table columns
 
 **Generated:**

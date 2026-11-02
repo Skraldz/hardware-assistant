@@ -5,7 +5,7 @@ AI-driven hardware assistant and inventory system. See `SPEC.md` for the full te
 ## Features
 
 - **Hardware inventory**: register your own PC components (CPU, motherboard, RAM, GPU, storage, PSU, case, cooler) with category-specific specifications.
-- **Automatic spec lookup**: type a component name (e.g. "RTX 2060 SUPER"), let the system search the web and extract specs with a local AI model — you confirm the result before it's saved.
+- **Automatic spec lookup**: type a component name (e.g. "RTX 2060 SUPER"), let the system search the web, fetch and clean the actual page you pick (not just the search engine's short preview of it), and extract specs with a local AI model — you confirm the result before it's saved.
 - **AI-driven build recommendations**: describe a project in free text (e.g. "headless pc for local AI"), and get compatible builds suggested, assembled solely from your own inventory.
 - **Deterministic compatibility checking**: every suggested build is verified by rule-based code (socket, RAM type, power draw, physical fit, etc.) — the AI never suggests anything the rules haven't approved.
 - **Backup/restore**: back up the entire inventory to disk or Azure Blob Storage, and restore it with integrity checks (sha256, schema version).

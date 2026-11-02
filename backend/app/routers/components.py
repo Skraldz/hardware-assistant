@@ -32,6 +32,7 @@ from app.schemas.search import (
     SearchResponse,
 )
 from app.search.client import SearchClient, SearchUnavailableError, get_search_client
+from app.search.page_fetch import PageFetcher, get_page_fetcher
 from app.seed import SEED_COMPONENTS, _component_from_seed_item
 
 router = APIRouter(prefix="/api/components", tags=["components"])
@@ -127,7 +128,9 @@ def search_components(
 
 @router.post("/extract", response_model=ExtractResponse)
 def extract_component_specs(
-    payload: ExtractRequest, llm_client: LLMClient = Depends(get_llm_client)
+    payload: ExtractRequest,
+    llm_client: LLMClient = Depends(get_llm_client),
+    page_fetcher: PageFetcher = Depends(get_page_fetcher),
 ) -> ExtractResponse:
     settings = get_settings()
     web_snippet: str | None = None
@@ -146,6 +149,20 @@ def extract_component_specs(
         # extraction context rather than using the chosen one alone.
         all_candidates = [payload.candidate, *payload.other_candidates]
         web_snippet = "\n\n".join(f"{c.title}\n{c.snippet}" for c in all_candidates)
+
+        # A snippet is a short preview the search engine generated, not the
+        # page itself -- a spec table/bullet list often sits further down
+        # the real page than any snippet reaches. Best-effort: fetching the
+        # chosen candidate's actual page (not the others, to keep this one
+        # extra request) and prepending its cleaned text gives the LLM a
+        # much larger, more complete slice of the real content to draw
+        # from; a fetch failure just leaves web_snippet as it already was.
+        page_text = page_fetcher.fetch(payload.candidate.url)
+        if page_text:
+            web_snippet = (
+                f'Full page content for "{payload.candidate.title}":\n{page_text}\n\n'
+                f"--- Other search results (short previews only) ---\n{web_snippet}"
+            )
         specs_source = SpecsSource.WEB_LOOKUP
 
     # Two LLM calls instead of one: a tiny category-only schema first, then a

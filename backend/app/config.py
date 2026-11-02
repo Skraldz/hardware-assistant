@@ -23,6 +23,15 @@ class Settings(BaseSettings):
     # --- Web lookup (SearXNG) for /api/components/search + /extract ---
     enable_web_lookup: bool = True
     searxng_base_url: str = "http://searxng:8080"
+    # A SearXNG result's `snippet` is a short preview the search engine
+    # generated (often a meta description), not the page itself -- specs
+    # commonly sit in a table/bullet list further down than any snippet
+    # reaches. When true, /extract also fetches and cleans the chosen
+    # candidate's actual page for extraction context. Best-effort: a fetch
+    # failure just falls back to snippet-only behavior, never an error.
+    fetch_full_page: bool = True
+    page_fetch_timeout_s: float = 8.0
+    page_fetch_max_chars: int = 8000
 
     # --- Recommend pipeline ---
     recommend_top_n: int = 5
