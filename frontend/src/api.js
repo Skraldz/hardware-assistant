@@ -44,6 +44,10 @@ export const api = {
   listComponents: (category) => request(`/api/components${category ? `?category=${category}` : ""}`),
   createComponent: (payload) => request("/api/components", { method: "POST", body: JSON.stringify(payload) }),
   deleteComponent: (id) => request(`/api/components/${id}`, { method: "DELETE" }),
+  clearInventory: () =>
+    request("/api/components/clear", { method: "POST", body: JSON.stringify({ confirm: true }) }),
+  reseedInventory: () =>
+    request("/api/components/reseed", { method: "POST", body: JSON.stringify({ confirm: true }) }),
 
   searchComponents: (name) =>
     request("/api/components/search", { method: "POST", body: JSON.stringify({ name }) }),

@@ -181,3 +181,59 @@ def test_delete_component(client):
 def test_delete_missing_component_returns_404(client):
     response = client.delete("/api/components/9999")
     assert response.status_code == 404
+
+
+def test_clear_inventory_without_confirm_returns_400(client):
+    client.post("/api/components", json=CPU_PAYLOAD)
+    response = client.post("/api/components/clear", json={})
+    assert response.status_code == 400
+    assert client.get("/api/components").json() != []
+
+
+def test_clear_inventory_deletes_components_and_saved_builds(client, db_session):
+    from app.models import SavedBuild
+
+    created = client.post("/api/components", json=CPU_PAYLOAD).json()
+    db_session.add(
+        SavedBuild(name="Test build", components=[{"id": created["id"], "category": "cpu", "name": "x"}])
+    )
+    db_session.commit()
+
+    response = client.post("/api/components/clear", json={"confirm": True})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body == {"deleted_components": 1, "deleted_builds": 1}
+    assert client.get("/api/components").json() == []
+    assert client.get("/api/builds").json() == []
+
+
+def test_reseed_without_confirm_returns_400(client):
+    response = client.post("/api/components/reseed", json={})
+    assert response.status_code == 400
+    assert client.get("/api/components").json() == []
+
+
+def test_reseed_adds_seed_data_on_top_without_touching_existing_components(client):
+    from app.seed import SEED_COMPONENTS
+
+    created = client.post("/api/components", json={**CPU_PAYLOAD, "name": "Not a seed component"}).json()
+
+    response = client.post("/api/components/reseed", json={"confirm": True})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body == {"added": len(SEED_COMPONENTS), "skipped": 0}
+    names = {c["name"] for c in client.get("/api/components").json()}
+    assert "Not a seed component" in names
+    assert client.get(f"/api/components/{created['id']}").status_code == 200
+
+
+def test_reseed_twice_does_not_duplicate_rows(client):
+    from app.seed import SEED_COMPONENTS
+
+    client.post("/api/components/reseed", json={"confirm": True})
+    response = client.post("/api/components/reseed", json={"confirm": True})
+
+    assert response.json() == {"added": 0, "skipped": len(SEED_COMPONENTS)}
+    assert len(client.get("/api/components").json()) == len(SEED_COMPONENTS)

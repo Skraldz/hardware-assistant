@@ -2,6 +2,30 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-11-02 – "Clear inventory" and "Populate with demo data" buttons (issue #1)
+
+**Generated:**
+- `POST /api/components/clear` (`routers/components.py`): requires `{"confirm": true}` (400 otherwise, same pattern as `POST /api/backup/restore`), then deletes every `Component` **and** every `SavedBuild` in one transaction and returns `{deleted_components, deleted_builds}`. Builds are included because a saved build only makes sense in terms of components that still exist -- clearing the inventory out from under it would leave a build pointing at nothing.
+- `POST /api/components/reseed` (`routers/components.py`): requires `{"confirm": true}` the same way, then walks `SEED_COMPONENTS` (`app/seed.py`) and inserts only the ones not already present, matched by `(category, name)` against the current inventory -- so it adds the demo data on top of whatever's already there (as requested) and is safe to click more than once: a second click adds nothing new. Returns `{added, skipped}`. `seed.py`'s own insertion logic (`specs_source=SpecsSource.MANUAL, specs_verified=True`) was pulled into a small `_component_from_seed_item()` helper so the container-startup `seed()` and this endpoint share it instead of duplicating it.
+- `InventoryView.jsx` gains two buttons above the component table ("Populate with demo data" / "Clear inventory"), each gated by a native `window.confirm()` -- the same pattern already used for single-component delete and backup restore, not a new custom modal -- and reporting the result via `window.alert()`, matching restore's existing UX. Both are disabled while either is in flight.
+- `schemas/components.py` gains `ClearInventoryRequest/Response` and `ReseedRequest/Response`.
+
+**Assumptions:**
+- **Confirmation is required for both actions, not just the destructive one.** Reseed is additive, not destructive, so technically doesn't need a confirm gate the way clear does -- but the user asked for "a confirmation step as well" right after describing both buttons together, and a consistent `confirm: true` requirement on both (mirroring the existing restore endpoint) was simpler than making the two buttons behave differently for a low-cost extra click.
+- **Clearing the inventory also deletes all saved builds** (explicit decision from the user, asked directly rather than assumed) rather than leaving them with dangling component references. Note this is a deliberately bigger blast radius than restoring a backup, which replaces components but never touches saved builds.
+- **Reseed's "already present" check matches on `(category, name)` only**, not full spec equality -- a component that happens to share a seed item's exact name and category (e.g. a manually re-added "AMD Ryzen 5 3600") is treated as "already seeded" and skipped, even if its specs/condition/quantity differ. Judged the right trade for "add what's missing" semantics; a stricter full-equality match would instead re-add near-duplicates whenever any field differs, which seemed more surprising.
+
+**Known risks / weaknesses:**
+- Clearing the inventory down to 0 rows interacts with the idempotent startup `seed()` call in `app/bootstrap.py`'s entrypoint flow: if the container restarts after a manual clear, `seed()` will auto-reseed from scratch (table is empty => not idempotent-skipped). Not a bug, but worth knowing if an empty inventory is deliberately being tested across a restart.
+- Neither endpoint is behind any auth (consistent with the rest of this single-user exam project) -- `POST /api/components/clear` is a real, unguarded "delete everything" endpoint if the API is ever exposed beyond localhost/the home LAN.
+
+**Tests covering it:**
+- `backend/tests/test_api.py` (6 new tests): confirm required (400) for both endpoints and nothing is deleted/added; clear deletes components and saved builds together and reports accurate counts; reseed adds the full seed set to an empty inventory without touching an existing non-seed component; reseeding twice in a row adds nothing the second time.
+- `frontend/e2e/inventory.spec.js` (3 new tests): clearing sends `{confirm: true}` and reports the result via both dialogs; declining the confirmation sends no request at all; reseeding sends `{confirm: true}` and reports its result.
+- `ruff check`/`ruff format --check`/`pytest` green (199 backend tests); `npm run build` and `npx playwright test` green (17 e2e tests).
+
+**Review (filled in by the student):**
+
 ## 2026-10-31 – Seed data expanded to 210 components across three hardware eras
 
 **Generated:**

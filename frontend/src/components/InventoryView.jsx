@@ -122,6 +122,9 @@ export default function InventoryView({ active = true }) {
   const [manualCondition, setManualCondition] = useState("new");
   const [manualError, setManualError] = useState(null);
 
+  // One bulk action at a time, so a slow clear/reseed can't overlap another.
+  const [bulkAction, setBulkAction] = useState(null); // null | "clear" | "reseed"
+
   function handleManualCategoryChange(category) {
     setManualCategory(category);
     setManualSpecsJson(JSON.stringify(SPEC_TEMPLATES[category], null, 2));
@@ -274,6 +277,34 @@ export default function InventoryView({ active = true }) {
     }
   }
 
+  async function handleClearInventory() {
+    if (!window.confirm(t("confirmClearInventory"))) return;
+    setBulkAction("clear");
+    try {
+      const res = await api.clearInventory();
+      await loadComponents();
+      window.alert(t("clearInventoryComplete", res.deleted_components, res.deleted_builds));
+    } catch (err) {
+      setLoadError(err.message);
+    } finally {
+      setBulkAction(null);
+    }
+  }
+
+  async function handleReseedInventory() {
+    if (!window.confirm(t("confirmReseedInventory"))) return;
+    setBulkAction("reseed");
+    try {
+      const res = await api.reseedInventory();
+      await loadComponents();
+      window.alert(t("reseedComplete", res.added, res.skipped));
+    } catch (err) {
+      setLoadError(err.message);
+    } finally {
+      setBulkAction(null);
+    }
+  }
+
   const visibleComponents = components
     .filter((c) => categoryFilter === "all" || c.category === categoryFilter)
     .sort((a, b) => (sortDir === "asc" ? 1 : -1) * compareComponents(a, b, sortKey));
@@ -295,6 +326,24 @@ export default function InventoryView({ active = true }) {
       <section>
         <h2>{t("inventoryHeading", components.length)}</h2>
         {loadError && <p className="error-message">{loadError}</p>}
+        <div className="row">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleReseedInventory}
+            disabled={bulkAction !== null}
+          >
+            {bulkAction === "reseed" ? t("reseeding") : t("reseedInventory")}
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger"
+            onClick={handleClearInventory}
+            disabled={bulkAction !== null}
+          >
+            {bulkAction === "clear" ? t("clearing") : t("clearInventory")}
+          </button>
+        </div>
         <div className="chip-row">
           <button
             type="button"

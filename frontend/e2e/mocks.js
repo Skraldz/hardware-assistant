@@ -155,6 +155,15 @@ export async function mockApi(page, overrides = {}) {
     if (route.request().method() === "DELETE") return route.fulfill({ status: 204 });
     return route.continue();
   });
+  // Registered after the generic "**/api/components/*" delete handler above
+  // so these two take priority over it for their exact paths (Playwright
+  // checks the most-recently-registered matching route first).
+  await page.route("**/api/components/clear", (route) =>
+    fulfillJson(route, overrides.clearResult ?? { deleted_components: 2, deleted_builds: 1 }),
+  );
+  await page.route("**/api/components/reseed", (route) =>
+    fulfillJson(route, overrides.reseedResult ?? { added: 210, skipped: 0 }),
+  );
   await page.route("**/api/components/search", (route) => fulfillJson(route, search));
   await page.route("**/api/components/extract", (route) =>
     fulfillJson(route, {

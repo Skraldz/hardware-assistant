@@ -34,6 +34,18 @@ export const translations = {
     no: "Nej",
     delete: "Slet",
     confirmDeleteComponent: "Slet denne komponent fra lageret?",
+    clearInventory: "Tøm lager",
+    clearing: "Tømmer…",
+    confirmClearInventory:
+      "Slet ALLE komponenter fra lageret, samt alle gemte builds? Dette kan ikke fortrydes.",
+    clearInventoryComplete: (components, builds) =>
+      `Lager tømt: ${components} komponenter og ${builds} gemte builds slettet.`,
+    reseedInventory: "Udfyld med demo-data",
+    reseeding: "Udfylder…",
+    confirmReseedInventory:
+      "Tilføj den indbyggede demo-data (op til 210 komponenter) til det nuværende lager? Allerede tilstedeværende demo-komponenter springes over — intet slettes.",
+    reseedComplete: (added, skipped) =>
+      `Demo-data tilføjet: ${added} nye komponenter (${skipped} var allerede i lageret).`,
 
     addViaSearchHeading: "Tilføj komponent — søg på nettet",
     addViaExtractHeading: "Tilføj komponent — udtræk fra LLM'ens viden",
@@ -147,6 +159,18 @@ export const translations = {
     no: "No",
     delete: "Delete",
     confirmDeleteComponent: "Delete this component from the inventory?",
+    clearInventory: "Clear inventory",
+    clearing: "Clearing…",
+    confirmClearInventory:
+      "Delete ALL components from the inventory, and all saved builds? This cannot be undone.",
+    clearInventoryComplete: (components, builds) =>
+      `Inventory cleared: ${components} components and ${builds} saved builds deleted.`,
+    reseedInventory: "Populate with demo data",
+    reseeding: "Populating…",
+    confirmReseedInventory:
+      "Add the built-in demo data (up to 210 components) to the current inventory? Demo components already present are skipped — nothing is deleted.",
+    reseedComplete: (added, skipped) =>
+      `Demo data added: ${added} new components (${skipped} were already in the inventory).`,
 
     addViaSearchHeading: "Add component — search the web",
     addViaExtractHeading: "Add component — extract from LLM knowledge",

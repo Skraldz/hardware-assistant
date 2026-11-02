@@ -16,9 +16,13 @@ from app.llm.prompts import (
 from app.schemas.components import (
     EXTRACT_SCHEMA_BY_CATEGORY,
     SPEC_CLASS_BY_CATEGORY,
+    ClearInventoryRequest,
+    ClearInventoryResponse,
     ComponentCreate,
     ComponentRead,
     ComponentUpdate,
+    ReseedRequest,
+    ReseedResponse,
 )
 from app.schemas.search import (
     CategoryGuess,
@@ -28,6 +32,7 @@ from app.schemas.search import (
     SearchResponse,
 )
 from app.search.client import SearchClient, SearchUnavailableError, get_search_client
+from app.seed import SEED_COMPONENTS, _component_from_seed_item
 
 router = APIRouter(prefix="/api/components", tags=["components"])
 
@@ -60,6 +65,41 @@ def create_component(payload: ComponentCreate, db: Session = Depends(get_db)) ->
     db.commit()
     db.refresh(component)
     return component
+
+
+@router.post("/clear", response_model=ClearInventoryResponse)
+def clear_inventory(payload: ClearInventoryRequest, db: Session = Depends(get_db)) -> ClearInventoryResponse:
+    if not payload.confirm:
+        raise HTTPException(status_code=400, detail="confirm: true is required to clear the inventory.")
+    # Saved builds reference components by id and are meaningless once every
+    # component is gone, so they're cleared together, in one transaction.
+    deleted_components = db.query(models.Component).delete()
+    deleted_builds = db.query(models.SavedBuild).delete()
+    db.commit()
+    return ClearInventoryResponse(deleted_components=deleted_components, deleted_builds=deleted_builds)
+
+
+@router.post("/reseed", response_model=ReseedResponse)
+def reseed_inventory(payload: ReseedRequest, db: Session = Depends(get_db)) -> ReseedResponse:
+    if not payload.confirm:
+        raise HTTPException(status_code=400, detail="confirm: true is required to reseed the inventory.")
+    # Adds on top of whatever's already there rather than replacing it --
+    # matched by (category, name) so clicking this more than once never
+    # creates duplicate rows for seed items already present.
+    existing = {
+        (category, name)
+        for category, name in db.query(models.Component.category, models.Component.name).all()
+    }
+    added = 0
+    for item in SEED_COMPONENTS:
+        key = (item["category"], item["name"])
+        if key in existing:
+            continue
+        db.add(_component_from_seed_item(item))
+        existing.add(key)
+        added += 1
+    db.commit()
+    return ReseedResponse(added=added, skipped=len(SEED_COMPONENTS) - added)
 
 
 @router.post("/search", response_model=SearchResponse)

@@ -3378,17 +3378,15 @@ SEED_COMPONENTS: list[dict] = [
 ]
 
 
+def _component_from_seed_item(item: dict) -> Component:
+    return Component(specs_source=SpecsSource.MANUAL, specs_verified=True, **item)
+
+
 def seed(db) -> int:
     if db.query(Component).first() is not None:
         return 0
     for item in SEED_COMPONENTS:
-        db.add(
-            Component(
-                specs_source=SpecsSource.MANUAL,
-                specs_verified=True,
-                **item,
-            )
-        )
+        db.add(_component_from_seed_item(item))
     db.commit()
     return len(SEED_COMPONENTS)
 

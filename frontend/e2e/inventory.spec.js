@@ -64,6 +64,65 @@ test("open-in-new-tab link on a search result does not select it as the match", 
   await expect(page.getByText(/Extracted specs for/)).not.toBeVisible();
 });
 
+test("clearing the inventory requires confirmation and reports the result", async ({ page }) => {
+  await mockApi(page);
+  // Two dialogs fire here: a confirm() asking to proceed, then an alert()
+  // reporting the result once the request resolves -- wait for both before
+  // the test ends, or the second one's accept() races test teardown.
+  const dialogMessages = [];
+  page.on("dialog", async (dialog) => {
+    dialogMessages.push(dialog.message());
+    await dialog.accept();
+  });
+  await page.goto("/");
+
+  const clearRequest = page.waitForRequest(
+    (req) => req.url().endsWith("/api/components/clear") && req.method() === "POST",
+  );
+  await page.getByRole("button", { name: "Clear inventory" }).click();
+  const request = await clearRequest;
+  expect(request.postDataJSON()).toEqual({ confirm: true });
+
+  await expect.poll(() => dialogMessages.length).toBeGreaterThanOrEqual(2);
+  expect(dialogMessages[1]).toContain("Inventory cleared");
+});
+
+test("declining the clear-inventory confirmation sends no request", async ({ page }) => {
+  await mockApi(page);
+  page.on("dialog", (dialog) => dialog.dismiss());
+  await page.goto("/");
+
+  let cleared = false;
+  await page.route("**/api/components/clear", (route) => {
+    cleared = true;
+    return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  });
+
+  await page.getByRole("button", { name: "Clear inventory" }).click();
+  await expect(page.getByText("Inventory (2)")).toBeVisible();
+  expect(cleared).toBe(false);
+});
+
+test("reseeding the inventory adds on top without clearing it first", async ({ page }) => {
+  await mockApi(page);
+  const dialogMessages = [];
+  page.on("dialog", async (dialog) => {
+    dialogMessages.push(dialog.message());
+    await dialog.accept();
+  });
+  await page.goto("/");
+
+  const reseedRequest = page.waitForRequest(
+    (req) => req.url().endsWith("/api/components/reseed") && req.method() === "POST",
+  );
+  await page.getByRole("button", { name: "Populate with demo data" }).click();
+  const request = await reseedRequest;
+  expect(request.postDataJSON()).toEqual({ confirm: true });
+
+  await expect.poll(() => dialogMessages.length).toBeGreaterThanOrEqual(2);
+  expect(dialogMessages[1]).toContain("Demo data added");
+});
+
 // Regression test: the name field used to stay disabled while a result was
 // under review, as a (now-redundant) guard against a name-drift bug that's
 // actually prevented by handleConfirmSave freezing its own confirmName

@@ -175,3 +175,26 @@ class ComponentRead(ComponentBase):
     specs: ComponentSpecs
     created_at: datetime
     updated_at: datetime
+
+
+class ClearInventoryRequest(BaseModel):
+    confirm: bool = False
+
+
+class ClearInventoryResponse(BaseModel):
+    deleted_components: int
+    # Saved builds reference components by id and are meaningless once every
+    # component is gone, so clearing the inventory clears these too.
+    deleted_builds: int
+
+
+class ReseedRequest(BaseModel):
+    confirm: bool = False
+
+
+class ReseedResponse(BaseModel):
+    added: int
+    # How many seed components were already present (matched by category +
+    # name) and therefore left untouched -- reseeding adds what's missing,
+    # it never duplicates or overwrites existing rows.
+    skipped: int
