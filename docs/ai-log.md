@@ -2,6 +2,27 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-11-03 – prefer_max_vram: "the biggest GPU I have" was quietly losing to no GPU at all
+
+**Generated:**
+- `ProjectRequirements` gains `prefer_max_vram: bool` -- a relative preference (same shape as `prefer_oldest`/`prefer_newest`) for when the user wants the single most capable GPU available rather than stating a concrete VRAM number (e.g. "the biggest model my hardware can run", "the best GPU I have"). `deterministic_score` adds a `gpu_vram_gb * 3` bonus when set (0 for a GPU-less build), and `_overshoot_rank` sorts GPU candidates by descending `vram_gb` instead of ascending overshoot-from-a-minimum, since there's no minimum to measure against for a request shaped like this. `RANKING_SYSTEM_PROMPT` and the ranking candidate summaries (now including `gpu_vram_gb`) were updated so the LLM-driven ranking path honors it too, not just the deterministic fallback.
+
+**Root cause (live-reported: "I need a pc that can run the biggest model available from the hardware in my inventory" returned 3 near-identical builds, all with no GPU at all, despite the inventory having several):** `deterministic_score`'s power-draw nudge is gentle and always-on *by design* (so builds aren't uniformly stuck at the same score when nothing was explicitly requested -- see the 2026-10-31 entry that added it), but a build with any GPU always has strictly higher total TDP than the same build without one. With no `min_vram_gb` to infer here (the request is relative -- "the biggest available" -- not a concrete target like a named game's system requirements), nothing ever offset that nudge, so a GPU-less build quietly won by default on every single request shaped like this, regardless of how capable a GPU was actually available.
+
+**Assumptions:**
+- **`prefer_max_vram` and `min_vram_gb` are independent, not mutually exclusive** -- a request can state both a concrete minimum (from a named game/model) and still want the biggest option beyond that minimum. The prompt tells the LLM to keep setting `min_vram_gb` whenever a concrete target is separately knowable.
+- **The LLM must never invent a `min_vram_gb` number for a relative request like this** -- it has no way to know what's actually in the user's inventory, so a fabricated number would be a guess dressed up as a requirement. This mirrors the exact same reasoning already applied to `prefer_oldest`/`prefer_newest` vs. `max_release_year`/`min_release_year`.
+- **The bonus weight (3 per GB) was picked to clearly dominate the TDP nudge** for any realistic GPU (even a 450 W flagship only costs ~4.5 points from the gentle 0.01/W nudge, versus a 72-point bonus for 24 GB) without swamping every other scoring factor -- not derived from a formal requirement, chosen empirically against the existing score's scale (100 baseline, single-digit-to-low-double-digit adjustments elsewhere).
+
+**Known risks / weaknesses:**
+- None specific to this fix; it only adds a new, opt-in preference, and leaves every existing scoring path (including builds where `prefer_max_vram` is unset, the overwhelmingly common case) completely unchanged.
+
+**Tests covering it:**
+- `backend/tests/test_pipeline.py` (4 new tests): a GPU-equipped build outscores an otherwise-identical GPU-less one once `prefer_max_vram` is set; a bigger GPU outscores a smaller one; `prefilter_candidates` sorts GPU candidates by descending VRAM; a full end-to-end `recommend()` call reproducing the live prompt ("run the biggest model available from my inventory") against an inventory with two GPUs of different sizes asserts the returned build uses the bigger one. Verified the two most central assertions (the deterministic-score ordering, and the end-to-end build choice) both fail against the pre-fix code before trusting them.
+- `ruff check`/`ruff format --check`/`pytest --cov` green: 230 tests, 96% overall coverage.
+
+**Review (filled in by the student):**
+
 ## 2026-11-03 – Two more live bugs: restore silently dropped release_year, and independent per-category sorting could zero out every build
 
 **Generated:**

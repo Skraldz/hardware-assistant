@@ -29,6 +29,12 @@ REQUIREMENTS_SYSTEM_PROMPT = (
     "If the user asks for a build that should not be more powerful than necessary for their stated goal "
     '(e.g. "but not more powerful than that", "nothing more than I need"), set prefer_minimal_spec '
     "to true. "
+    'If the user wants the single most capable GPU available ("the biggest model my hardware can run", '
+    '"the best/biggest GPU I have", "run the largest model available from my inventory"), set '
+    "prefer_max_vram to true instead of guessing a min_vram_gb number -- you don't know what's actually "
+    "in their inventory, so inventing a specific VRAM figure here would be a guess dressed up as a "
+    "requirement. prefer_max_vram and min_vram_gb are not mutually exclusive: still set min_vram_gb when "
+    "a concrete target is separately knowable (e.g. a named game or model's actual requirements). "
     'If the user states an actual year cutoff for hardware age (e.g. "from 2010 or earlier", "newer '
     'than 2020"), set max_release_year/min_release_year to that year — these are hard requirements, '
     "a component with no known release year or outside the stated range will be excluded entirely. "
@@ -83,7 +89,10 @@ RANKING_SYSTEM_PROMPT = (
     "sufficient for the stated goal rather than the most powerful option available, and say so in your "
     "reason. If prefer_oldest/prefer_newest is set, or max_release_year/min_release_year narrows the "
     "builds to a specific era, prefer whichever build's cpu_release_year/gpu_release_year best matches "
-    "that direction, and mention the component's actual year in your reason. You must ALWAYS choose "
+    "that direction, and mention the component's actual year in your reason. If prefer_max_vram is set, "
+    "prefer whichever build has the highest gpu_vram_gb (a build with no gpu has none at all, so it "
+    "should lose to any build that has one) and mention the actual VRAM figure in your reason. "
+    "You must ALWAYS choose "
     "build_id from the ids given in the list — never invent an id. Respond ONLY with JSON matching the "
     "given schema."
 )

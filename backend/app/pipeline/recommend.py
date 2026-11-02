@@ -108,8 +108,14 @@ def _overshoot_rank(category: Category, specs, requirements: ProjectRequirements
     smallest stated hard minimum for its category, if any was given.
     Mirrors deterministic_score's own overshoot logic, but per-component
     rather than per-build, since this runs before any build exists."""
-    if category == Category.GPU and requirements.min_vram_gb is not None:
-        return max((specs.vram_gb or 0) - requirements.min_vram_gb, 0)
+    if category == Category.GPU:
+        if requirements.prefer_max_vram:
+            # Opposite direction from the overshoot logic below: "the
+            # biggest GPU available" has no minimum to measure overshoot
+            # against, it just wants the largest vram_gb first.
+            return -(specs.vram_gb or 0)
+        if requirements.min_vram_gb is not None:
+            return max((specs.vram_gb or 0) - requirements.min_vram_gb, 0)
     if category == Category.CPU and requirements.min_cpu_cores is not None:
         return max((specs.cores or 0) - requirements.min_cpu_cores, 0)
     if category == Category.RAM and requirements.min_ram_gb is not None:
@@ -245,6 +251,17 @@ def deterministic_score(evaluation: BuildEvaluation, requirements: ProjectRequir
     else:
         score -= total_tdp * 0.01
 
+    if requirements.prefer_max_vram:
+        # Without this, a build with any GPU always has a strictly higher
+        # total_tdp than the same build without one, so the gentle
+        # power-draw nudge above would always favor "no GPU" by default --
+        # exactly backwards for a request like "the biggest model my
+        # hardware can run". A GPU-less build gets 0 here; any GPU clearly
+        # outweighs the few points the TDP nudge could have cost it, and
+        # a bigger GPU keeps winning over a smaller one.
+        gpu_vram = evaluation.build.gpu.specs.vram_gb if evaluation.build.gpu else 0
+        score += (gpu_vram or 0) * 3
+
     size_rank = {"ITX": 0, "mATX": 1, "ATX": 2, "EATX": 3}
     supported = evaluation.build.case.specs.supported_form_factors
     smallest_supported = min((size_rank.get(f, 2) for f in supported), default=2) if supported else None
@@ -322,6 +339,7 @@ def rank_builds(
             "motherboard": evaluation.build.motherboard.name,
             "ram": evaluation.build.ram.name,
             "gpu": evaluation.build.gpu.name if evaluation.build.gpu else None,
+            "gpu_vram_gb": evaluation.build.gpu.specs.vram_gb if evaluation.build.gpu else None,
             "gpu_release_year": evaluation.build.gpu.release_year if evaluation.build.gpu else None,
             "warnings": evaluation.warnings,
         }

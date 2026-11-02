@@ -1089,3 +1089,91 @@ def test_recommend_finds_a_build_despite_many_overshoot_tied_incompatible_cpus(d
     assert len(result.builds) >= 1
     cpu_names = {c.name for build in result.builds for c in build.components if c.category == Category.CPU}
     assert "AMD Ryzen 5 3600" in cpu_names
+
+
+# --- prefer_max_vram ---
+# Regression tests for a real live bug: "run the biggest model available
+# from my inventory" produced 3 near-identical builds with NO gpu at all,
+# because deterministic_score's gentle, always-on power-draw nudge always
+# favors a GPU-less build over an otherwise-identical one with a GPU, and
+# nothing offset that unless a concrete min_vram_gb happened to be set --
+# which an inherently relative request like "the biggest GPU I have" can
+# never produce, since the LLM doesn't know what's in the inventory.
+
+
+def test_deterministic_score_prefers_a_gpu_over_none_when_prefer_max_vram():
+    from app.compatibility.types import BuildEvaluation
+    from tests.fixtures.sample_inventory import compatible_build
+
+    with_gpu = BuildEvaluation(build=compatible_build(), rule_results={})
+    without_gpu = BuildEvaluation(build=compatible_build(gpu=None), rule_results={})
+
+    requirements = ProjectRequirements(use_case="x", prefer_max_vram=True)
+    assert deterministic_score(with_gpu, requirements) > deterministic_score(without_gpu, requirements)
+
+
+def test_deterministic_score_prefers_more_vram_when_prefer_max_vram():
+    from app.compatibility.types import BuildEvaluation
+    from tests.fixtures.sample_inventory import compatible_build, with_specs
+
+    small_gpu = BuildEvaluation(
+        build=compatible_build(gpu=with_specs(compatible_build().gpu, vram_gb=6)), rule_results={}
+    )
+    big_gpu = BuildEvaluation(
+        build=compatible_build(gpu=with_specs(compatible_build().gpu, vram_gb=24)), rule_results={}
+    )
+
+    requirements = ProjectRequirements(use_case="x", prefer_max_vram=True)
+    assert deterministic_score(big_gpu, requirements) > deterministic_score(small_gpu, requirements)
+
+
+def test_prefilter_sorts_gpu_by_descending_vram_when_prefer_max_vram(db_session):
+    insert_component(
+        db_session, category=Category.GPU, name="Small GPU", specs={"category": "gpu", "vram_gb": 4}
+    )
+    insert_component(
+        db_session, category=Category.GPU, name="Huge GPU", specs={"category": "gpu", "vram_gb": 24}
+    )
+    insert_component(
+        db_session, category=Category.GPU, name="Medium GPU", specs={"category": "gpu", "vram_gb": 10}
+    )
+
+    candidates = prefilter_candidates(db_session, ProjectRequirements(use_case="x", prefer_max_vram=True))
+
+    assert [c.name for c in candidates[Category.GPU]] == ["Huge GPU", "Medium GPU", "Small GPU"]
+
+
+def test_recommend_includes_a_gpu_when_the_user_wants_the_biggest_model(db_session):
+    seed_compatible_inventory(db_session)  # includes a 6GB GPU
+    insert_component(
+        db_session,
+        category=Category.GPU,
+        name="Bigger GPU",
+        specs={
+            "category": "gpu",
+            "vram_gb": 16,
+            "tdp_w": 300,
+            "length_mm": 300,
+            "pcie_power_connectors": ["8-pin", "8-pin"],
+            "vendor": "nvidia",
+        },
+    )
+    client = FakeLLMClient(
+        [
+            load_fixture("valid_requirements_prefer_max_vram.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
+    )
+
+    result = recommend(
+        prompt="run the biggest model available from my inventory",
+        max_builds=3,
+        db=db_session,
+        llm_client=client,
+    )
+
+    assert len(result.builds) >= 1
+    gpu_names = {c.name for c in result.builds[0].components if c.category == Category.GPU}
+    assert gpu_names == {"Bigger GPU"}

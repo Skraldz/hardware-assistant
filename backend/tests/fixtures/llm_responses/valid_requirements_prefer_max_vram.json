@@ -1,0 +1,19 @@
+{
+  "use_case": "local AI",
+  "headless": false,
+  "required_categories": [],
+  "min_vram_gb": null,
+  "min_ram_gb": null,
+  "min_storage_gb": null,
+  "min_cpu_cores": null,
+  "max_release_year": null,
+  "min_release_year": null,
+  "prefer_low_power": false,
+  "prefer_small_form_factor": false,
+  "prefer_oldest": false,
+  "prefer_newest": false,
+  "prefer_minimal_spec": false,
+  "prefer_max_vram": true,
+  "clarifying_question": null,
+  "notes": "The user wants the biggest GPU available in their inventory to run the largest AI model."
+}

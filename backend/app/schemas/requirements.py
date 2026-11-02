@@ -41,6 +41,17 @@ class ProjectRequirements(BaseModel):
     # sufficient for the stated goal over the most capable one available,
     # and the ranking LLM is instructed (llm/prompts.py) to do the same.
     prefer_minimal_spec: bool = False
+    # Set when the user wants the single most capable GPU available rather
+    # than stating a concrete VRAM target (e.g. "the biggest model my
+    # hardware can run", "the best GPU I have") -- a *relative* preference
+    # like prefer_oldest/prefer_newest, for the same reason: the LLM can't
+    # invent a min_vram_gb number for "biggest available" without knowing
+    # what's actually in the inventory. Without this, a build with any GPU
+    # always has a (deliberately gentle) power-draw score penalty and
+    # nothing to offset it unless a concrete min_vram_gb happened to be
+    # inferred, so a GPU-less build would quietly win by default even when
+    # the user clearly wants a capable GPU.
+    prefer_max_vram: bool = False
     # Set by the LLM when the conversation so far is too vague to confidently
     # fill in the fields above (e.g. no hint of budget/power constraints,
     # intended use, or whether a display output is needed) -- surfaced to
