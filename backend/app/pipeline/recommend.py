@@ -420,6 +420,48 @@ def generate_chat_reply(
     return reply.reply, status
 
 
+def _select_diverse_builds(
+    ranked_order: list[int], pool: list[BuildEvaluation], max_builds: int
+) -> list[int]:
+    """Picks up to max_builds indices from ranked_order (already best-first,
+    whether from the LLM's ranking or the deterministic fallback), actively
+    preferring builds that don't repeat an already-chosen CPU or GPU.
+
+    Without this, the top few results tend to differ only in whichever
+    category had the least decisive "best" pick (e.g. storage or cooler):
+    sorting candidates by relevance before the engine's top_n cutoff
+    (_sort_candidates_by_relevance) means a single best CPU/motherboard/RAM
+    combination legitimately dominates the top of the ranking, so the
+    highest-scoring builds were all minor variations of it. Falls back to
+    repeating a CPU/GPU once there aren't enough distinct options left in
+    the pool, so this never returns fewer builds than the caller asked for
+    just because the inventory lacks variety."""
+    remaining = list(ranked_order)
+    selected: list[int] = []
+    used_cpu_ids: set[int] = set()
+    used_gpu_ids: set[int] = set()
+
+    def diversity_key(idx: int) -> tuple[bool, bool]:
+        # CPU takes priority over GPU: a tuple sorts on its first element
+        # first, so a not-yet-used CPU always outranks a not-yet-used GPU
+        # alone. GPU only decides between two builds that are tied on
+        # CPU-repeat status (most often: no CPU variety left at all).
+        build = pool[idx].build
+        cpu_repeat = build.cpu.id in used_cpu_ids
+        gpu_repeat = build.gpu is not None and build.gpu.id in used_gpu_ids
+        return (cpu_repeat, gpu_repeat)
+
+    while remaining and len(selected) < max_builds:
+        remaining.sort(key=diversity_key)  # stable: preserves rank order within each group
+        idx = remaining.pop(0)
+        selected.append(idx)
+        used_cpu_ids.add(pool[idx].build.cpu.id)
+        if pool[idx].build.gpu is not None:
+            used_gpu_ids.add(pool[idx].build.gpu.id)
+
+    return selected
+
+
 def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClient) -> RecommendResponse:
     settings = get_settings()
 
@@ -460,7 +502,7 @@ def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClien
         key=lambda i: deterministic_score(pool[i], requirements),
         reverse=True,
     )
-    final_indices = (ordered_indices + remaining_indices)[:max_builds]
+    final_indices = _select_diverse_builds(ordered_indices + remaining_indices, pool, max_builds)
 
     builds = [
         _to_build_result(

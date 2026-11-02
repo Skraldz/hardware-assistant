@@ -1,6 +1,11 @@
 from app.enums import Category, Condition, SpecsSource
 from app.models import Component
-from app.pipeline.recommend import deterministic_score, prefilter_candidates, recommend
+from app.pipeline.recommend import (
+    _select_diverse_builds,
+    deterministic_score,
+    prefilter_candidates,
+    recommend,
+)
 from app.schemas.requirements import ProjectRequirements
 from tests.fixtures.fake_llm import FakeLLMClient, load_fixture
 
@@ -807,3 +812,112 @@ def test_era_request_end_to_end_picks_the_old_cpu_despite_being_seeded_last(db_s
     assert len(result.builds) >= 1
     cpu_names = {c.name for c in result.builds[0].components if c.category == Category.CPU}
     assert cpu_names == {"Core 2 Duo E6600"}
+
+
+# --- Deliberate diversification of the suggested builds ---
+# Sorting candidates by relevance before the engine's top_n cutoff (the
+# era-request fix above) means a single best CPU/motherboard/RAM
+# combination can legitimately dominate the top of the ranking -- without
+# an explicit diversity step, all of the suggested builds ended up being
+# minor variations of that one combination (reported live: "the 3 build
+# suggestions are still basically the same, but some pieces are changed
+# out for each build").
+
+
+def test_select_diverse_builds_avoids_repeating_a_cpu_when_alternatives_exist():
+    import dataclasses
+
+    from app.compatibility.types import BuildEvaluation
+    from tests.fixtures.sample_inventory import compatible_build, cpu_ryzen_5_3600
+
+    cpu_a = cpu_ryzen_5_3600()
+    cpu_b = dataclasses.replace(cpu_a, id=101, name="Other CPU")
+    # Three builds, but only two distinct CPUs -- the best-ranked two use
+    # cpu_a, the third uses cpu_b. Ranked order (best first): 0, 1, 2.
+    pool = [
+        BuildEvaluation(build=compatible_build(cpu=cpu_a), rule_results={}),
+        BuildEvaluation(build=compatible_build(cpu=cpu_a), rule_results={}),
+        BuildEvaluation(build=compatible_build(cpu=cpu_b), rule_results={}),
+    ]
+
+    selected = _select_diverse_builds([0, 1, 2], pool, max_builds=2)
+
+    chosen_cpu_ids = {pool[i].build.cpu.id for i in selected}
+    assert chosen_cpu_ids == {cpu_a.id, cpu_b.id}
+    assert selected[0] == 0  # the best-ranked build is still picked first
+
+
+def test_select_diverse_builds_falls_back_to_repeats_when_not_enough_variety():
+    from app.compatibility.types import BuildEvaluation
+    from tests.fixtures.sample_inventory import compatible_build
+
+    # Only one distinct CPU/GPU combination available at all.
+    pool = [
+        BuildEvaluation(build=compatible_build(), rule_results={}),
+        BuildEvaluation(build=compatible_build(), rule_results={}),
+        BuildEvaluation(build=compatible_build(), rule_results={}),
+    ]
+
+    selected = _select_diverse_builds([0, 1, 2], pool, max_builds=3)
+
+    # Still returns 3 builds -- never fewer just because nothing was diverse.
+    assert selected == [0, 1, 2]
+
+
+def test_select_diverse_builds_prefers_distinct_gpu_when_cpu_cant_vary():
+    import dataclasses
+
+    from app.compatibility.types import BuildEvaluation
+    from tests.fixtures.sample_inventory import compatible_build, cpu_ryzen_5_3600, gpu_rtx_2060
+
+    cpu_a = cpu_ryzen_5_3600()  # every build below uses this same CPU
+    gpu_a = gpu_rtx_2060()
+    gpu_b = dataclasses.replace(gpu_a, id=102, name="Other GPU")
+    pool = [
+        BuildEvaluation(build=compatible_build(cpu=cpu_a, gpu=gpu_a), rule_results={}),
+        BuildEvaluation(build=compatible_build(cpu=cpu_a, gpu=gpu_b), rule_results={}),
+        BuildEvaluation(build=compatible_build(cpu=cpu_a, gpu=gpu_a), rule_results={}),
+    ]
+
+    selected = _select_diverse_builds([0, 1, 2], pool, max_builds=2)
+
+    chosen_gpu_ids = {pool[i].build.gpu.id for i in selected}
+    assert selected[0] == 0
+    assert chosen_gpu_ids == {gpu_a.id, gpu_b.id}
+
+
+def test_recommend_diversifies_cpu_across_the_returned_builds(db_session):
+    """End-to-end: three compatible CPUs are available, all tied on
+    deterministic score (same specs), ranking is forced to fall back --
+    the three returned builds must use three different CPUs, not the same
+    one three times over with only storage/cooler swapped."""
+    for i in range(3):
+        insert_component(
+            db_session,
+            category=Category.CPU,
+            name=f"CPU option {i}",
+            specs={
+                "category": "cpu",
+                "socket": "AM4",
+                "cores": 6,
+                "tdp_w": 65,
+                "integrated_graphics": False,
+                "memory_type": ["DDR4"],
+            },
+        )
+    seed_compatible_inventory(db_session)  # motherboard/ram/gpu/storage/psu/case/cooler, AM4
+
+    client = FakeLLMClient(
+        [
+            load_fixture("valid_requirements_generic.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
+    )
+
+    result = recommend(prompt="a gaming pc", max_builds=3, db=db_session, llm_client=client)
+
+    assert len(result.builds) == 3
+    cpu_names = {c.name for build in result.builds for c in build.components if c.category == Category.CPU}
+    assert len(cpu_names) == 3

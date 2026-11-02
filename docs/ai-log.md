@@ -2,6 +2,28 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-11-02 – Deliberately diversify the suggested builds (not just swap minor parts)
+
+**Generated:**
+- `pipeline/recommend.py`'s `_select_diverse_builds(ranked_order, pool, max_builds)`: picks the final set of builds to return by walking the already-best-first ranked order (from the LLM, or the deterministic fallback) and greedily preferring a build that doesn't repeat an already-chosen CPU, then one that doesn't repeat an already-chosen GPU, only falling back to a repeat of either once there aren't enough distinct options left to fill every requested slot. `recommend()`'s final-selection line now calls this instead of simply slicing the top `max_builds` off the ranked list.
+
+**Root cause (live-reported: "the 3 build suggestions are still basically the same, but some pieces are changed out for each build"):** this is a direct side effect of the previous entry's fix. Sorting each category's candidates by relevance before the engine's `top_n` cutoff means a single best CPU/motherboard/RAM combination now legitimately and consistently rises to the top -- which is correct, but it also meant the highest-scoring handful of *builds* were almost always minor variations of that one combination (same CPU/motherboard, different storage pairing or cooler), never genuinely different hardware.
+
+**Assumptions:**
+- **CPU diversity takes priority over GPU diversity**, not the other way round, and no other category (RAM/storage/PSU/case/cooler) is considered at all. CPU is the single most defining, highest-visibility choice in a PC build; trying to diversify every category at once would fight against *also* wanting each build to still be a good fit for the stated requirements, and was judged to produce confusing, less-explainable results for comparatively little benefit over CPU+GPU alone.
+- **Diversity is enforced as a hard greedy preference, not blended into `deterministic_score`** (which still ranks purely on fit/preferences, unchanged). Folding "is this CPU already used?" into the score itself would have made the score's own meaning harder to explain on the "What does the score mean?" guide panel already shown in the UI -- diversity is deliberately a separate selection step applied *after* scoring/ranking, not a scoring factor.
+- **Falling back to a repeated CPU/GPU is preferred over returning fewer builds than asked for.** A small or narrow inventory (e.g. only one compatible CPU at all) should still get `max_builds` suggestions when that many valid builds exist, even if they can't all be genuinely distinct.
+
+**Known risks / weaknesses:**
+- This only diversifies the *final* selection, not the pool the LLM ranks from (still the top `pool_size = max(max_builds * 3, 10)` by deterministic score). If every build in that pool shares the same CPU, there's nothing left to diversify toward even though a different CPU might exist further down the full candidate list. Not hit in practice with a `top_n`/`pool_size` this size against the current 210-component seed, but a narrower inventory than that could still see non-diverse results for this reason.
+- The ranking LLM's `reason` text is still written for whichever single build it was ranking, with no awareness that `_select_diverse_builds` might reorder or substitute afterward -- a `reason` could occasionally read a little oddly ("this build offers the most VRAM" on a build that's present *because* of CPU diversity, not because it topped every criterion). Judged a minor, rare cosmetic issue, not worth a prompt change for.
+
+**Tests covering it:**
+- `backend/tests/test_pipeline.py` (4 new tests): a repeated CPU is skipped in favor of a different one when one exists further down the ranked order, while still respecting rank order as the tiebreaker; falls back to repeats (never returning fewer builds) when the inventory has no real variety at all; GPU diversity kicks in as the secondary signal when CPU genuinely can't vary; a full end-to-end `recommend()` call with 3 equally-valid, distinct CPUs available asserts the 3 returned builds actually use 3 different CPUs, not the same one three times over.
+- `ruff check`/`ruff format --check`/`pytest --cov` green: 221 tests, 96% overall coverage, `pipeline/recommend.py` at 99%.
+
+**Review (filled in by the student):**
+
 ## 2026-11-02 – Fetch and clean the actual page for extraction, not just its search snippet
 
 **Generated:**
