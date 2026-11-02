@@ -47,27 +47,84 @@ CHARS_PER_TOKEN = (3.0, 3.5, 4.0)
 OLLAMA_DEFAULT_CTX_OLD = 2048
 OLLAMA_DEFAULT_CTX_NEW = 4096
 
-# A stand-in for one fetched product page, padded to exactly the cap the code
-# enforces (settings.page_fetch_max_chars) so the measurement reflects the
-# worst case the pipeline can actually produce, not a lucky short page.
-_PAGE_SEED = (
+# A stand-in for one fetched product page. The layout matters more than the
+# wording: a real spec page states each value ONCE, near the top, and is then
+# followed by unrelated prose (review text, related products, comments) that
+# the cleaner keeps. Ollama truncates an over-long prompt from the front, so
+# that layout is exactly what makes truncation destructive -- the specs are
+# the first thing to go.
+#
+# An earlier version of this script repeated the spec block to reach the
+# character cap, which made the live measurement useless: the same values
+# reappeared further down, so a truncated prompt still contained them and the
+# extraction scored full marks at every num_ctx. A measurement that cannot
+# fail is not evidence. Keep the specs unique and up front.
+_SPEC_BLOCK = (
     "NVIDIA GeForce RTX 4070 Ti SUPER Specifications. Graphics Processor AD103. "
     "Architecture Ada Lovelace. Process Size 5 nm. Transistors 45,900 million. "
     "Die Size 379 mm2. Released Jan 24th, 2024. Generation GeForce 40. "
     "Bus Interface PCIe 4.0 x16. Memory Size 16 GB. Memory Type GDDR6X. "
     "Memory Bus 256 bit. Bandwidth 672.3 GB/s. Shading Units 8448. TMUs 264. "
-    "ROPs 112. Tensor Cores 264. RT Cores 66. L1 Cache 128 KB per SM. "
-    "L2 Cache 48 MB. Base Clock 2340 MHz. Boost Clock 2610 MHz. "
-    "Memory Clock 1313 MHz 21 Gbps effective. TDP 285 W. "
-    "Suggested PSU 700 W. Outputs 1x HDMI 2.1a, 3x DisplayPort 1.4a. "
-    "Power Connectors 1x 16-pin. Board Length 267 mm, 10.5 inches. "
-    "Board Width 112 mm, 4.4 inches. Slot Width Triple-slot. "
+    "ROPs 112. Tensor Cores 264. RT Cores 66. Base Clock 2340 MHz. "
+    "Boost Clock 2610 MHz. TDP 285 W. Suggested PSU 700 W. "
+    "Outputs 1x HDMI 2.1a, 3x DisplayPort 1.4a. Power Connectors 1x 16-pin. "
+    "Board Length 267 mm, 10.5 inches. Slot Width Triple-slot. "
 )
+
+# Filler that states no specification at all, so it can never stand in for the
+# block above. Varied slightly per paragraph so it does not look like a loop
+# the model can skip over wholesale.
+_FILLER_PARAGRAPHS = [
+    "In our testing across a wide selection of recent titles, the card held up "
+    "well at the resolution most buyers will actually use it at, trading blows "
+    "with the previous generation flagship depending on the engine in question. ",
+    "Thermals were unremarkable in the best sense: the cooler stayed quiet under "
+    "sustained load, and we never observed the fan curve becoming intrusive even "
+    "after an hour of continuous benchmarking in a closed case. ",
+    "Driver maturity has improved considerably since launch, and the handful of "
+    "title-specific issues we noted in early testing appear to have been resolved "
+    "in subsequent releases without any manual intervention required. ",
+    "Comparisons against competing cards are complicated by availability and "
+    "street pricing, both of which have moved substantially since this review was "
+    "first published, so treat any value judgement here as provisional. ",
+    "Readers asked us to revisit the undervolting results, and we intend to cover "
+    "that separately once we have had time to validate the behaviour across more "
+    "than the single sample we currently have on the bench. ",
+]
 
 
 def page_text(n_chars: int) -> str:
-    repeats = (n_chars // len(_PAGE_SEED)) + 1
-    return (_PAGE_SEED * repeats)[:n_chars]
+    """Spec block once, at the top, then filler to the character cap."""
+    parts = [_SPEC_BLOCK]
+    used = len(_SPEC_BLOCK)
+    i = 0
+    while used < n_chars:
+        para = _FILLER_PARAGRAPHS[i % len(_FILLER_PARAGRAPHS)]
+        parts.append(para)
+        used += len(para)
+        i += 1
+    return "".join(parts)[:n_chars]
+
+
+def spec_block_survives(n_chars: int) -> str:
+    """Where the spec block sits as a fraction of the page, for reporting."""
+    return f"spec block is the first {len(_SPEC_BLOCK)} of {n_chars} chars"
+
+
+# The values _SPEC_BLOCK actually states. Counting non-null fields is the
+# wrong metric: at a too-small num_ctx the model still fills every field, it
+# just fills them from its own vague recollection of the product instead of
+# from the page -- silently wrong data rather than visibly missing data. Three
+# of these feed compatibility rules directly (length_mm -> gpu_fits_case,
+# pcie_power_connectors -> psu_has_gpu_connectors, vram_gb -> min_vram_gb), so
+# a wrong value here produces a build that passes the wrong checks.
+EXPECTED = {
+    "vram_gb": 16,
+    "tdp_w": 285,
+    "length_mm": 267,
+    "release_year": 2024,
+    "vendor": "nvidia",
+}
 
 
 def estimate_tokens(chars: int) -> tuple[int, int]:
@@ -183,7 +240,7 @@ def live_report() -> None:
     prompt = build_extract_prompt("GeForce RTX 4070 Ti SUPER", "gpu", web_snippet=snippet)
 
     print(f"model = {settings.ollama_model}  base_url = {settings.ollama_base_url}")
-    print(f"{'num_ctx':>10}{'fields non-null':>18}{'  values'}")
+    print(f"{'num_ctx':>10}{'correct values':>18}{'  (vs what the page states)'}")
     print("-" * 70)
 
     for ctx in (OLLAMA_DEFAULT_CTX_OLD, OLLAMA_DEFAULT_CTX_NEW, settings.ollama_num_ctx):
@@ -199,9 +256,11 @@ def live_report() -> None:
         except (LLMUnavailableError, ValueError) as exc:
             print(f"{ctx:>10}{'ERROR':>18}  {exc}")
             continue
-        filled = {k: v for k, v in data.items() if v is not None}
-        total = len(schema.model_fields)
-        print(f"{ctx:>10}{f'{len(filled)}/{total}':>18}  {json.dumps(filled, ensure_ascii=False)[:160]}")
+        correct = sum(1 for k, want in EXPECTED.items() if data.get(k) == want)
+        wrong = {k: data.get(k) for k, want in EXPECTED.items() if data.get(k) != want}
+        verdict = f"{correct}/{len(EXPECTED)}"
+        note = "all correct" if not wrong else "WRONG: " + json.dumps(wrong, ensure_ascii=False)
+        print(f"{ctx:>10}{verdict:>18}  {note[:120]}")
 
 
 def main() -> None:

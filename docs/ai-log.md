@@ -2,6 +2,43 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-11-03 – num_ctx measured against the real Ollama (and the first measurement was worthless)
+
+Follow-up to the entry below, run against the live stack (`qwen2.5:7b-instruct`, temperature 0).
+
+**Result:**
+
+| num_ctx | values matching the page | what was wrong |
+|---|---|---|
+| 2048 | **2 / 5** | `vram_gb` 12 (page says 16), `length_mm` 345 (page says 267), `release_year` 2023 (page says 2024) |
+| 4096 | 5 / 5 | — |
+| 8192 | 5 / 5 | — |
+
+Reproducible across runs. So the earlier hypothesis holds, but **the failure mode is worse than predicted**: at 2048 the model does not leave fields empty, it fills every one of them -- from its own vague recollection of the product instead of from the page it was handed, with no signal that anything was dropped. Silently wrong data, not visibly missing data.
+
+That matters because three of the affected fields feed compatibility rules directly: `length_mm` -> `gpu_fits_case`, `pcie_power_connectors` -> `psu_has_gpu_connectors`, and `vram_gb` -> the `min_vram_gb` hard requirement. A truncated context therefore produces components that pass and fail the *wrong* checks -- the rules stay correct, but they are being run on fiction.
+
+**The first live measurement was invalid, and that is the more useful lesson.** It reported 7/7 fields at every `num_ctx`, which looked like "num_ctx makes no difference". Two things were wrong with it:
+
+- The page fixture repeated the same spec block over and over to reach `page_fetch_max_chars`. Ollama truncates from the front, so the duplicated specs further down survived and the extraction scored full marks no matter what was cut. **The measurement could not fail**, which makes a pass meaningless -- the same reason a regression test has to be verified against the pre-fix code before it is trusted.
+- "Fields non-null" was the wrong metric entirely. It cannot distinguish a value read off the page from a value the model invented.
+
+Both are fixed: the fixture now states each spec exactly once at the top followed by filler that contains no specifications, and the script compares against the values the page actually states (`EXPECTED`) rather than counting non-nulls.
+
+**Assumptions:**
+- **The fixture is a stand-in, not a real page.** Real pages vary in where the spec table sits; one with specs near the bottom would be less affected by front-truncation. The 2048 result is a realistic bad case, not a universal one.
+- **Only `/extract` was measured.** The ranking and chat-reply prompts are smaller, so they were never at risk at 4096, but they were not measured live.
+
+**Known risks / weaknesses:**
+- 8192 was chosen for headroom, not tuned. 4096 was already sufficient in this test; the margin exists so that raising `page_fetch_max_chars` later does not silently reintroduce the problem.
+- Nothing in the application detects or reports truncation. If a future change pushes a prompt over `num_ctx` again, the symptom will once more be plausible-looking wrong values rather than an error.
+
+**Tests covering it:**
+- Not unit-testable: this is a property of a running Ollama, and no test may require one (project rule 4). `backend/scripts/measure_prompt_budget.py --live` is the reproducible check instead, and the static mode runs anywhere.
+- `docker compose exec backend python -m scripts.measure_prompt_budget --live`
+
+**Review (filled in by the student):**
+
 ## 2026-11-03 – Explicit num_ctx for Ollama, and source-page provenance per component
 
 **Generated:**
