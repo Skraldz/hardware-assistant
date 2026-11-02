@@ -593,7 +593,7 @@ def test_rank_builds_with_empty_pool_is_a_trivial_ok():
 # regardless of what was asked for (docs/ai-log.md has the full diagnosis).
 
 
-def test_prefilter_applies_hard_max_release_year(db_session):
+def test_prefilter_applies_hard_released_no_later_than(db_session):
     insert_component(
         db_session, category=Category.CPU, name="Old CPU", specs={"category": "cpu"}, release_year=2008
     )
@@ -602,13 +602,15 @@ def test_prefilter_applies_hard_max_release_year(db_session):
     )
     insert_component(db_session, category=Category.CPU, name="Unknown-year CPU", specs={"category": "cpu"})
 
-    candidates = prefilter_candidates(db_session, ProjectRequirements(use_case="x", max_release_year=2010))
+    candidates = prefilter_candidates(
+        db_session, ProjectRequirements(use_case="x", released_no_later_than=2010)
+    )
 
     names = {c.name for c in candidates[Category.CPU]}
     assert names == {"Old CPU"}
 
 
-def test_prefilter_applies_hard_min_release_year(db_session):
+def test_prefilter_applies_hard_released_no_earlier_than(db_session):
     insert_component(
         db_session, category=Category.GPU, name="Old GPU", specs={"category": "gpu"}, release_year=2012
     )
@@ -616,7 +618,9 @@ def test_prefilter_applies_hard_min_release_year(db_session):
         db_session, category=Category.GPU, name="New GPU", specs={"category": "gpu"}, release_year=2023
     )
 
-    candidates = prefilter_candidates(db_session, ProjectRequirements(use_case="x", min_release_year=2020))
+    candidates = prefilter_candidates(
+        db_session, ProjectRequirements(use_case="x", released_no_earlier_than=2020)
+    )
 
     names = {c.name for c in candidates[Category.GPU]}
     assert names == {"New GPU"}
@@ -666,7 +670,7 @@ def test_prefilter_sorts_a_new_component_to_the_front_when_prefer_newest(db_sess
 
 
 def test_prefilter_leaves_candidate_order_unchanged_without_an_era_preference(db_session):
-    """No prefer_oldest/prefer_newest and no min/max_release_year at all --
+    """No prefer_oldest/prefer_newest and no min/released_no_later_than at all --
     era must never bias ordering by default, or every recommendation would
     silently skew toward one end of the inventory's age range even when
     nothing asked for that."""
@@ -716,7 +720,7 @@ def test_era_request_end_to_end_picks_the_old_cpu_despite_being_seeded_last(db_s
     """Full end-to-end reproduction of the reported bug: a user asks for
     hardware from 2010 or earlier, the inventory has far more than top_n
     modern CPUs seeded before the one matching CPU, and the pipeline must
-    still return a build using it. max_release_year is a hard requirement
+    still return a build using it. released_no_later_than is a hard requirement
     on every category (not just CPU -- see _meets_hard_requirements), so
     every other component here needs a release_year within range too, or
     they'd be excluded themselves as "unknown era" the same as a
@@ -795,7 +799,7 @@ def test_era_request_end_to_end_picks_the_old_cpu_despite_being_seeded_last(db_s
 
     client = FakeLLMClient(
         [
-            load_fixture("valid_requirements_max_release_year_2010.json"),
+            load_fixture("valid_requirements_released_no_later_than_2010.json"),
             load_fixture("hallucinated_ranking.json"),
             load_fixture("hallucinated_ranking.json"),
             load_fixture("valid_chat_reply.json"),
@@ -1530,3 +1534,74 @@ def test_recommend_diversifies_cpu_even_when_one_cpu_dominates_the_score(db_sess
     assert len(result.builds) == 3
     cpu_names = {c.name for build in result.builds for c in build.components if c.category == Category.CPU}
     assert len(cpu_names) == 3, f"all three builds should use a different CPU, got {cpu_names}"
+
+
+# --- The era bound is the one direction this model reliably inverts ---
+# Measured against qwen2.5:7b-instruct over eight phrasings: the original
+# max_release_year/min_release_year pair scored 3/6, reading "from 2010 or
+# earlier" as min_release_year=2010 -- admitting newer hardware and excluding
+# the genuinely old parts asked for. Renaming the fields so they state their
+# own direction, plus two worked examples in the prompt, took it to 6/8. The
+# validator below is the deterministic backstop for the rest: an inverted era
+# bound produces a confident answer built from the opposite of the request,
+# which is worse than no answer.
+
+
+def test_prefer_oldest_with_a_lower_year_bound_is_rejected_and_retried():
+    import pytest
+
+    from app.pipeline.recommend import _validate_requirements
+
+    contradictory = ProjectRequirements(
+        use_case="hardware from 2010 or earlier, the oldest I have",
+        prefer_oldest=True,
+        released_no_earlier_than=2010,  # the inversion: excludes everything old
+    )
+    with pytest.raises(ValueError, match="released_no_earlier_than"):
+        _validate_requirements(contradictory)
+
+
+def test_prefer_newest_with_an_upper_year_bound_is_rejected():
+    import pytest
+
+    from app.pipeline.recommend import _validate_requirements
+
+    with pytest.raises(ValueError, match="released_no_later_than"):
+        _validate_requirements(
+            ProjectRequirements(use_case="my newest parts", prefer_newest=True, released_no_later_than=2015)
+        )
+
+
+def test_coherent_era_requirements_are_left_alone():
+    """The combinations that are *not* contradictory must pass untouched --
+    including "the oldest I have, but nothing before 2010", which produces
+    prefer_oldest plus an upper bound and is a perfectly sensible request."""
+    from app.pipeline.recommend import _validate_requirements
+
+    for requirements in [
+        ProjectRequirements(use_case="x", prefer_oldest=True, released_no_later_than=2010),
+        ProjectRequirements(use_case="x", prefer_newest=True, released_no_earlier_than=2020),
+        ProjectRequirements(use_case="x", released_no_later_than=2010, released_no_earlier_than=2005),
+        ProjectRequirements(use_case="x", prefer_oldest=True),
+        ProjectRequirements(use_case="x"),
+    ]:
+        _validate_requirements(requirements)  # must not raise
+
+
+def test_an_inverted_era_bound_falls_back_rather_than_reversing_the_request(db_session):
+    """End-to-end: a model that insists on the inverted bound must not have
+    it silently applied. Losing the era constraint is recoverable -- the user
+    can rephrase; building from the opposite of what they asked is not."""
+    seed_compatible_inventory(db_session)
+    inverted = (
+        '{"use_case": "hardware from 2010 or earlier", "prefer_oldest": true, '
+        '"released_no_earlier_than": 2010, "headless": false, "required_categories": [], '
+        '"notes": ""}'
+    )
+    client = FakeLLMClient(
+        [inverted, inverted, load_fixture("valid_ranking.json"), load_fixture("valid_chat_reply.json")]
+    )
+
+    result = recommend(prompt="hardware from 2010 or earlier", max_builds=3, db=db_session, llm_client=client)
+
+    assert result.llm_used.interpret == "fallback"

@@ -51,6 +51,50 @@ from app.schemas.requirements import ProjectRequirements, fallback_requirements
 logger = logging.getLogger(__name__)
 
 
+def _validate_requirements(requirements: ProjectRequirements) -> None:
+    """Semantic check the JSON schema cannot express, run through the same
+    retry-with-feedback path as a hallucinated build_id.
+
+    The era bounds are the one place this model reliably gets a *direction*
+    wrong. Measured against qwen2.5:7b-instruct over eight phrasings: the
+    original `max_release_year`/`min_release_year` pair was read backwards
+    often enough to score 3/6 -- "from 2010 or earlier" became
+    `min_release_year=2010`, which both admitted newer hardware and excluded
+    the genuinely old parts the user asked for. Renaming the fields to say
+    their own direction and giving two worked examples took that to 6/8, but
+    6/8 is not reliability, and an inverted era bound is worse than a missing
+    one: the user gets a confident answer built from the opposite of what
+    they asked for.
+
+    An upper bound ("nothing newer than X") alongside prefer_newest, or a
+    lower bound alongside prefer_oldest, is self-contradictory in the
+    direction this specific failure produces, so it is rejected and the model
+    gets one attempt to correct itself with the reason fed back. If it
+    insists, the conservative fallback applies and the era constraint is
+    dropped entirely -- losing a requirement is recoverable (the user can
+    rephrase), silently inverting one is not.
+
+    Note this deliberately does not try to repair the value by flipping it.
+    "The oldest parts I have, but nothing before 2010" is a coherent request
+    that produces the same field combination, and guessing which of the two
+    the user meant would be the same class of mistake the model just made.
+    """
+    if requirements.prefer_oldest and requirements.released_no_earlier_than is not None:
+        raise ValueError(
+            "prefer_oldest is set together with released_no_earlier_than="
+            f"{requirements.released_no_earlier_than}, which excludes the oldest hardware. "
+            "If the user asked for hardware from a year or earlier, that is "
+            "released_no_later_than. Re-read which field means which direction."
+        )
+    if requirements.prefer_newest and requirements.released_no_later_than is not None:
+        raise ValueError(
+            "prefer_newest is set together with released_no_later_than="
+            f"{requirements.released_no_later_than}, which excludes the newest hardware. "
+            "If the user asked for hardware from a year or newer, that is "
+            "released_no_earlier_than. Re-read which field means which direction."
+        )
+
+
 def interpret_requirements(
     user_prompt: str, llm_client: LLMClient
 ) -> tuple[ProjectRequirements, LlmCallStatus]:
@@ -60,6 +104,7 @@ def interpret_requirements(
         build_prompt=lambda error: build_requirements_prompt(user_prompt, error_feedback=error),
         schema=ProjectRequirements,
         fallback=fallback_requirements(user_prompt),
+        validate=_validate_requirements,
     )
 
 
@@ -86,11 +131,11 @@ def _meets_hard_requirements(
             return False
     # release_year applies to every category alike (it's metadata about the
     # part, not a capability), unlike the checks above.
-    if requirements.max_release_year is not None:
-        if release_year is None or release_year > requirements.max_release_year:
+    if requirements.released_no_later_than is not None:
+        if release_year is None or release_year > requirements.released_no_later_than:
             return False
-    if requirements.min_release_year is not None:
-        if release_year is None or release_year < requirements.min_release_year:
+    if requirements.released_no_earlier_than is not None:
+        if release_year is None or release_year < requirements.released_no_earlier_than:
             return False
     return True
 

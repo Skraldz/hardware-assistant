@@ -35,14 +35,21 @@ REQUIREMENTS_SYSTEM_PROMPT = (
     "in their inventory, so inventing a specific VRAM figure here would be a guess dressed up as a "
     "requirement. prefer_max_vram and min_vram_gb are not mutually exclusive: still set min_vram_gb when "
     "a concrete target is separately knowable (e.g. a named game or model's actual requirements). "
-    'If the user states an actual year cutoff for hardware age (e.g. "from 2010 or earlier", "newer '
-    'than 2020"), set max_release_year/min_release_year to that year — these are hard requirements, '
-    "a component with no known release year or outside the stated range will be excluded entirely. "
+    "If the user states an actual year cutoff for hardware age, set the year field that matches. "
+    "Getting the direction backwards inverts the whole request, so follow these two mappings "
+    "exactly: "
+    '"from 2010 or earlier" / "nothing newer than 2010" / "2010 at the latest" -> '
+    "released_no_later_than=2010. "
+    '"2020 or newer" / "nothing older than 2020" / "released since 2020" -> '
+    "released_no_earlier_than=2020. "
+    "Set only the bound the user actually stated; leave the other null unless they gave a range. "
+    "These are hard requirements: a component with no known release year, or outside the stated "
+    "range, is excluded entirely. "
     'If instead the user asks for the oldest or newest hardware available ("the oldest I have", "use '
     'my newest parts") without naming an actual year, set prefer_oldest/prefer_newest to true instead '
     "-- never invent a specific year for a relative request like this, since you don't know what's "
     "actually in the user's inventory; let prefer_oldest/prefer_newest alone express the direction. "
-    "max_release_year/min_release_year and prefer_oldest/prefer_newest are independent fields: use the "
+    "The year fields and prefer_oldest/prefer_newest are independent: use the "
     "year fields only when an actual year was stated, the preference flags only when it wasn't. "
     "If the conversation so far is too vague to confidently fill in the fields above -- e.g. no hint of "
     "the intended use, performance target, whether a display output is needed, or power/budget "
@@ -93,7 +100,7 @@ RANKING_SYSTEM_PROMPT = (
     "You rank already-verified, compatible PC builds by how well they fit the user's project. "
     "If the project requirements have prefer_minimal_spec set to true, prefer the build that is just "
     "sufficient for the stated goal rather than the most powerful option available, and say so in your "
-    "reason. If prefer_oldest/prefer_newest is set, or max_release_year/min_release_year narrows the "
+    "reason. If prefer_oldest/prefer_newest is set, or a release-year bound narrows the "
     "builds to a specific era, prefer whichever build's cpu_release_year/gpu_release_year best matches "
     "that direction, and mention the component's actual year in your reason. If prefer_max_vram is set, "
     "prefer whichever build has the highest gpu_vram_gb (a build with no gpu has none at all, so it "

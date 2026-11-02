@@ -22,15 +22,35 @@ class ProjectRequirements(BaseModel):
     # missing specs already fail min_vram_gb/min_ram_gb/etc. (pipeline/
     # recommend.py's _meets_hard_requirements): a hard requirement the user
     # actually asked for shouldn't be satisfied by a guess.
-    max_release_year: int | None = None
-    min_release_year: int | None = None
+    #
+    # The field names alone were not enough: qwen2.5:7b-instruct consistently
+    # read "from 2010 or earlier" as released_no_earlier_than=2010 -- the exact
+    # inverse -- which both admitted newer hardware and excluded the genuinely
+    # old parts the user asked for. These descriptions reach the model: they
+    # are part of model_json_schema(), which is passed to Ollama as `format`,
+    # so the mapping travels with the schema rather than relying on the
+    # system prompt alone.
+    released_no_later_than: int | None = Field(
+        default=None,
+        description=(
+            "UPPER bound on a component's release year: nothing released AFTER this year. "
+            'Use for "2010 or earlier", "nothing newer than 2010" (both -> 2010).'
+        ),
+    )
+    released_no_earlier_than: int | None = Field(
+        default=None,
+        description=(
+            "LOWER bound on a component's release year: nothing released BEFORE this year. "
+            'Use for "2020 or newer", "nothing older than 2020" (both -> 2020).'
+        ),
+    )
     prefer_low_power: bool = False
     prefer_small_form_factor: bool = False
     # Set when the user wants the oldest/newest hardware available rather
     # than stating an actual year cutoff (e.g. "the oldest I have", "my
     # newest gear") -- a *relative* preference the deterministic scorer
-    # (pipeline/recommend.py) can act on, unlike max_release_year/
-    # min_release_year, which need an absolute year the LLM can't invent
+    # (pipeline/recommend.py) can act on, unlike released_no_later_than/
+    # released_no_earlier_than, which need an absolute year the LLM can't invent
     # just because the user said "oldest". Mutually exclusive in practice,
     # not enforced as such.
     prefer_oldest: bool = False

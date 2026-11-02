@@ -104,7 +104,7 @@ def test_restore_preserves_release_year(db_session, tmp_path):
     the same "a field was added to the model, but a sibling reconstruction
     site wasn't updated" bug class as the purpose column and
     _COMMON_COLUMNS fixes, here breaking every era-based recommend request
-    (max_release_year/min_release_year, prefer_oldest/prefer_newest) for
+    (released_no_later_than/released_no_earlier_than, prefer_oldest/prefer_newest) for
     any inventory that had ever been through a restore."""
     insert_component(db_session, name="Old CPU", release_year=2008)
     storage = LocalStorage(str(tmp_path))
