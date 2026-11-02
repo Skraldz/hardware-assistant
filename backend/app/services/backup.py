@@ -302,6 +302,7 @@ def restore_backup(db: Session, storage: BackupStorage, name: str) -> int:
                 specs=item.specs.model_dump(mode="json"),
                 specs_source=item.specs_source,
                 specs_verified=item.specs_verified,
+                source_url=item.source_url,
                 notes=item.notes,
             )
             db.add(component)

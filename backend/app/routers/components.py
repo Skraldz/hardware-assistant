@@ -61,6 +61,7 @@ def create_component(payload: ComponentCreate, db: Session = Depends(get_db)) ->
         specs=payload.specs.model_dump(),
         specs_source=payload.specs_source,
         specs_verified=payload.specs_verified,
+        source_url=payload.source_url,
         notes=payload.notes,
     )
     db.add(component)
@@ -211,6 +212,7 @@ def extract_component_specs(
         specs=specs,
         release_year=release_year,
         specs_source=specs_source,
+        source_url=payload.candidate.url if payload.candidate else None,
         llm_used=combine_status(category_status, specs_status),
     )
 

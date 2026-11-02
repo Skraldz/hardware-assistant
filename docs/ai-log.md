@@ -2,6 +2,44 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-11-03 – Explicit num_ctx for Ollama, and source-page provenance per component
+
+**Generated:**
+- **`ollama_num_ctx` (default 8192) is now set explicitly on every Ollama call.** The client previously sent only `{"temperature": 0}`, leaving Ollama to apply its own default context window. That is not a neutral default: Ollama does not fail on overflow, it silently drops the oldest tokens -- which for `/extract` means dropping the fetched page text the whole web-lookup feature exists to supply. The model then looks like it "missed" fields it was never actually shown.
+- **`backend/scripts/measure_prompt_budget.py`** measures this rather than assuming it. Static mode needs nothing running; `--live` additionally calls a running Ollama at several `num_ctx` values and counts how many spec fields come back non-null.
+- **`source_url` on `Component`**: the page `/extract` actually fetched and extracted from, echoed back in `ExtractResponse` so the frontend stores the backend's URL rather than re-deriving it from the candidate it sent. Null for manual and seeded components. In the inventory table the component name becomes a link to that page.
+
+**Measured** (static mode, `page_fetch_max_chars=8000`):
+
+| call | chars | est. tokens | vs 2048 | vs 4096 |
+|---|---|---|---|---|
+| extract (page fetched) | 11,273 | 2,818-3,758 | **overflow** | fits |
+| category guess (page fetched) | 9,332 | 2,333-3,111 | **overflow** | fits |
+| extract (snippets only) | 3,163 | 791-1,054 | fits | fits |
+
+So on an Ollama defaulting to 2048 the fetched page was being truncated away on *every* web lookup, and even at 4096 there was little headroom once the model's own output is counted. 8192 leaves room and makes the budget a deliberate choice.
+
+**Assumptions:**
+- **Token counts are estimates.** No qwen2.5 tokenizer is installed, so the script reports a range over 3.0-4.0 chars/token. Character counts are exact and the conclusion ("overflows 2048, fits 4096 without much room") holds across the whole range.
+- **The `format` JSON schema is excluded from the prompt count.** Ollama compiles it into a sampling grammar rather than prepending it to the prompt, so it does not consume prompt context -- but the model's own JSON output (roughly 100-200 tokens) does.
+- **`source_url` is provenance only.** No rule or pipeline step reads it; it exists so a user can check a claim the model made. It is deliberately not part of the extraction schema -- the URL is something the backend knows for a fact, not something the model should be asked to produce.
+- **Only `http(s)` URLs are rendered as links** in the frontend. The value originates from a search result rather than from our own code, so a stored `javascript:` URL would otherwise become a clickable script. Non-http values fall back to plain text instead of being dropped.
+
+**Known risks / weaknesses:**
+- A larger `num_ctx` costs KV-cache memory per loaded model. 8192 on a 7B model is modest, but on a memory-constrained host this is the knob to lower first.
+- `source_url` records *which* page was used, not what it said at the time. If the page later changes or disappears, the link no longer substantiates the stored specs.
+
+**Tests covering it:**
+- `tests/test_llm_client.py`: the deterministic-sampling assertion now also asserts `num_ctx`, so silently dropping it cannot pass.
+- `tests/test_api.py` (3 new): `create_component` persists `source_url`, defaults it to null, and `update_component` can set it -- the same site that silently dropped `release_year`.
+- `tests/test_api_llm_endpoints.py` (1 new): `/extract` echoes the URL it extracted from.
+- `tests/test_backup.py` (1 new): `source_url` survives the export/restore round trip, guarding the sibling-site bug class up front this time rather than after the fact.
+- `frontend/e2e/inventory.spec.js` (2 new): a web-looked-up component links to its source with `target=_blank` + `rel=noopener`, a manual one renders as plain text, and a `javascript:` URL is never turned into a link.
+- Both new wiring lines were temporarily removed to confirm the tests actually fail without them.
+- `pytest` green (244 backend tests), `npx playwright test` green (23 e2e), `ruff check`/`format` clean.
+
+**Review (filled in by the student):**
+
 ## 2026-11-03 – `required_categories` was never read, and the ranking pool was never diverse
 
 Two fixes to `pipeline/recommend.py`, both for defects documented as known weaknesses in the exam report's code-review appendix rather than left unfixed.

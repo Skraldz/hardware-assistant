@@ -65,4 +65,9 @@ class ExtractResponse(BaseModel):
     specs: ComponentSpecs
     release_year: int | None = None
     specs_source: SpecsSource
+    # Echoed back so the frontend stores the page the backend *actually*
+    # extracted from, rather than re-deriving it from the candidate it sent.
+    # Null when ENABLE_WEB_LOOKUP is off and extraction came from the model
+    # alone -- there is no source page to point at in that case.
+    source_url: str | None = None
     llm_used: str

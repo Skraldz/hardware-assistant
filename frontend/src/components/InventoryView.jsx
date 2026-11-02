@@ -240,6 +240,10 @@ export default function InventoryView({ active = true }) {
         specs: extracted.specs,
         specs_source: extracted.specs_source,
         specs_verified: true,
+        // The page the backend actually fetched and extracted from, echoed
+        // back by /extract -- kept as provenance so the claim can be checked
+        // later. Null for a manual add or when web lookup is disabled.
+        source_url: extracted.source_url ?? null,
       });
       setSearchName("");
       resetSearchFlow();
@@ -319,6 +323,28 @@ export default function InventoryView({ active = true }) {
     .filter((c) => !outOfStockOnly || c.quantity === 0)
     .sort((a, b) => (sortDir === "asc" ? 1 : -1) * compareComponents(a, b, sortKey));
 
+  // A component's name links to the page its specs were extracted from, when
+  // one was recorded. The URL originates from a search result rather than from
+  // our own code, so only http(s) is ever turned into a link -- a stored
+  // "javascript:" value would otherwise become a clickable script. Anything
+  // else falls back to plain text rather than being silently dropped.
+  function sourceLink(component) {
+    const url = component.source_url;
+    const isSafe = typeof url === "string" && /^https?:\/\//i.test(url);
+    if (!isSafe) return component.name;
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={t("sourceLinkTitle", url)}
+      >
+        {component.name}
+        <span aria-hidden="true"> ↗</span>
+      </a>
+    );
+  }
+
   function sortableHeader(key, label) {
     const indicator = sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "";
     return (
@@ -385,7 +411,7 @@ export default function InventoryView({ active = true }) {
               {visibleComponents.map((c) => (
                 <tr key={c.id}>
                   <td>{c.category}</td>
-                  <td>{c.name}</td>
+                  <td>{sourceLink(c)}</td>
                   <td>{c.release_year ?? ""}</td>
                   <td>{c.quantity}</td>
                   <td>{c.condition}</td>

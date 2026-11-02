@@ -39,6 +39,11 @@ class Component(Base):
         default=SpecsSource.MANUAL,
     )
     specs_verified: Mapped[bool] = mapped_column(nullable=False, default=False)
+    # The page an auto-looked-up component had its specs extracted from, so a
+    # user can check the claim later. Recorded by /extract (the URL the
+    # backend actually fetched), not typed by hand, and null for manual and
+    # seeded components. Provenance only -- no rule or pipeline step reads it.
+    source_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

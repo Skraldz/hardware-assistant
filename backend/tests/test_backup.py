@@ -21,12 +21,19 @@ from app.storage.local import LocalStorage
 
 
 def insert_component(
-    db, *, name="AMD Ryzen 5 3600", category=Category.CPU, quantity=1, release_year=None
+    db,
+    *,
+    name="AMD Ryzen 5 3600",
+    category=Category.CPU,
+    quantity=1,
+    release_year=None,
+    source_url=None,
 ) -> Component:
     component = Component(
         category=category,
         name=name,
         release_year=release_year,
+        source_url=source_url,
         quantity=quantity,
         condition=Condition.NEW,
         specs={"category": category.value},
@@ -109,6 +116,25 @@ def test_restore_preserves_release_year(db_session, tmp_path):
 
     restored = db_session.query(Component).one()
     assert restored.release_year == 2008
+
+
+def test_restore_preserves_source_url(db_session, tmp_path):
+    """Same bug class as test_restore_preserves_release_year, guarded up
+    front this time rather than after the fact: source_url is a top-level
+    ComponentBase field, so it has to survive the export/restore round trip
+    as well as create_component. Provenance that silently disappears on a
+    restore is worse than no provenance, because the surviving components
+    still look like they were verified against a page."""
+    url = "https://www.techpowerup.com/gpu-specs/geforce-rtx-4070-ti-super.c4187"
+    insert_component(db_session, name="RTX 4070 Ti SUPER", category=Category.GPU, source_url=url)
+    storage = LocalStorage(str(tmp_path))
+    info = create_backup(db_session, storage)
+
+    db_session.query(Component).delete()
+    db_session.commit()
+    restore_backup(db_session, storage, info.name)
+
+    assert db_session.query(Component).one().source_url == url
 
 
 def test_backup_roundtrip_restores_saved_builds_with_remapped_component_ids(db_session, tmp_path):

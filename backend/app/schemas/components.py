@@ -171,6 +171,9 @@ class ComponentBase(BaseModel):
     condition: Condition = Condition.NEW
     specs_source: SpecsSource = SpecsSource.MANUAL
     specs_verified: bool = False
+    # Provenance for a web-looked-up component: the page /extract actually
+    # fetched and extracted from. Null for manual and seeded components.
+    source_url: str | None = Field(default=None, max_length=2048)
     notes: str | None = None
 
 
@@ -187,6 +190,7 @@ class ComponentUpdate(BaseModel):
     specs: ComponentSpecs | None = None
     specs_source: SpecsSource | None = None
     specs_verified: bool | None = None
+    source_url: str | None = Field(default=None, max_length=2048)
     notes: str | None = None
 
 

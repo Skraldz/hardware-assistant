@@ -431,3 +431,24 @@ def test_recommend_endpoint_rejects_an_empty_conversation(client):
     response = client.post("/api/recommend", json={"conversation": [], "max_builds": 3})
 
     assert response.status_code == 422
+
+
+def test_extract_echoes_the_source_url_it_extracted_from(client):
+    """The frontend stores this on the component as provenance, so it has to
+    be the page the backend actually fetched -- echoed back rather than
+    re-derived frontend-side, so the recorded link cannot drift from the one
+    the specs really came from."""
+    app.dependency_overrides[get_llm_client] = lambda: FakeLLMClient(
+        [load_fixture("valid_category_gpu.json"), load_fixture("valid_extract_gpu.json")]
+    )
+    url = "https://www.techpowerup.com/gpu-specs/geforce-rtx-2060-super.c3441"
+    response = client.post(
+        "/api/components/extract",
+        json={
+            "name": "RTX 2060 SUPER",
+            "candidate": {"title": "RTX 2060 SUPER specs", "url": url, "snippet": "8GB GDDR6"},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["source_url"] == url

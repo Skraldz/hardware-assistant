@@ -19,6 +19,15 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://ollama:11434"
     ollama_model: str = "qwen2.5:7b-instruct"
     ollama_request_timeout_s: float = 60.0
+    # Ollama applies its own default context window when the caller does not
+    # set one (2048 in older builds, 4096 in current ones), and it does not
+    # fail on overflow -- it silently drops the oldest tokens. For /extract
+    # that means dropping the fetched page text the web-lookup feature exists
+    # to supply, so the model "misses" fields that were in front of it and it
+    # reads as a model-capability limit rather than a configuration one. Set
+    # explicitly so the budget is a deliberate choice; see
+    # backend/scripts/measure_prompt_budget.py for the measurement.
+    ollama_num_ctx: int = 8192
 
     # --- Web lookup (SearXNG) for /api/components/search + /extract ---
     enable_web_lookup: bool = True

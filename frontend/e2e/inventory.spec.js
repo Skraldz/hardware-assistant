@@ -213,3 +213,37 @@ test("the component name field stays editable after a result is extracted", asyn
   await nameField.fill("A completely different part");
   await expect(nameField).toHaveValue("A completely different part");
 });
+
+// A component whose specs came from a web lookup records the page they were
+// extracted from, so the claim can be checked later. A manually entered one
+// has no source and must render as plain text, not a dead link.
+test("a web-looked-up component links to its source page, a manual one does not", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/");
+
+  const link = page.getByRole("link", { name: /AMD Ryzen 5 3600/ });
+  await expect(link).toHaveAttribute("href", "https://www.amd.com/en/products/cpu/amd-ryzen-5-3600");
+  // target=_blank without rel=noopener lets the opened page reach back via
+  // window.opener, and these URLs come from search results, not from us.
+  await expect(link).toHaveAttribute("target", "_blank");
+  await expect(link).toHaveAttribute("rel", /noopener/);
+
+  await expect(page.getByText("NVIDIA GeForce RTX 2060 6GB")).toBeVisible();
+  await expect(page.getByRole("link", { name: /RTX 2060 6GB/ })).toHaveCount(0);
+});
+
+test("a non-http source url is never turned into a clickable link", async ({ page }) => {
+  await mockApi(page, {
+    components: [
+      {
+        ...SAMPLE_COMPONENTS[0],
+        name: "Hostile part",
+        source_url: "javascript:alert(document.domain)",
+      },
+    ],
+  });
+  await page.goto("/");
+
+  await expect(page.getByText("Hostile part")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Hostile part/ })).toHaveCount(0);
+});

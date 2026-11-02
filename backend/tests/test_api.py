@@ -258,3 +258,32 @@ def test_update_component_can_change_release_year(client):
 
     assert response.status_code == 200
     assert response.json()["release_year"] == 2015
+
+
+def test_create_component_persists_source_url(client):
+    """Guards the same site that dropped release_year: create_component
+    builds Component(...) field by field, so a new ComponentBase field is
+    silently discarded unless it is added here too. source_url is the
+    provenance link shown in the inventory, so losing it means a component
+    looks hand-entered when it was actually extracted from a page."""
+    url = "https://www.techpowerup.com/gpu-specs/geforce-rtx-4070-ti-super.c4187"
+    created = client.post("/api/components", json={**CPU_PAYLOAD, "source_url": url}).json()
+
+    assert created["source_url"] == url
+    assert client.get(f"/api/components/{created['id']}").json()["source_url"] == url
+
+
+def test_create_component_without_source_url_defaults_to_null(client):
+    created = client.post("/api/components", json=CPU_PAYLOAD).json()
+
+    assert created["source_url"] is None
+
+
+def test_update_component_can_set_source_url(client):
+    created = client.post("/api/components", json=CPU_PAYLOAD).json()
+    url = "https://www.amd.com/en/products/cpu/amd-ryzen-5-3600"
+
+    response = client.put(f"/api/components/{created['id']}", json={"source_url": url})
+
+    assert response.status_code == 200
+    assert response.json()["source_url"] == url

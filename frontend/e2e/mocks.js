@@ -19,6 +19,7 @@ export const SAMPLE_COMPONENTS = [
     name: "AMD Ryzen 5 3600",
     manufacturer: "AMD",
     release_year: 2019,
+    source_url: "https://www.amd.com/en/products/cpu/amd-ryzen-5-3600",
     quantity: 1,
     condition: "used",
     specs_source: "manual",
@@ -173,6 +174,7 @@ export async function mockApi(page, overrides = {}) {
       specs: SAMPLE_COMPONENTS[1].specs,
       release_year: 2019,
       specs_source: "web_lookup",
+      source_url: "https://www.techpowerup.com/gpu-specs/geforce-rtx-2060.c3310",
       llm_used: "ok",
     }),
   );

@@ -28,10 +28,11 @@ class LLMClient(Protocol):
 
 
 class OllamaClient:
-    def __init__(self, base_url: str, model: str, timeout: float) -> None:
+    def __init__(self, base_url: str, model: str, timeout: float, num_ctx: int) -> None:
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._timeout = timeout
+        self._num_ctx = num_ctx
 
     def generate_structured(self, *, system: str, prompt: str, schema: type[BaseModel]) -> str:
         try:
@@ -50,7 +51,15 @@ class OllamaClient:
                     # output from one call to the next -- undermining both
                     # schema-field-filling consistency and the frontend's
                     # "builds unchanged" comparison (RecommendView.jsx).
-                    "options": {"temperature": 0},
+                    # num_ctx is set explicitly because Ollama otherwise applies
+                    # its own default (2048 in older builds, 4096 in current
+                    # ones) and does not fail on overflow -- it silently drops
+                    # the oldest tokens. The /extract prompt carries up to
+                    # page_fetch_max_chars of fetched page text, so an
+                    # unconfigured context window quietly truncates away the
+                    # very content the web lookup fetched, and the model looks
+                    # like it "missed" fields it was never shown.
+                    "options": {"temperature": 0, "num_ctx": self._num_ctx},
                 },
                 timeout=self._timeout,
             )
@@ -83,6 +92,7 @@ def get_ollama_client() -> OllamaClient:
         base_url=settings.ollama_base_url,
         model=settings.ollama_model,
         timeout=settings.ollama_request_timeout_s,
+        num_ctx=settings.ollama_num_ctx,
     )
 
 
