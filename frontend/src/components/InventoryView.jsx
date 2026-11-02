@@ -95,6 +95,7 @@ export default function InventoryView({ active = true }) {
   const [components, setComponents] = useState([]);
   const [loadError, setLoadError] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [outOfStockOnly, setOutOfStockOnly] = useState(false);
   const [sortKey, setSortKey] = useState("category");
   const [sortDir, setSortDir] = useState("asc");
 
@@ -315,6 +316,7 @@ export default function InventoryView({ active = true }) {
 
   const visibleComponents = components
     .filter((c) => categoryFilter === "all" || c.category === categoryFilter)
+    .filter((c) => !outOfStockOnly || c.quantity === 0)
     .sort((a, b) => (sortDir === "asc" ? 1 : -1) * compareComponents(a, b, sortKey));
 
   function sortableHeader(key, label) {
@@ -358,6 +360,13 @@ export default function InventoryView({ active = true }) {
               {cat}
             </button>
           ))}
+          <button
+            type="button"
+            className={`chip${outOfStockOnly ? " active" : ""}`}
+            onClick={() => setOutOfStockOnly((value) => !value)}
+          >
+            {t("outOfStockOnly")}
+          </button>
         </div>
         <div className="table-scroll">
           <table>

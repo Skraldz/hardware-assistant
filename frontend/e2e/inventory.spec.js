@@ -15,6 +15,28 @@ test("lists seeded components and filters by category", async ({ page }) => {
   await expect(page.getByText("AMD Ryzen 5 3600")).not.toBeVisible();
 });
 
+test("the out-of-stock filter shows only components at quantity 0", async ({ page }) => {
+  await mockApi(page, {
+    components: [
+      { ...SAMPLE_COMPONENTS[0], quantity: 0 },
+      { ...SAMPLE_COMPONENTS[1], quantity: 1 },
+    ],
+  });
+  await page.goto("/");
+
+  await expect(page.getByText("AMD Ryzen 5 3600")).toBeVisible();
+  await expect(page.getByText("NVIDIA GeForce RTX 2060 6GB")).toBeVisible();
+
+  await page.getByRole("button", { name: "Out of stock" }).click();
+
+  await expect(page.getByText("AMD Ryzen 5 3600")).toBeVisible();
+  await expect(page.getByText("NVIDIA GeForce RTX 2060 6GB")).not.toBeVisible();
+
+  // Toggling it back off restores the full list.
+  await page.getByRole("button", { name: "Out of stock" }).click();
+  await expect(page.getByText("NVIDIA GeForce RTX 2060 6GB")).toBeVisible();
+});
+
 test("shows each component's release year in its own column", async ({ page }) => {
   await mockApi(page, {
     components: [

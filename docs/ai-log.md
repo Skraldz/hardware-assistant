@@ -2,6 +2,17 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-11-03 – An "Out of stock" filter chip on the Inventory tab
+
+**Generated:**
+- `InventoryView.jsx` gains an "Out of stock" chip alongside the existing category chips, toggling a filter to only components at quantity 0 (combines with whatever category filter is also active). The "Quantity" column header was already sortable (unchanged), so this adds a one-click view on top of that rather than replacing it.
+
+**Tests covering it:**
+- `frontend/e2e/inventory.spec.js` (1 new test): toggling the chip narrows the list to only out-of-stock components, and toggling it again restores the full list.
+- `npx playwright test` green (21 e2e tests).
+
+**Review (filled in by the student):**
+
 ## 2026-11-03 – Inventory heading shows out-of-stock count separately from the total
 
 **Generated:**

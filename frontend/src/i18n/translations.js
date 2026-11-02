@@ -26,6 +26,7 @@ export const translations = {
     inventoryHeading: (count, outOfStock) =>
       outOfStock > 0 ? `Lager (${count}, ${outOfStock} udgået)` : `Lager (${count})`,
     allCategories: "Alle",
+    outOfStockOnly: "Udgået",
     colCategory: "Kategori",
     colName: "Navn",
     colReleaseYear: "Udgivelsesår",
@@ -156,6 +157,7 @@ export const translations = {
     inventoryHeading: (count, outOfStock) =>
       outOfStock > 0 ? `Inventory (${count}, ${outOfStock} out of stock)` : `Inventory (${count})`,
     allCategories: "All",
+    outOfStockOnly: "Out of stock",
     colCategory: "Category",
     colName: "Name",
     colReleaseYear: "Release year",
