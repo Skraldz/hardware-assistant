@@ -1254,3 +1254,279 @@ def test_recommend_includes_a_two_drive_build_when_sensible(db_session):
     assert any(
         len([c for c in build.components if c.category == Category.STORAGE]) == 2 for build in result.builds
     )
+
+
+# --- required_categories is an actual hard requirement ---
+# Found by code review: the LLM fills in `required_categories`, but the
+# pipeline only ever forced a discrete GPU when `min_vram_gb` happened to be
+# set. A user who asks for a graphics card without naming a VRAM number got
+# `required_categories=["gpu"]` -- which was parsed, stored, and then
+# silently ignored, so a GPU-less build could still be recommended (and in
+# fact scored *higher*, because deterministic_score's always-on power-draw
+# nudge penalises the GPU's TDP with nothing opposing it).
+
+
+def _seed_igpu_inventory(db, *, with_gpu: bool) -> None:
+    """A build-able inventory whose CPU has integrated graphics, so a
+    GPU-less build satisfies display_output_available on its own and the
+    engine genuinely offers both options."""
+    insert_component(
+        db,
+        category=Category.CPU,
+        name="Ryzen 5 5600G",
+        specs={
+            "category": "cpu",
+            "socket": "AM4",
+            "cores": 6,
+            "tdp_w": 65,
+            "integrated_graphics": True,
+            "memory_type": ["DDR4"],
+        },
+    )
+    insert_component(
+        db,
+        category=Category.MOTHERBOARD,
+        name="AM4 board",
+        specs={
+            "category": "motherboard",
+            "socket": "AM4",
+            "form_factor": "ATX",
+            "memory_type": ["DDR4"],
+            "memory_slots": 4,
+            "max_memory_gb": 64,
+            "m2_slots": 1,
+            "sata_ports": 4,
+            "pcie_x16_slots": 1,
+        },
+    )
+    insert_component(
+        db,
+        category=Category.RAM,
+        name="16GB DDR4",
+        specs={
+            "category": "ram",
+            "memory_type": "DDR4",
+            "capacity_gb_per_module": 8,
+            "modules": 2,
+            "form": "DIMM",
+        },
+    )
+    insert_component(
+        db,
+        category=Category.STORAGE,
+        name="1TB NVMe",
+        specs={"category": "storage", "interface": "nvme", "capacity_gb": 1000, "form_factor": "m2_2280"},
+    )
+    insert_component(
+        db,
+        category=Category.PSU,
+        name="650W PSU",
+        specs={
+            "category": "psu",
+            "wattage_w": 650,
+            "form_factor": "ATX",
+            "pcie_power_connectors": ["8-pin", "8-pin"],
+        },
+    )
+    insert_component(
+        db,
+        category=Category.CASE,
+        name="ATX case",
+        specs={
+            "category": "case",
+            "supported_form_factors": ["ATX", "mATX"],
+            "max_gpu_length_mm": 400,
+            "max_cooler_height_mm": 170,
+            "psu_form_factor": "ATX",
+            "drive_bays_3_5": 2,
+            "drive_bays_2_5": 2,
+        },
+    )
+    insert_component(
+        db,
+        category=Category.COOLER,
+        name="AM4 cooler",
+        specs={
+            "category": "cooler",
+            "type": "air",
+            "supported_sockets": ["AM4"],
+            "height_mm": 60,
+            "tdp_rating_w": 95,
+        },
+    )
+    if with_gpu:
+        insert_component(
+            db,
+            category=Category.GPU,
+            name="RTX 2060",
+            specs={
+                "category": "gpu",
+                "vram_gb": 6,
+                "tdp_w": 160,
+                "length_mm": 229,
+                "pcie_power_connectors": ["8-pin"],
+                "vendor": "nvidia",
+            },
+        )
+
+
+def test_required_categories_gpu_forces_every_build_to_include_a_gpu(db_session):
+    _seed_igpu_inventory(db_session, with_gpu=True)
+    client = FakeLLMClient(
+        [
+            load_fixture("valid_requirements_requires_gpu.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
+    )
+
+    result = recommend(prompt="I need a graphics card in it", max_builds=3, db=db_session, llm_client=client)
+
+    assert result.builds, "the inventory can build with a GPU, so something must come back"
+    for build in result.builds:
+        categories = [c.category for c in build.components]
+        assert Category.GPU in categories, "required_categories asked for a GPU but a build omitted it"
+
+
+def test_required_categories_reports_a_missing_category_when_none_is_available(db_session):
+    _seed_igpu_inventory(db_session, with_gpu=False)
+    client = FakeLLMClient(
+        [
+            load_fixture("valid_requirements_requires_gpu.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
+    )
+
+    result = recommend(prompt="I need a graphics card in it", max_builds=3, db=db_session, llm_client=client)
+
+    assert Category.GPU in result.missing
+    assert result.builds == []
+
+
+# --- The ranking pool itself has to be diverse ---
+# The diversity step (_select_diverse_builds) ran on the *pool*, and the pool
+# was simply the top-N builds by deterministic score. So whenever a single
+# CPU scored best, it filled the whole pool and the diversity step had no
+# variety left to choose from -- it fell back to repeats, which is exactly
+# what was reported live: "the 3 build suggestions are still basically the
+# same, but some pieces are changed out for each build". The earlier
+# diversity test only passed because its tiny inventory produced fewer
+# builds than the pool could hold, so all the variety survived truncation.
+
+
+def test_recommend_diversifies_cpu_even_when_one_cpu_dominates_the_score(db_session):
+    # Three AM4 CPUs with clearly different TDPs, so they do *not* tie: the
+    # 65W one scores strictly best, and every build using it outranks every
+    # build using the others.
+    for name, tdp in [("Efficient CPU", 65), ("Thirsty CPU", 200), ("Furnace CPU", 250)]:
+        insert_component(
+            db_session,
+            category=Category.CPU,
+            name=name,
+            specs={
+                "category": "cpu",
+                "socket": "AM4",
+                "cores": 6,
+                "tdp_w": tdp,
+                "integrated_graphics": True,
+                "memory_type": ["DDR4"],
+            },
+        )
+    insert_component(
+        db_session,
+        category=Category.MOTHERBOARD,
+        name="AM4 board",
+        specs={
+            "category": "motherboard",
+            "socket": "AM4",
+            "form_factor": "ATX",
+            "memory_type": ["DDR4"],
+            "memory_slots": 4,
+            "max_memory_gb": 64,
+            "m2_slots": 0,
+            "sata_ports": 4,
+            "pcie_x16_slots": 1,
+        },
+    )
+    insert_component(
+        db_session,
+        category=Category.RAM,
+        name="16GB DDR4",
+        specs={
+            "category": "ram",
+            "memory_type": "DDR4",
+            "capacity_gb_per_module": 8,
+            "modules": 2,
+            "form": "DIMM",
+        },
+    )
+    # Three identical-capacity SATA drives -> 3 single-drive options plus 3
+    # two-drive pairs = 6 storage combinations per CPU. Identical capacity
+    # keeps the storage-capacity nudge from reordering CPUs by accident.
+    for i in range(3):
+        insert_component(
+            db_session,
+            category=Category.STORAGE,
+            name=f"500GB SATA {i}",
+            specs={
+                "category": "storage",
+                "interface": "sata_ssd",
+                "capacity_gb": 500,
+                "form_factor": "2_5",
+            },
+        )
+    for i in range(2):
+        insert_component(
+            db_session,
+            category=Category.PSU,
+            name=f"PSU {i}",
+            specs={
+                "category": "psu",
+                "wattage_w": 750,
+                "form_factor": "ATX",
+                "pcie_power_connectors": ["8-pin", "8-pin"],
+            },
+        )
+    for i in range(2):
+        insert_component(
+            db_session,
+            category=Category.COOLER,
+            name=f"Cooler {i}",
+            specs={
+                "category": "cooler",
+                "type": "air",
+                "supported_sockets": ["AM4"],
+                "height_mm": 60,
+                "tdp_rating_w": 250,
+            },
+        )
+    insert_component(
+        db_session,
+        category=Category.CASE,
+        name="ATX case",
+        specs={
+            "category": "case",
+            "supported_form_factors": ["ATX"],
+            "max_gpu_length_mm": 400,
+            "max_cooler_height_mm": 170,
+            "psu_form_factor": "ATX",
+            "drive_bays_3_5": 4,
+            "drive_bays_2_5": 4,
+        },
+    )
+
+    client = FakeLLMClient(
+        [
+            load_fixture("valid_requirements_generic.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
+    )
+
+    result = recommend(prompt="a general office pc", max_builds=3, db=db_session, llm_client=client)
+
+    assert len(result.builds) == 3
+    cpu_names = {c.name for build in result.builds for c in build.components if c.category == Category.CPU}
+    assert len(cpu_names) == 3, f"all three builds should use a different CPU, got {cpu_names}"

@@ -2,6 +2,41 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-11-03 – `required_categories` was never read, and the ranking pool was never diverse
+
+Two fixes to `pipeline/recommend.py`, both for defects documented as known weaknesses in the exam report's code-review appendix rather than left unfixed.
+
+**Generated:**
+- **`required_categories` is now an actual hard requirement.** New `_gpu_is_required()` replaces the two places that checked `min_vram_gb is not None` directly. A discrete GPU is the only component a valid build can legitimately omit (`engine.REQUIRED_CATEGORIES` covers the other seven), so GPU is the only category `required_categories` can constrain — but it does need to constrain it. Previously the LLM filled the field in, the pipeline parsed it, and then nothing read it: a user asking for a graphics card *without* naming a VRAM figure got a silently ignored requirement. Worse than ignored in practice — `deterministic_score`'s always-on power-draw nudge penalises the GPU's TDP with nothing opposing it unless `prefer_max_vram` happens to be set, so the GPU-less build actively won.
+- **A required category with no surviving candidate is now reported by name** in `missing`, instead of the build quietly coming back without it.
+- **The ranking pool is now selected with the same diversity-aware greedy as the final result.** `_select_diverse_builds` already existed and worked, but it only ever ran on the *pool*, and the pool was the top-N builds by deterministic score alone. Whenever one CPU scored best, all of its many variations (different storage/cooler/PSU) outranked every build using any other CPU, so the pool was single-CPU and the diversity step had nothing to diversify over — it fell back to repeats, as designed, on a pool that should never have been homogeneous.
+
+**Measured against the real 210-component seed data** (prompt: "an office pc", 20,544 valid builds):
+
+| | Distinct CPUs in pool | Final 3 builds |
+|---|---|---|
+| Before | 1 | i5-12400, i5-12400, i5-12400 |
+| After | 5 (= all CPU candidates at `top_n=5`) | i5-12400, i9-13900K, Ryzen 5 3600 |
+
+The top recommendation is unchanged in both passes (the greedy always takes the highest-scoring build first); only builds 2 and 3 change. Pool selection costs 0.065–0.124 s on 10,000–20,000 builds, against ~1.9 s for the engine itself, so the end-to-end time is unaffected.
+
+**Assumptions:**
+- **Diversity is keyed on CPU (primary) and GPU (secondary), not motherboard or RAM.** A different CPU almost always implies a different socket and therefore a different motherboard, so CPU is the cheapest signal that actually separates builds; keying on more fields would reduce how many builds qualify as "distinct" without making the results more obviously different to a user.
+- **Running the greedy over the full evaluation list (not a pre-truncated slice) is affordable.** Measured above; it is `pool_size` stable sorts of a cheap 2-tuple key. If a future inventory makes this hot, the fix is to bucket by CPU id rather than re-sort.
+- **This fix deliberately lets a slightly lower-scoring build into the pool** so the ranking LLM sees real alternatives. That is the intent ("deliberate diversification"), not a regression: a build is only ever offered if the rules already verified it.
+
+**Known risks / weaknesses:**
+- `required_categories` still cannot express "no GPU" (the schema has no negative form), so a user who explicitly does *not* want a discrete GPU relies on the power-draw nudge rather than a hard rule.
+- The diversity greedy treats "no GPU" as a single GPU identity, so two GPU-less builds with different CPUs are distinct (correct), but two GPU-less builds with the same CPU are not further separated.
+
+**Tests covering it:**
+- `tests/test_pipeline.py` (3 new tests): `required_categories=["gpu"]` forces a GPU into every returned build; a required category with no candidate is reported in `missing` and no builds are returned; and three CPUs with clearly different TDPs (so they do *not* tie on score) still yield three different CPUs across the three returned builds.
+- New fixture `tests/fixtures/llm_responses/valid_requirements_requires_gpu.json` — `required_categories: ["gpu"]` with `min_vram_gb: null`, the exact combination that was being ignored.
+- All three were verified to **fail against the pre-fix `recommend.py`** (`git stash push -- app/pipeline/recommend.py`) before being trusted, per the project's regression-test discipline.
+- `pytest` green (239 backend tests, up from 236), `ruff check` and `ruff format` clean.
+
+**Review (filled in by the student):**
+
 ## 2026-11-03 – An "Out of stock" filter chip on the Inventory tab
 
 **Generated:**
@@ -690,7 +725,7 @@ Run after Phase 5. A multi-agent code review found 10 confirmed findings across 
 - **`/api/components/extract` has no "conservative fallback" instance**, unlike requirements interpretation and ranking. If the LLM never returns valid JSON (after a retry), there's no meaningful default category to guess at — the endpoint returns 422 and asks the user to enter the specs manually, the same philosophy as "no search results" (see below).
 - **"No search results" → an error, not an LLM fallback** (the user's explicit choice during requirements clarification): `/search` returns 404 instead of silently falling back to LLM guessing. `ENABLE_WEB_LOOKUP=false` is the only path to pure LLM extraction — an explicit setting, not an implicit fallback on search failure.
 - **Hard minimum requirements (min_vram_gb, etc.) treat missing data as "doesn't meet the requirement"** — unlike the compatibility rules (Phase 2), where missing data gives `unknown`. A requirement the user explicitly asked for shouldn't be satisfied by a guess.
-- **`required_categories` from the LLM is only used to force the GPU to be a real requirement** when `min_vram_gb` is set (otherwise a GPU-free build could still be chosen even when the user clearly needs VRAM). The rest of the `required_categories` list isn't used for further filtering yet — can be extended if that becomes relevant.
+- **`required_categories` from the LLM is only used to force the GPU to be a real requirement** when `min_vram_gb` is set (otherwise a GPU-free build could still be chosen even when the user clearly needs VRAM). The rest of the `required_categories` list isn't used for further filtering yet — can be extended if that becomes relevant. **Superseded 2026-11-03:** this turned out to be a real defect, not a deferrable simplification — see the entry for "`required_categories` was never read".
 - **`max_builds` also controls how many builds are sent to the LLM for ranking** (`max(max_builds * 3, 10)`, pre-sorted by the deterministic score) — a tradeoff between prompt size and giving the LLM a real choice.
 - **The ranking order follows the LLM's response when valid** (validated build_id by build_id); builds the LLM didn't mention but are still valid fill out the rest of `max_builds` by deterministic score.
 - **The Ollama service in `docker-compose.yml` has GPU reservation enabled without a healthcheck** — `backend` depends on `service_started`, not `service_healthy`, so startup doesn't block on a slow model load; `/api/health`'s `ollama` field is the real signal.

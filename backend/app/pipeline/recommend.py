@@ -95,6 +95,24 @@ def _meets_hard_requirements(
     return True
 
 
+def _gpu_is_required(requirements: ProjectRequirements) -> bool:
+    """Whether a build must include a discrete GPU to be offered at all.
+
+    A discrete GPU is the only component a valid build can legitimately omit
+    (engine.REQUIRED_CATEGORIES covers the other seven, and a build missing
+    any of those is never generated), so it's the only category
+    `required_categories` can actually constrain -- but it does need to
+    constrain it. `min_vram_gb` already forced a GPU; `required_categories`
+    was parsed into ProjectRequirements and then never read, so a user who
+    asked for a graphics card without naming a VRAM figure got a silently
+    ignored requirement. Worse than ignored in practice: deterministic_score
+    penalises the GPU's TDP with its always-on power-draw nudge, with
+    nothing opposing it unless prefer_max_vram happens to be set, so the
+    GPU-less build actively won.
+    """
+    return requirements.min_vram_gb is not None or Category.GPU in requirements.required_categories
+
+
 def _era_rank(release_year: int | None, requirements: ProjectRequirements) -> int:
     """Lower sorts first. Era only breaks ties when the user actually
     expressed a direction (prefer_oldest/prefer_newest) -- with neither set,
@@ -549,8 +567,9 @@ def _select_diverse_builds(
     ranked_order: list[int], pool: list[BuildEvaluation], max_builds: int
 ) -> list[int]:
     """Picks up to max_builds indices from ranked_order (already best-first,
-    whether from the LLM's ranking or the deterministic fallback), actively
-    preferring builds that don't repeat an already-chosen CPU or GPU.
+    whether by deterministic score, the LLM's ranking, or the deterministic
+    fallback), actively preferring builds that don't repeat an already-chosen
+    CPU or GPU.
 
     Without this, the top few results tend to differ only in whichever
     category had the least decisive "best" pick (e.g. storage or cooler):
@@ -560,7 +579,12 @@ def _select_diverse_builds(
     highest-scoring builds were all minor variations of it. Falls back to
     repeating a CPU/GPU once there aren't enough distinct options left in
     the pool, so this never returns fewer builds than the caller asked for
-    just because the inventory lacks variety."""
+    just because the inventory lacks variety.
+
+    Used twice in recommend(): once to choose the pool offered to the ranking
+    LLM, and once on the order that comes back. Both passes are needed -- the
+    first so the LLM has genuinely different builds to rank at all, the second
+    so its chosen order doesn't re-collapse onto one CPU."""
     remaining = list(ranked_order)
     selected: list[int] = []
     used_cpu_ids: set[int] = set()
@@ -593,8 +617,15 @@ def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClien
     requirements, interpret_status = interpret_requirements(prompt, llm_client)
 
     candidates = prefilter_candidates(db, requirements, top_n_hint=settings.recommend_top_n)
-    forced_missing: list[Category] = []
-    if requirements.min_vram_gb is not None and not candidates.get(Category.GPU):
+    # A category the user explicitly required but has no (surviving) candidate
+    # for is reported by name, rather than letting the build simply come back
+    # without it. For the seven categories in engine.REQUIRED_CATEGORIES the
+    # engine already reports this; this covers GPU, which the engine treats
+    # as optional, and keeps reporting honest if required_categories ever
+    # names something whose candidates were all dropped by
+    # _meets_hard_requirements.
+    forced_missing = [c for c in requirements.required_categories if not candidates.get(c)]
+    if _gpu_is_required(requirements) and not candidates.get(Category.GPU):
         forced_missing.append(Category.GPU)
 
     engine_result = generate_builds(
@@ -603,7 +634,7 @@ def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClien
     missing = list(dict.fromkeys([*engine_result.missing, *forced_missing]))
 
     evaluations = engine_result.builds
-    if requirements.min_vram_gb is not None:
+    if _gpu_is_required(requirements):
         evaluations = [e for e in evaluations if e.build.gpu is not None]
 
     if not evaluations:
@@ -615,8 +646,25 @@ def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClien
             assistant_message=reply,
         )
 
+    # The pool bounds how many builds get sent to the ranking LLM. Picking it
+    # by deterministic score *alone* was the second half of the "all three
+    # suggestions are basically the same" bug: whenever one CPU scored best,
+    # every one of its many variations (different storage/cooler/PSU) outranked
+    # every build using any other CPU, so the pool was filled with a single
+    # CPU and the diversity step below had nothing left to diversify over --
+    # it fell back to repeats, as designed, on a pool that should never have
+    # been homogeneous. Selecting the pool with the same diversity-aware
+    # greedy means the ranking LLM is offered genuinely different builds, and
+    # _select_diverse_builds still runs afterwards as a guard on the order the
+    # LLM actually returns. The highest-scoring build is still picked first in
+    # both passes, so the top recommendation is unchanged.
     pool_size = max(max_builds * 3, 10)
-    pool = sorted(evaluations, key=lambda e: deterministic_score(e, requirements), reverse=True)[:pool_size]
+    by_score = sorted(
+        range(len(evaluations)),
+        key=lambda i: deterministic_score(evaluations[i], requirements),
+        reverse=True,
+    )
+    pool = [evaluations[i] for i in _select_diverse_builds(by_score, evaluations, pool_size)]
 
     ranked, rank_status = rank_builds(pool, requirements, llm_client)
     reason_by_index = dict(ranked)
