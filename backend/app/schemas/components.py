@@ -113,7 +113,9 @@ SPEC_CLASS_BY_CATEGORY: dict[Category, type[BaseModel]] = {
 }
 
 
-def _required_variant(model_cls: type[BaseModel]) -> type[BaseModel]:
+def _required_variant(
+    model_cls: type[BaseModel], *, extra_fields: dict[str, type] | None = None
+) -> type[BaseModel]:
     """A schema with the same fields/types as `model_cls`, but every field
     marked required -- the JSON key must be present, though its value may
     still be null. Used only as the schema handed to Ollama's
@@ -128,17 +130,29 @@ def _required_variant(model_cls: type[BaseModel]) -> type[BaseModel]:
     of 6 even when the rest were plainly stated in the given text. Forcing
     every key to be present closes that loophole without weakening the
     domain model itself (manual entry still needs genuinely optional
-    fields, which this variant is never used for)."""
+    fields, which this variant is never used for).
+
+    `extra_fields` folds in fields that live outside `model_cls` (namely
+    ComponentBase.release_year, which isn't part of any spec class -- see
+    its own docstring) into this same structured-output call, rather than
+    paying for a whole separate LLM round trip just for one more field.
+    routers/components.py pops them back out before validating the rest
+    against `model_cls`."""
     fields = {name: (field.annotation, ...) for name, field in model_cls.model_fields.items()}
+    for name, annotation in (extra_fields or {}).items():
+        fields[name] = (annotation, ...)
     return create_model(f"{model_cls.__name__}Extraction", **fields)
 
 
 # Reused by /api/components/extract: the schema actually handed to Ollama's
 # `format`, one "every field required" variant per category (see
-# _required_variant). The response is re-validated against
-# SPEC_CLASS_BY_CATEGORY afterwards to get back the real domain type.
+# _required_variant), plus release_year (ComponentBase, not part of any
+# spec class) folded in. The response is split back into release_year +
+# the rest, which is re-validated against SPEC_CLASS_BY_CATEGORY afterwards
+# to get back the real domain type.
 EXTRACT_SCHEMA_BY_CATEGORY: dict[Category, type[BaseModel]] = {
-    category: _required_variant(spec_class) for category, spec_class in SPEC_CLASS_BY_CATEGORY.items()
+    category: _required_variant(spec_class, extra_fields={"release_year": int | None})
+    for category, spec_class in SPEC_CLASS_BY_CATEGORY.items()
 }
 
 

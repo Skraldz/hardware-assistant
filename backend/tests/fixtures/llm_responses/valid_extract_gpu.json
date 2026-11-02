@@ -4,5 +4,6 @@
   "tdp_w": 175,
   "length_mm": 229,
   "pcie_power_connectors": ["8-pin"],
-  "vendor": "nvidia"
+  "vendor": "nvidia",
+  "release_year": 2019
 }

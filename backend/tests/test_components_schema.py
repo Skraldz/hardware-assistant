@@ -14,7 +14,7 @@ from app.schemas.components import EXTRACT_SCHEMA_BY_CATEGORY, SPEC_CLASS_BY_CAT
 def test_extract_schema_requires_every_field_but_allows_null():
     schema = EXTRACT_SCHEMA_BY_CATEGORY[Category.GPU].model_json_schema()
 
-    assert set(schema["required"]) == set(GpuSpecs.model_fields.keys())
+    assert set(schema["required"]) == set(GpuSpecs.model_fields.keys()) | {"release_year"}
     # vram_gb may still be null -- the key must be present, not the value.
     parsed = EXTRACT_SCHEMA_BY_CATEGORY[Category.GPU].model_validate(
         {
@@ -24,6 +24,7 @@ def test_extract_schema_requires_every_field_but_allows_null():
             "length_mm": None,
             "pcie_power_connectors": None,
             "vendor": "nvidia",
+            "release_year": None,
         }
     )
     assert parsed.vram_gb is None
@@ -48,6 +49,7 @@ def test_extracted_data_round_trips_into_the_real_domain_spec_class():
             "length_mm": 240,
             "pcie_power_connectors": ["8-pin"],
             "vendor": "nvidia",
+            "release_year": 2019,
         }
     )
 

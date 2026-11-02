@@ -63,5 +63,6 @@ class CategoryGuess(BaseModel):
 class ExtractResponse(BaseModel):
     name: str
     specs: ComponentSpecs
+    release_year: int | None = None
     specs_source: SpecsSource
     llm_used: str

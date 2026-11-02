@@ -1177,3 +1177,80 @@ def test_recommend_includes_a_gpu_when_the_user_wants_the_biggest_model(db_sessi
     assert len(result.builds) >= 1
     gpu_names = {c.name for c in result.builds[0].components if c.category == Category.GPU}
     assert gpu_names == {"Bigger GPU"}
+
+
+# --- Storage capacity scoring/sorting ---
+# Regression tests for a real live bug: "I still only get recommended one
+# storage disk per build" despite multi-drive support existing in the
+# engine (engine.py's MAX_STORAGE_DRIVES) -- deterministic_score had no
+# opinion on storage at all, so a 1-drive and an otherwise-identical
+# 2-drive build tied exactly, and _storage_combos always lists every
+# 1-drive option before any 2-drive one, so the tie's stable sort
+# permanently buried every multi-drive build once the ranking pool was
+# truncated. Separately, the storage candidates 2-drive combos are built
+# from (MAX_STORAGE_PAIR_CANDIDATES) were sorted by plain id, not
+# capacity, so even a surfaced 2-drive combo could lose on total capacity
+# to a single large drive that was never a bug, just an unhelpful default.
+
+
+def test_deterministic_score_prefers_more_total_storage_capacity():
+    from app.compatibility.types import BuildEvaluation, CandidateComponent
+    from app.schemas.components import StorageSpecs
+    from tests.fixtures.sample_inventory import compatible_build, storage_nvme_1tb
+
+    second_drive = CandidateComponent(
+        id=999, name="Second drive", specs=StorageSpecs(capacity_gb=4000, interface="sata_hdd")
+    )
+    one_drive = BuildEvaluation(build=compatible_build(), rule_results={})
+    two_drives = BuildEvaluation(
+        build=compatible_build(storage=[storage_nvme_1tb(), second_drive]), rule_results={}
+    )
+
+    requirements = ProjectRequirements(use_case="x")
+    assert deterministic_score(two_drives, requirements) > deterministic_score(one_drive, requirements)
+
+
+def test_prefilter_sorts_storage_by_descending_capacity_without_a_stated_minimum(db_session):
+    insert_component(
+        db_session, category=Category.STORAGE, name="Small", specs={"category": "storage", "capacity_gb": 500}
+    )
+    insert_component(
+        db_session,
+        category=Category.STORAGE,
+        name="Huge",
+        specs={"category": "storage", "capacity_gb": 16000},
+    )
+    insert_component(
+        db_session,
+        category=Category.STORAGE,
+        name="Medium",
+        specs={"category": "storage", "capacity_gb": 2000},
+    )
+
+    candidates = prefilter_candidates(db_session, ProjectRequirements(use_case="x"))
+
+    assert [c.name for c in candidates[Category.STORAGE]] == ["Huge", "Medium", "Small"]
+
+
+def test_recommend_includes_a_two_drive_build_when_sensible(db_session):
+    seed_compatible_inventory(db_session)  # includes a 1TB NVMe
+    insert_component(
+        db_session,
+        category=Category.STORAGE,
+        name="Big second drive",
+        specs={"category": "storage", "interface": "sata_hdd", "capacity_gb": 8000, "form_factor": "3_5"},
+    )
+    client = FakeLLMClient(
+        [
+            load_fixture("valid_requirements_generic.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
+    )
+
+    result = recommend(prompt="a pc with lots of storage", max_builds=3, db=db_session, llm_client=client)
+
+    assert any(
+        len([c for c in build.components if c.category == Category.STORAGE]) == 2 for build in result.builds
+    )

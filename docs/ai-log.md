@@ -2,6 +2,33 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-11-03 – Multi-drive builds could never actually surface, and release_year now extracted from the web too
+
+**Generated:**
+- `deterministic_score` gains a gentle, always-on nudge toward more total storage capacity (`total_storage_gb * 0.001`). `_overshoot_rank`'s STORAGE branch now defaults to preferring more capacity (descending) when no `min_storage_gb` is stated, the same direction as the score nudge, instead of plain id order.
+- `release_year` extraction: `/api/components/extract` now also asks the LLM for the component's release year, using the same text (including the fetched full page, 2026-11-02's entry) it already extracts every other field from. `_required_variant` (schemas/components.py) gained an `extra_fields` parameter so this rides along in the *same* structured-output call as the category's spec fields, rather than costing a whole extra LLM round trip for one more field; the router splits `release_year` back out before validating the rest against the category's own spec class, which has no such field. `ExtractResponse` gains `release_year`, and `InventoryView.jsx`'s confirm-before-saving step shows it as an editable field, prefilled from the extraction.
+
+**Root cause #1 (live-reported: "I still only get recommended one storage disk per build" despite multi-drive support existing since 2026-10-31):** `deterministic_score` had no opinion on storage at all, so a 1-drive and an otherwise-identical 2-drive build tied exactly on score. `engine.py`'s `_storage_combos` always lists every 1-drive option before any 2-drive one in the list `generate_builds` iterates, so a tie's *stable* sort preserved that order -- with thousands of tied 1-drive builds and a ranking pool (`pool_size`) of only ~10, no 2-drive build could ever actually survive truncation into the pool the LLM/fallback ranks from, even though 2-drive builds were genuinely present and valid among the engine's full output (confirmed directly: 7,704 of them, for one representative request). Separately, even after adding the score nudge, the storage candidates 2-drive combos get built from were still sorted by plain database id, not capacity, so a surfaced 2-drive combo could lose to a single oversized drive that simply happened to have a lower id -- not wrong exactly, but not the "biggest achievable combination" the nudge was meant to reward either.
+
+**Root cause #2 (live-reported: "I don't get a release year in add component from web search either, shouldn't that be in there?"):** `release_year` was a deliberate, documented scope boundary from when it was first added (2026-11-02's entry) -- manual-entry only, matching how `manufacturer` already worked in the extraction flow. Revisited here because the full-page-fetch feature already pulls in exactly the kind of text ("launched on January 15th, 2019") that answers it, so the gap was leaving genuinely available information on the table rather than reflecting a real limitation.
+
+**Assumptions:**
+- **The storage capacity nudge is tiny on purpose (0.001/GB)** -- just enough to reliably break a tie in favor of more capacity, nowhere near enough to override any other scoring factor (TDP, form factor, VRAM preference, etc.). An extra 1TB drive is worth about 1 point on a score that otherwise moves in single-to-low-double digits.
+- **No new preference flag was added for storage** (no `prefer_max_storage`), unlike `prefer_max_vram`/`prefer_oldest`/etc. -- "more storage, all else equal" was judged uncontroversial enough to be a sensible *default* rather than needing an explicit ask, unlike GPU/era preferences, which materially change what gets recommended and so need the user to actually want that direction.
+- **`release_year` is folded into the same LLM call as the spec fields, not a separate one**, trading a slightly more complex schema-construction helper (`_required_variant`'s new `extra_fields` parameter) for not adding another full round trip (several seconds on a local model) to an already-multi-step extraction flow.
+
+**Known risks / weaknesses:**
+- A sufficiently large single drive can still legitimately outrank a 2-drive combination on total capacity -- this is intentional (see Assumptions), but means "do I get multiple drives" still depends on what's actually in the inventory, not a guarantee every request now shows multiple drives.
+- `release_year` extraction inherits the same limitation already documented for every other extracted field: it's only as good as what the fetched page states or the model's own general knowledge of the named product covers -- no new failure mode introduced, but also no improvement to the underlying accuracy of any single extraction.
+
+**Tests covering it:**
+- `backend/tests/test_pipeline.py` (3 new tests): a 2-drive build outscores an otherwise-identical 1-drive one; storage candidates sort by descending capacity without a stated minimum; a full end-to-end `recommend()` call with a sensible second drive available asserts a 2-drive build is actually returned.
+- `backend/tests/test_components_schema.py` / `test_api_llm_endpoints.py`: updated to expect `release_year` as a required (but nullable) key in the extraction schema, and a new assertion that a successful `/api/components/extract` call returns `release_year` separately from `specs` (which must not contain it).
+- `frontend/e2e/inventory.spec.js` (1 new test): the release year field in the confirm-before-saving panel is prefilled from the extraction response and is actually sent when editing it before saving.
+- `ruff check`/`ruff format --check`/`pytest --cov` green: 233 backend tests, 96% overall coverage. `npm run build` and `npx playwright test` green (19 e2e tests).
+
+**Review (filled in by the student):**
+
 ## 2026-11-03 – prefer_max_vram: "the biggest GPU I have" was quietly losing to no GPU at all
 
 **Generated:**

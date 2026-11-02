@@ -185,6 +185,8 @@ def test_extract_with_candidate_returns_specs_from_web_lookup(client):
     body = response.json()
     assert body["specs"]["category"] == "gpu"
     assert body["specs"]["vram_gb"] == 8
+    assert body["release_year"] == 2019
+    assert "release_year" not in body["specs"]
     assert body["specs_source"] == "web_lookup"
     assert body["llm_used"] == "ok"
 

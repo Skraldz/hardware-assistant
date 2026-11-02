@@ -201,11 +201,14 @@ def extract_component_specs(
             status_code=422,
             detail=f"Could not extract specifications for '{payload.name}'. Enter them manually.",
         )
-    specs = spec_class.model_validate(extracted.model_dump())
+    extracted_fields = extracted.model_dump()
+    release_year = extracted_fields.pop("release_year", None)
+    specs = spec_class.model_validate(extracted_fields)
 
     return ExtractResponse(
         name=payload.name,
         specs=specs,
+        release_year=release_year,
         specs_source=specs_source,
         llm_used=combine_status(category_status, specs_status),
     )

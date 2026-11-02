@@ -171,6 +171,7 @@ export async function mockApi(page, overrides = {}) {
     fulfillJson(route, {
       name: "Extracted part",
       specs: SAMPLE_COMPONENTS[1].specs,
+      release_year: 2019,
       specs_source: "web_lookup",
       llm_used: "ok",
     }),

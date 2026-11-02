@@ -121,8 +121,18 @@ def _overshoot_rank(category: Category, specs, requirements: ProjectRequirements
     if category == Category.RAM and requirements.min_ram_gb is not None:
         capacity = (specs.capacity_gb_per_module or 0) * (specs.modules or 0)
         return max(capacity - requirements.min_ram_gb, 0)
-    if category == Category.STORAGE and requirements.min_storage_gb is not None:
-        return max((specs.capacity_gb or 0) - requirements.min_storage_gb, 0)
+    if category == Category.STORAGE:
+        if requirements.min_storage_gb is not None:
+            return max((specs.capacity_gb or 0) - requirements.min_storage_gb, 0)
+        # No stated minimum: default to preferring more capacity, the same
+        # direction deterministic_score's own gentle capacity nudge already
+        # takes. Without this, the top-N storage candidates (and therefore
+        # the pool `_storage_combos`/MAX_STORAGE_PAIR_CANDIDATES draws
+        # 2-drive pairs from) were whichever drives happened to have the
+        # lowest database id, not the biggest ones -- a 2-drive combo could
+        # never actually win on total capacity if it was never built from
+        # the inventory's largest drives in the first place.
+        return -(specs.capacity_gb or 0)
     return 0
 
 
@@ -261,6 +271,20 @@ def deterministic_score(evaluation: BuildEvaluation, requirements: ProjectRequir
         # a bigger GPU keeps winning over a smaller one.
         gpu_vram = evaluation.build.gpu.specs.vram_gb if evaluation.build.gpu else 0
         score += (gpu_vram or 0) * 3
+
+    # A gentle, always-on nudge toward more total storage capacity -- without
+    # it, this score has no opinion on storage at all, so a 1-drive and an
+    # otherwise-identical 2-drive build tie exactly. `_storage_combos`
+    # (engine.py) always lists every 1-drive option before any 2-drive one,
+    # so a tie's stable sort order then permanently buried every multi-drive
+    # build behind the (often far more numerous) tied 1-drive builds once
+    # the ranking pool got truncated to pool_size -- multi-drive builds were
+    # engine-valid but could never actually surface to a user. 0.001/GB is
+    # deliberately tiny (an extra 1TB drive is worth ~1 point) -- just
+    # enough to break this specific tie in favor of more capacity, not
+    # enough to meaningfully outweigh any other factor above.
+    total_storage_gb = sum(s.specs.capacity_gb or 0 for s in evaluation.build.storage)
+    score += total_storage_gb * 0.001
 
     size_rank = {"ITX": 0, "mATX": 1, "ATX": 2, "EATX": 3}
     supported = evaluation.build.case.specs.supported_form_factors

@@ -70,6 +70,12 @@ EXTRACT_SYSTEM_PROMPT = (
     "Extract every value that is stated or clearly implied in the given text into the matching field — "
     "a capacity, speed, wattage, socket, interface, or similar mentioned in the title or snippet should "
     "end up in the schema, not be left null just because it wasn't phrased as a formal spec sheet. "
+    "The schema also has a release_year field, outside the category-specific spec fields -- this is the "
+    'year the specific product was originally released/launched (e.g. a page saying "launched on '
+    'January 15th, 2019" means release_year=2019), not any other year mentioned (a review date, a '
+    "successor's launch year, a copyright footer). Extract it the same way as every other field: from "
+    "the given text if stated, otherwise from your own knowledge of that exact, already-identified "
+    "product if you genuinely know it, otherwise null. "
     "If, once the component is clearly identified by name/model from the given text, a field is still "
     "not covered by that text, you may fill it from your own general knowledge of that specific, "
     "named product (e.g. a well-known GPU's physical length or its power-connector count) -- prefer the "

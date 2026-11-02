@@ -108,6 +108,7 @@ export default function InventoryView({ active = true }) {
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [extracted, setExtracted] = useState(null);
   const [confirmName, setConfirmName] = useState("");
+  const [confirmReleaseYear, setConfirmReleaseYear] = useState("");
   const [extractError, setExtractError] = useState(null);
   const [confirmQuantity, setConfirmQuantity] = useState(1);
   const [confirmCondition, setConfirmCondition] = useState("new");
@@ -169,6 +170,7 @@ export default function InventoryView({ active = true }) {
     setSelectedCandidate(null);
     setExtracted(null);
     setConfirmName("");
+    setConfirmReleaseYear("");
     setExtractError(null);
   }
 
@@ -196,6 +198,7 @@ export default function InventoryView({ active = true }) {
       if (extractRequestId.current !== requestId) return;
       setExtracted(res);
       setConfirmName(name);
+      setConfirmReleaseYear(res.release_year ?? "");
     } catch (err) {
       if (extractRequestId.current !== requestId) return;
       setExtractError(err.message);
@@ -219,6 +222,7 @@ export default function InventoryView({ active = true }) {
       if (extractRequestId.current !== requestId) return;
       setExtracted(res);
       setConfirmName(name);
+      setConfirmReleaseYear(res.release_year ?? "");
     } catch (err) {
       if (extractRequestId.current !== requestId) return;
       setExtractError(err.message);
@@ -229,6 +233,7 @@ export default function InventoryView({ active = true }) {
     try {
       await api.createComponent({
         name: confirmName,
+        release_year: confirmReleaseYear ? Number(confirmReleaseYear) : null,
         quantity: Number(confirmQuantity),
         condition: confirmCondition,
         specs: extracted.specs,
@@ -457,6 +462,17 @@ export default function InventoryView({ active = true }) {
             <h3>{t("extractedSpecsHeading", confirmName, extracted.specs_source, extracted.llm_used)}</h3>
             <pre className="specs-preview">{JSON.stringify(extracted.specs, null, 2)}</pre>
             <div className="row">
+              <label>
+                <span>{t("releaseYearLabel")}</span>
+                <input
+                  type="number"
+                  min="1970"
+                  max="2100"
+                  value={confirmReleaseYear}
+                  onChange={(e) => setConfirmReleaseYear(e.target.value)}
+                  placeholder={t("releaseYearPlaceholder")}
+                />
+              </label>
               <label>
                 <span>{t("quantityLabel")}</span>
                 <input type="number" min="0" value={confirmQuantity} onChange={(e) => setConfirmQuantity(e.target.value)} />

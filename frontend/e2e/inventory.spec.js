@@ -78,6 +78,30 @@ test("open-in-new-tab link on a search result does not select it as the match", 
   await expect(page.getByText(/Extracted specs for/)).not.toBeVisible();
 });
 
+test("extracted release year is prefilled and editable before saving", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/");
+
+  await page.getByLabel("Component name").fill("RTX 2060 SUPER");
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByText("NVIDIA GeForce RTX 2060 SUPER Specs", { exact: false }).click();
+  await expect(page.getByText(/Extracted specs for/)).toBeVisible();
+
+  // The manual-add section below also has a "Release year" field -- this
+  // one (inside the extracted-specs confirm panel) comes first in the DOM.
+  const releaseYearField = page.getByLabel("Release year").first();
+  await expect(releaseYearField).toHaveValue("2019");
+
+  await releaseYearField.fill("2020");
+
+  const saveRequest = page.waitForRequest(
+    (req) => req.url().endsWith("/api/components") && req.method() === "POST",
+  );
+  await page.getByRole("button", { name: "Confirm and save" }).click();
+  const request = await saveRequest;
+  expect(request.postDataJSON().release_year).toBe(2020);
+});
+
 test("clearing the inventory requires confirmation and reports the result", async ({ page }) => {
   await mockApi(page);
   // Two dialogs fire here: a confirm() asking to proceed, then an alert()
