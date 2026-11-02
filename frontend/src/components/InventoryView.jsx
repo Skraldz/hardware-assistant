@@ -118,6 +118,7 @@ export default function InventoryView({ active = true }) {
   const [manualName, setManualName] = useState("");
   const [manualCategory, setManualCategory] = useState("cpu");
   const [manualSpecsJson, setManualSpecsJson] = useState(JSON.stringify(SPEC_TEMPLATES.cpu, null, 2));
+  const [manualReleaseYear, setManualReleaseYear] = useState("");
   const [manualQuantity, setManualQuantity] = useState(1);
   const [manualCondition, setManualCondition] = useState("new");
   const [manualError, setManualError] = useState(null);
@@ -254,6 +255,7 @@ export default function InventoryView({ active = true }) {
       specs.category = manualCategory;
       await api.createComponent({
         name: manualName,
+        release_year: manualReleaseYear ? Number(manualReleaseYear) : null,
         quantity: Number(manualQuantity),
         condition: manualCondition,
         specs,
@@ -261,6 +263,7 @@ export default function InventoryView({ active = true }) {
         specs_verified: true,
       });
       setManualName("");
+      setManualReleaseYear("");
       await loadComponents();
     } catch (err) {
       setManualError(err.message);
@@ -351,6 +354,7 @@ export default function InventoryView({ active = true }) {
               <tr>
                 {sortableHeader("category", t("colCategory"))}
                 {sortableHeader("name", t("colName"))}
+                {sortableHeader("release_year", t("colReleaseYear"))}
                 {sortableHeader("quantity", t("colQuantity"))}
                 {sortableHeader("condition", t("colCondition"))}
                 {sortableHeader("specsVerified", t("colSpecsVerified"))}
@@ -362,6 +366,7 @@ export default function InventoryView({ active = true }) {
                 <tr key={c.id}>
                   <td>{c.category}</td>
                   <td>{c.name}</td>
+                  <td>{c.release_year ?? ""}</td>
                   <td>{c.quantity}</td>
                   <td>{c.condition}</td>
                   <td>{c.specs_verified ? t("yes") : t("no")}</td>
@@ -494,6 +499,17 @@ export default function InventoryView({ active = true }) {
                   </option>
                 ))}
               </select>
+            </label>
+            <label>
+              <span>{t("releaseYearLabel")}</span>
+              <input
+                type="number"
+                min="1970"
+                max="2100"
+                value={manualReleaseYear}
+                onChange={(e) => setManualReleaseYear(e.target.value)}
+                placeholder={t("releaseYearPlaceholder")}
+              />
             </label>
             <label>
               <span>{t("quantityLabel")}</span>

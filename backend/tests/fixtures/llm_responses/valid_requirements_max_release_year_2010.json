@@ -1,0 +1,18 @@
+{
+  "use_case": "general PC",
+  "headless": false,
+  "required_categories": [],
+  "min_vram_gb": null,
+  "min_ram_gb": null,
+  "min_storage_gb": null,
+  "min_cpu_cores": null,
+  "max_release_year": 2010,
+  "min_release_year": null,
+  "prefer_low_power": false,
+  "prefer_small_form_factor": false,
+  "prefer_minimal_spec": false,
+  "prefer_oldest": false,
+  "prefer_newest": false,
+  "clarifying_question": null,
+  "notes": "The user wants hardware released in 2010 or earlier."
+}

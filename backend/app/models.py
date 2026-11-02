@@ -25,6 +25,7 @@ class Component(Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     manufacturer: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    release_year: Mapped[int | None] = mapped_column(nullable=True)
     quantity: Mapped[int] = mapped_column(nullable=False, default=0)
     condition: Mapped[Condition] = mapped_column(
         SAEnum(Condition, native_enum=False, length=20, values_callable=_enum_values),

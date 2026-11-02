@@ -121,5 +121,15 @@ def compatible_build(**overrides) -> Build:
 def with_specs(component: CandidateComponent, **updates) -> CandidateComponent:
     """Return a copy of `component` with some spec fields overridden."""
     return CandidateComponent(
-        id=component.id, name=component.name, specs=component.specs.model_copy(update=updates)
+        id=component.id,
+        name=component.name,
+        specs=component.specs.model_copy(update=updates),
+        release_year=component.release_year,
+    )
+
+
+def with_release_year(component: CandidateComponent, release_year: int | None) -> CandidateComponent:
+    """Return a copy of `component` with its release_year overridden."""
+    return CandidateComponent(
+        id=component.id, name=component.name, specs=component.specs, release_year=release_year
     )

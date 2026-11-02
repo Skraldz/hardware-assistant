@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { mockApi } from "./mocks.js";
+import { SAMPLE_COMPONENTS, mockApi } from "./mocks.js";
 
 test("lists seeded components and filters by category", async ({ page }) => {
   await mockApi(page);
@@ -13,6 +13,20 @@ test("lists seeded components and filters by category", async ({ page }) => {
 
   await expect(page.getByText("NVIDIA GeForce RTX 2060 6GB")).toBeVisible();
   await expect(page.getByText("AMD Ryzen 5 3600")).not.toBeVisible();
+});
+
+test("shows each component's release year in its own column", async ({ page }) => {
+  await mockApi(page, {
+    components: [
+      { ...SAMPLE_COMPONENTS[0], release_year: 2008 },
+      { ...SAMPLE_COMPONENTS[1], release_year: 2024 },
+    ],
+  });
+  await page.goto("/");
+
+  const rows = page.locator("tbody tr");
+  await expect(rows.filter({ hasText: "AMD Ryzen 5 3600" })).toContainText("2008");
+  await expect(rows.filter({ hasText: "NVIDIA GeForce RTX 2060" })).toContainText("2024");
 });
 
 test("sorting by name toggles order", async ({ page }) => {

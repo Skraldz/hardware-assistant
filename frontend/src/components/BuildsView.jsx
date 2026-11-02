@@ -82,6 +82,7 @@ export default function BuildsView({ active = true }) {
             {build.components.map((c) => (
               <li key={c.id}>
                 {c.category}: {c.name}
+                {c.release_year ? ` (${c.release_year})` : ""}
               </li>
             ))}
           </ul>

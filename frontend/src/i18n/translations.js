@@ -27,6 +27,7 @@ export const translations = {
     allCategories: "Alle",
     colCategory: "Kategori",
     colName: "Navn",
+    colReleaseYear: "Udgivelsesår",
     colQuantity: "Antal",
     colCondition: "Stand",
     colSpecsVerified: "Specs bekræftet",
@@ -61,6 +62,8 @@ export const translations = {
     extractedSpecsHeading: (name, source, llmUsed) =>
       `Udtrukne specs for "${name}" (${source}, LLM: ${llmUsed})`,
     quantityLabel: "Antal",
+    releaseYearLabel: "Udgivelsesår",
+    releaseYearPlaceholder: "fx 2019",
     conditionLabel: "Stand",
     confirmAndSave: "Bekræft og gem",
     cancel: "Annullér",
@@ -153,6 +156,7 @@ export const translations = {
     allCategories: "All",
     colCategory: "Category",
     colName: "Name",
+    colReleaseYear: "Release year",
     colQuantity: "Quantity",
     colCondition: "Condition",
     colSpecsVerified: "Specs verified",
@@ -187,6 +191,8 @@ export const translations = {
     extractedSpecsHeading: (name, source, llmUsed) =>
       `Extracted specs for "${name}" (${source}, LLM: ${llmUsed})`,
     quantityLabel: "Quantity",
+    releaseYearLabel: "Release year",
+    releaseYearPlaceholder: "e.g. 2019",
     conditionLabel: "Condition",
     confirmAndSave: "Confirm and save",
     cancel: "Cancel",

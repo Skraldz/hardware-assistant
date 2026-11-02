@@ -56,7 +56,9 @@ def test_save_build_returns_it_and_list_includes_it(client):
     assert body["reason"] == "Meets the requirements."
     assert body["completed"] is False
     assert body["completed_at"] is None
-    assert body["components"] == [{"id": cpu["id"], "category": "cpu", "name": cpu["name"]}]
+    assert body["components"] == [
+        {"id": cpu["id"], "category": "cpu", "name": cpu["name"], "release_year": None}
+    ]
 
     listed = client.get("/api/builds").json()
     assert listed[0]["purpose"] == "play Baldur's Gate 3 at max resolution and 60 FPS"

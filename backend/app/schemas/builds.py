@@ -45,6 +45,7 @@ class ComponentSummary(BaseModel):
     id: int
     category: Category
     name: str
+    release_year: int | None = None
 
 
 class BuildResult(BaseModel):

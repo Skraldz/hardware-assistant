@@ -5,10 +5,13 @@ from app.schemas.requirements import ProjectRequirements
 from tests.fixtures.fake_llm import FakeLLMClient, load_fixture
 
 
-def insert_component(db, *, category, name, specs, quantity=1, condition=Condition.NEW) -> Component:
+def insert_component(
+    db, *, category, name, specs, quantity=1, condition=Condition.NEW, release_year=None
+) -> Component:
     component = Component(
         category=category,
         name=name,
+        release_year=release_year,
         quantity=quantity,
         condition=condition,
         specs=specs,
@@ -573,3 +576,234 @@ def test_rank_builds_with_empty_pool_is_a_trivial_ok():
 
     assert ranked == []
     assert status == "ok"
+
+
+# --- release_year / era-based requests ---
+# Regression tests for a real live-deployment bug: every recommendation kept
+# using the same handful of recent components no matter the prompt, because
+# prefilter_candidates handed the engine candidates in plain database order
+# (effectively insertion order) and engine.generate_builds() only ever looks
+# at the first `top_n` candidates per category -- an old/era-appropriate
+# component seeded later than the first `top_n` rows could never be chosen,
+# regardless of what was asked for (docs/ai-log.md has the full diagnosis).
+
+
+def test_prefilter_applies_hard_max_release_year(db_session):
+    insert_component(
+        db_session, category=Category.CPU, name="Old CPU", specs={"category": "cpu"}, release_year=2008
+    )
+    insert_component(
+        db_session, category=Category.CPU, name="New CPU", specs={"category": "cpu"}, release_year=2022
+    )
+    insert_component(db_session, category=Category.CPU, name="Unknown-year CPU", specs={"category": "cpu"})
+
+    candidates = prefilter_candidates(db_session, ProjectRequirements(use_case="x", max_release_year=2010))
+
+    names = {c.name for c in candidates[Category.CPU]}
+    assert names == {"Old CPU"}
+
+
+def test_prefilter_applies_hard_min_release_year(db_session):
+    insert_component(
+        db_session, category=Category.GPU, name="Old GPU", specs={"category": "gpu"}, release_year=2012
+    )
+    insert_component(
+        db_session, category=Category.GPU, name="New GPU", specs={"category": "gpu"}, release_year=2023
+    )
+
+    candidates = prefilter_candidates(db_session, ProjectRequirements(use_case="x", min_release_year=2020))
+
+    names = {c.name for c in candidates[Category.GPU]}
+    assert names == {"New GPU"}
+
+
+def test_prefilter_sorts_an_old_component_to_the_front_when_prefer_oldest(db_session):
+    """The actual bug: engine.generate_builds() only looks at the first
+    top_n (default 5) candidates per category. Six CPUs are inserted here --
+    one more than top_n -- with the era-appropriate one inserted LAST (so it
+    has the highest id and would never survive an id-ordered top_n cutoff).
+    prefilter_candidates must still put it first when prefer_oldest is set,
+    or it's permanently invisible to every recommendation regardless of
+    what's asked for."""
+    for i in range(5):
+        insert_component(
+            db_session,
+            category=Category.CPU,
+            name=f"Modern CPU {i}",
+            specs={"category": "cpu"},
+            release_year=2022,
+        )
+    insert_component(
+        db_session, category=Category.CPU, name="Ancient CPU", specs={"category": "cpu"}, release_year=2005
+    )
+
+    candidates = prefilter_candidates(db_session, ProjectRequirements(use_case="x", prefer_oldest=True))
+
+    assert candidates[Category.CPU][0].name == "Ancient CPU"
+
+
+def test_prefilter_sorts_a_new_component_to_the_front_when_prefer_newest(db_session):
+    for i in range(5):
+        insert_component(
+            db_session,
+            category=Category.GPU,
+            name=f"Old GPU {i}",
+            specs={"category": "gpu"},
+            release_year=2008,
+        )
+    insert_component(
+        db_session, category=Category.GPU, name="Brand New GPU", specs={"category": "gpu"}, release_year=2024
+    )
+
+    candidates = prefilter_candidates(db_session, ProjectRequirements(use_case="x", prefer_newest=True))
+
+    assert candidates[Category.GPU][0].name == "Brand New GPU"
+
+
+def test_prefilter_leaves_candidate_order_unchanged_without_an_era_preference(db_session):
+    """No prefer_oldest/prefer_newest and no min/max_release_year at all --
+    era must never bias ordering by default, or every recommendation would
+    silently skew toward one end of the inventory's age range even when
+    nothing asked for that."""
+    first = insert_component(
+        db_session, category=Category.CPU, name="CPU A", specs={"category": "cpu"}, release_year=2005
+    )
+    second = insert_component(
+        db_session, category=Category.CPU, name="CPU B", specs={"category": "cpu"}, release_year=2024
+    )
+
+    candidates = prefilter_candidates(db_session, ProjectRequirements(use_case="x"))
+
+    assert [c.id for c in candidates[Category.CPU]] == [first.id, second.id]
+
+
+def test_deterministic_score_prefers_oldest_hardware_when_requested():
+    from app.compatibility.types import BuildEvaluation
+    from tests.fixtures.sample_inventory import compatible_build, with_release_year
+
+    old_build = compatible_build(cpu=with_release_year(compatible_build().cpu, 2008))
+    new_build = compatible_build(cpu=with_release_year(compatible_build().cpu, 2023))
+    old_evaluation = BuildEvaluation(build=old_build, rule_results={})
+    new_evaluation = BuildEvaluation(build=new_build, rule_results={})
+
+    requirements = ProjectRequirements(use_case="x", prefer_oldest=True)
+    assert deterministic_score(old_evaluation, requirements) > deterministic_score(
+        new_evaluation, requirements
+    )
+
+
+def test_deterministic_score_prefers_newest_hardware_when_requested():
+    from app.compatibility.types import BuildEvaluation
+    from tests.fixtures.sample_inventory import compatible_build, with_release_year
+
+    old_build = compatible_build(cpu=with_release_year(compatible_build().cpu, 2008))
+    new_build = compatible_build(cpu=with_release_year(compatible_build().cpu, 2023))
+    old_evaluation = BuildEvaluation(build=old_build, rule_results={})
+    new_evaluation = BuildEvaluation(build=new_build, rule_results={})
+
+    requirements = ProjectRequirements(use_case="x", prefer_newest=True)
+    assert deterministic_score(new_evaluation, requirements) > deterministic_score(
+        old_evaluation, requirements
+    )
+
+
+def test_era_request_end_to_end_picks_the_old_cpu_despite_being_seeded_last(db_session):
+    """Full end-to-end reproduction of the reported bug: a user asks for
+    hardware from 2010 or earlier, the inventory has far more than top_n
+    modern CPUs seeded before the one matching CPU, and the pipeline must
+    still return a build using it. max_release_year is a hard requirement
+    on every category (not just CPU -- see _meets_hard_requirements), so
+    every other component here needs a release_year within range too, or
+    they'd be excluded themselves as "unknown era" the same as a
+    too-modern part would be."""
+    for i in range(8):
+        insert_component(
+            db_session,
+            category=Category.CPU,
+            name=f"Modern CPU {i}",
+            specs={"category": "cpu", "socket": "AM4", "cores": 6, "tdp_w": 65, "memory_type": ["DDR4"]},
+            release_year=2022,
+        )
+    insert_component(
+        db_session,
+        category=Category.CPU,
+        name="Core 2 Duo E6600",
+        specs={"category": "cpu", "socket": "LGA775", "cores": 2, "tdp_w": 65, "memory_type": ["DDR2"]},
+        release_year=2006,
+    )
+    insert_component(
+        db_session,
+        category=Category.MOTHERBOARD,
+        name="ASUS P5B",
+        specs={
+            "category": "motherboard",
+            "socket": "LGA775",
+            "form_factor": "ATX",
+            "memory_type": ["DDR2"],
+            "memory_slots": 4,
+            "max_memory_gb": 8,
+            "sata_ports": 4,
+        },
+        release_year=2006,
+    )
+    insert_component(
+        db_session,
+        category=Category.RAM,
+        name="DDR2 2GB kit",
+        specs={
+            "category": "ram",
+            "memory_type": "DDR2",
+            "capacity_gb_per_module": 1,
+            "modules": 2,
+            "form": "DIMM",
+        },
+        release_year=2006,
+    )
+    insert_component(
+        db_session,
+        category=Category.STORAGE,
+        name="Old HDD",
+        specs={"category": "storage", "interface": "sata_hdd", "capacity_gb": 160, "form_factor": "3_5"},
+        release_year=2006,
+    )
+    insert_component(
+        db_session,
+        category=Category.PSU,
+        name="Old PSU",
+        specs={"category": "psu", "wattage_w": 450, "form_factor": "ATX", "pcie_power_connectors": []},
+        release_year=2006,
+    )
+    insert_component(
+        db_session,
+        category=Category.CASE,
+        name="Old case",
+        specs={"category": "case", "supported_form_factors": ["ATX"], "psu_form_factor": "ATX"},
+        release_year=2006,
+    )
+    insert_component(
+        db_session,
+        category=Category.COOLER,
+        name="Old stock cooler",
+        specs={"category": "cooler", "type": "air", "supported_sockets": ["LGA775"], "height_mm": 55},
+        release_year=2006,
+    )
+
+    client = FakeLLMClient(
+        [
+            load_fixture("valid_requirements_max_release_year_2010.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
+    )
+
+    result = recommend(
+        prompt="I need a build from hardware released in 2010 or earlier.",
+        max_builds=3,
+        db=db_session,
+        llm_client=client,
+    )
+
+    assert len(result.builds) >= 1
+    cpu_names = {c.name for c in result.builds[0].components if c.category == Category.CPU}
+    assert cpu_names == {"Core 2 Duo E6600"}

@@ -29,6 +29,15 @@ REQUIREMENTS_SYSTEM_PROMPT = (
     "If the user asks for a build that should not be more powerful than necessary for their stated goal "
     '(e.g. "but not more powerful than that", "nothing more than I need"), set prefer_minimal_spec '
     "to true. "
+    'If the user states an actual year cutoff for hardware age (e.g. "from 2010 or earlier", "newer '
+    'than 2020"), set max_release_year/min_release_year to that year — these are hard requirements, '
+    "a component with no known release year or outside the stated range will be excluded entirely. "
+    'If instead the user asks for the oldest or newest hardware available ("the oldest I have", "use '
+    'my newest parts") without naming an actual year, set prefer_oldest/prefer_newest to true instead '
+    "-- never invent a specific year for a relative request like this, since you don't know what's "
+    "actually in the user's inventory; let prefer_oldest/prefer_newest alone express the direction. "
+    "max_release_year/min_release_year and prefer_oldest/prefer_newest are independent fields: use the "
+    "year fields only when an actual year was stated, the preference flags only when it wasn't. "
     "If the conversation so far is too vague to confidently fill in the fields above -- e.g. no hint of "
     "the intended use, performance target, whether a display output is needed, or power/budget "
     "constraints -- set clarifying_question to ONE short, specific question that would most help "
@@ -72,15 +81,23 @@ RANKING_SYSTEM_PROMPT = (
     "You rank already-verified, compatible PC builds by how well they fit the user's project. "
     "If the project requirements have prefer_minimal_spec set to true, prefer the build that is just "
     "sufficient for the stated goal rather than the most powerful option available, and say so in your "
-    "reason. You must ALWAYS choose build_id from the ids given in the list — "
-    "never invent an id. Respond ONLY with JSON matching the given schema."
+    "reason. If prefer_oldest/prefer_newest is set, or max_release_year/min_release_year narrows the "
+    "builds to a specific era, prefer whichever build's cpu_release_year/gpu_release_year best matches "
+    "that direction, and mention the component's actual year in your reason. You must ALWAYS choose "
+    "build_id from the ids given in the list — never invent an id. Respond ONLY with JSON matching the "
+    "given schema."
 )
 
 CHAT_REPLY_SYSTEM_PROMPT = (
     "You are chatting with a user about PC hardware recommendations. Deterministic code has already "
-    "computed the compatible build(s) given below, including each build's actual CPU/GPU/RAM specs -- "
-    "you cannot change the builds, add components, or invent new ones; they are shown to the user "
-    "alongside your reply, not instead of it. "
+    "computed the compatible build(s) given below, including each build's actual CPU/GPU/RAM specs and "
+    "release years -- you cannot change the builds, add components, or invent new ones; they are shown "
+    "to the user alongside your reply, not instead of it. If the user asked for hardware from a "
+    "specific era (an actual year cutoff, or simply the oldest/newest available) and the builds below "
+    "don't satisfy that, say so plainly and cite each build's actual release_year rather than implying "
+    "it fits -- a build the deterministic code already decided is the best available match is still the "
+    "best AVAILABLE match, not necessarily what was literally asked for, and the user should be told "
+    "the difference. "
     "Write a helpful reply to the user's LATEST message in the conversation: "
     'if the request names a specific game or software (e.g. "play Crysis at max resolution", "run '
     "Stable Diffusion\"), first briefly state that title's system requirements from your own knowledge "

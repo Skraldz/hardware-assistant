@@ -22,11 +22,17 @@ RuleStatus = Literal["pass", "fail", "unknown"]
 
 @dataclass(frozen=True)
 class CandidateComponent:
-    """A single inventory item, reduced to what the compatibility rules need."""
+    """A single inventory item, reduced to what the compatibility rules need.
+
+    release_year is not used by any compatibility rule (it's not a
+    capability, just metadata about the part) -- it rides along so the
+    recommend pipeline (Phase 3) can rank/filter by it without a second
+    lookup back to the database."""
 
     id: int
     name: str
     specs: ComponentSpecs
+    release_year: int | None = None
 
 
 @dataclass(frozen=True)

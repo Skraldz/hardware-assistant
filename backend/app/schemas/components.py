@@ -145,6 +145,14 @@ EXTRACT_SCHEMA_BY_CATEGORY: dict[Category, type[BaseModel]] = {
 class ComponentBase(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     manufacturer: str | None = Field(default=None, max_length=100)
+    # When this specific product was released -- a property of the part
+    # itself, not a technical capability, so it lives here rather than in
+    # one of the category-specific spec classes above. Used by the recommend
+    # pipeline to answer era-based requests ("hardware from 2010 or
+    # earlier", "the oldest I have") and, more importantly, to sort each
+    # category's candidates by relevance before the compatibility engine's
+    # top_n cutoff -- see pipeline/recommend.py.
+    release_year: int | None = None
     quantity: int = Field(ge=0, default=0)
     condition: Condition = Condition.NEW
     specs_source: SpecsSource = SpecsSource.MANUAL

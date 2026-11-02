@@ -58,7 +58,9 @@ def interpret_requirements(
     )
 
 
-def _meets_hard_requirements(category: Category, specs, requirements: ProjectRequirements) -> bool:
+def _meets_hard_requirements(
+    category: Category, release_year: int | None, specs, requirements: ProjectRequirements
+) -> bool:
     """SPEC.md §5 step 2: drop candidates that don't provably meet a hard
     minimum. Missing data counts as "doesn't meet it" here — unlike the
     compatibility rules (Phase 2), a hard requirement the user actually
@@ -77,7 +79,72 @@ def _meets_hard_requirements(category: Category, specs, requirements: ProjectReq
     if category == Category.CPU and requirements.min_cpu_cores is not None:
         if specs.cores is None or specs.cores < requirements.min_cpu_cores:
             return False
+    # release_year applies to every category alike (it's metadata about the
+    # part, not a capability), unlike the checks above.
+    if requirements.max_release_year is not None:
+        if release_year is None or release_year > requirements.max_release_year:
+            return False
+    if requirements.min_release_year is not None:
+        if release_year is None or release_year < requirements.min_release_year:
+            return False
     return True
+
+
+def _era_rank(release_year: int | None, requirements: ProjectRequirements) -> int:
+    """Lower sorts first. Era only breaks ties when the user actually
+    expressed a direction (prefer_oldest/prefer_newest) -- with neither set,
+    every component ranks equally here, so this step never biases ordering
+    toward "newest" by default. A component with no known release_year
+    sorts last in either direction, rather than winning by omission."""
+    if requirements.prefer_oldest:
+        return release_year if release_year is not None else 10**9
+    if requirements.prefer_newest:
+        return -release_year if release_year is not None else 0
+    return 0
+
+
+def _overshoot_rank(category: Category, specs, requirements: ProjectRequirements) -> float:
+    """Lower sorts first: how far a single component overshoots the
+    smallest stated hard minimum for its category, if any was given.
+    Mirrors deterministic_score's own overshoot logic, but per-component
+    rather than per-build, since this runs before any build exists."""
+    if category == Category.GPU and requirements.min_vram_gb is not None:
+        return max((specs.vram_gb or 0) - requirements.min_vram_gb, 0)
+    if category == Category.CPU and requirements.min_cpu_cores is not None:
+        return max((specs.cores or 0) - requirements.min_cpu_cores, 0)
+    if category == Category.RAM and requirements.min_ram_gb is not None:
+        capacity = (specs.capacity_gb_per_module or 0) * (specs.modules or 0)
+        return max(capacity - requirements.min_ram_gb, 0)
+    if category == Category.STORAGE and requirements.min_storage_gb is not None:
+        return max((specs.capacity_gb or 0) - requirements.min_storage_gb, 0)
+    return 0
+
+
+def _sort_candidates_by_relevance(
+    candidates: dict[Category, list[CandidateComponent]], requirements: ProjectRequirements
+) -> dict[Category, list[CandidateComponent]]:
+    """The compatibility engine (engine.py) only ever looks at the first
+    `top_n` candidates per category, in whatever order it receives them --
+    by its own design, sorting by relevance before calling it is the
+    caller's job (its module docstring says so explicitly). Without this,
+    `top_n` just keeps whichever rows a plain, unordered database query
+    happens to return first (effectively insertion order in practice),
+    which permanently hid the rest of a large inventory from every
+    recommendation regardless of what was actually asked for -- the root
+    cause of a real live-deployment bug (docs/ai-log.md) where every build
+    kept using the same handful of components no matter the prompt.
+    `id` is the final, stable tiebreaker so results stay reproducible."""
+    return {
+        category: sorted(
+            items,
+            key=lambda c: (
+                _era_rank(c.release_year, requirements),
+                _overshoot_rank(category, c.specs, requirements),
+                c.id,
+            ),
+        )
+        for category, items in candidates.items()
+    }
 
 
 def prefilter_candidates(
@@ -87,12 +154,12 @@ def prefilter_candidates(
     rows = db.query(Component).filter(Component.quantity > 0, Component.condition != Condition.FAULTY).all()
     for row in rows:
         specs = ComponentSpecsAdapter.validate_python(row.specs)
-        if not _meets_hard_requirements(row.category, specs, requirements):
+        if not _meets_hard_requirements(row.category, row.release_year, specs, requirements):
             continue
         candidates.setdefault(row.category, []).append(
-            CandidateComponent(id=row.id, name=row.name, specs=specs)
+            CandidateComponent(id=row.id, name=row.name, specs=specs, release_year=row.release_year)
         )
-    return candidates
+    return _sort_candidates_by_relevance(candidates, requirements)
 
 
 def deterministic_score(evaluation: BuildEvaluation, requirements: ProjectRequirements) -> float:
@@ -156,6 +223,27 @@ def deterministic_score(evaluation: BuildEvaluation, requirements: ProjectRequir
             cores_over = max(cpu_cores - requirements.min_cpu_cores, 0)
             score -= cores_over * 0.3
 
+    if requirements.prefer_oldest or requirements.prefer_newest:
+        # A build is only as modern as its newest core component -- an
+        # otherwise-vintage build paired with one recent part still isn't
+        # "old", so the latest year among cpu/motherboard/ram/gpu stands in
+        # for the whole build's era (missing years are ignored rather than
+        # treated as 0, which would otherwise make an unlabeled part look
+        # maximally "old" and dominate the comparison).
+        core_components = [
+            evaluation.build.cpu,
+            evaluation.build.motherboard,
+            evaluation.build.ram,
+            evaluation.build.gpu,
+        ]
+        years = [c.release_year for c in core_components if c is not None and c.release_year is not None]
+        if years:
+            build_year = max(years)
+            if requirements.prefer_oldest:
+                score -= (build_year - 2000) * 0.5
+            else:
+                score -= (2030 - build_year) * 0.5
+
     return score
 
 
@@ -173,9 +261,11 @@ def rank_builds(
         {
             "build_id": idx,
             "cpu": evaluation.build.cpu.name,
+            "cpu_release_year": evaluation.build.cpu.release_year,
             "motherboard": evaluation.build.motherboard.name,
             "ram": evaluation.build.ram.name,
             "gpu": evaluation.build.gpu.name if evaluation.build.gpu else None,
+            "gpu_release_year": evaluation.build.gpu.release_year if evaluation.build.gpu else None,
             "warnings": evaluation.warnings,
         }
         for idx, evaluation in enumerate(pool)
@@ -207,7 +297,9 @@ def _to_build_result(
 ) -> BuildResult:
     build = evaluation.build
     components = [
-        ComponentSummary(id=c.id, category=Category(c.specs.category), name=c.name)
+        ComponentSummary(
+            id=c.id, category=Category(c.specs.category), name=c.name, release_year=c.release_year
+        )
         for c in (
             build.cpu,
             build.motherboard,
@@ -219,7 +311,14 @@ def _to_build_result(
         )
     ]
     if build.gpu is not None:
-        components.append(ComponentSummary(id=build.gpu.id, category=Category.GPU, name=build.gpu.name))
+        components.append(
+            ComponentSummary(
+                id=build.gpu.id,
+                category=Category.GPU,
+                name=build.gpu.name,
+                release_year=build.gpu.release_year,
+            )
+        )
 
     # Final verification (SPEC.md §5 step 5, defense in depth): re-run the
     # rules on the chosen build rather than trusting the earlier pass.
@@ -267,8 +366,19 @@ def _chat_build_summary(index: int, build_result: BuildResult, evaluation: Build
         ram_gb = build.ram.specs.capacity_gb_per_module * build.ram.specs.modules
     return {
         "build": index + 1,
-        "cpu": {"name": build.cpu.name, "cores": build.cpu.specs.cores, "threads": build.cpu.specs.threads},
-        "gpu": {"name": build.gpu.name, "vram_gb": build.gpu.specs.vram_gb} if build.gpu else None,
+        "cpu": {
+            "name": build.cpu.name,
+            "cores": build.cpu.specs.cores,
+            "threads": build.cpu.specs.threads,
+            "release_year": build.cpu.release_year,
+        },
+        "gpu": {
+            "name": build.gpu.name,
+            "vram_gb": build.gpu.specs.vram_gb,
+            "release_year": build.gpu.release_year,
+        }
+        if build.gpu
+        else None,
         "ram_gb": ram_gb,
         "storage": [
             {"name": drive.name, "interface": drive.specs.interface, "capacity_gb": drive.specs.capacity_gb}

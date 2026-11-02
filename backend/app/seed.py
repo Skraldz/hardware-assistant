@@ -33,6 +33,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "AMD Ryzen 5 3600",
+        "release_year": 2019,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -50,6 +51,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASUS TUF B450M-PLUS GAMING",
+        "release_year": 2018,
         "manufacturer": "ASUS",
         "quantity": 1,
         "condition": Condition.USED,
@@ -69,6 +71,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Corsair Vengeance LPX 16GB (2x8GB) DDR4-3000",
+        "release_year": 2017,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.USED,
@@ -85,6 +88,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce RTX 2060 6GB",
+        "release_year": 2019,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -101,6 +105,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Intel SSDPEKNW010T8 1TB NVMe",
+        "release_year": 2018,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -115,6 +120,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "Corsair RM650x",
+        "release_year": 2018,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.USED,
@@ -130,6 +136,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "NZXT H510",
+        "release_year": 2019,
         "manufacturer": "NZXT",
         "quantity": 1,
         "condition": Condition.USED,
@@ -147,6 +154,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "AMD Wraith Stealth",
+        "release_year": 2017,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -165,6 +173,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core i5-12400",
+        "release_year": 2022,
         "manufacturer": "Intel",
         "quantity": 2,
         "condition": Condition.NEW,
@@ -181,6 +190,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "AMD Ryzen 7 5800X3D",
+        "release_year": 2022,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -197,6 +207,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core i9-13900K",
+        "release_year": 2022,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -213,6 +224,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "AMD Ryzen 5 5600",
+        "release_year": 2022,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -229,6 +241,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core i3-10100",
+        "release_year": 2020,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -246,6 +259,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "AMD Ryzen 9 7950X",
+        "release_year": 2022,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -262,6 +276,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core i5-13400",
+        "release_year": 2023,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -278,6 +293,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "MSI PRO B660M-A",
+        "release_year": 2021,
         "manufacturer": "MSI",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -296,6 +312,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "Gigabyte Z790 AORUS ELITE",
+        "release_year": 2022,
         "manufacturer": "Gigabyte",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -314,6 +331,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASRock X570 Phantom Gaming 4",
+        "release_year": 2019,
         "manufacturer": "ASRock",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -332,6 +350,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASUS ROG STRIX B650-A",
+        "release_year": 2022,
         "manufacturer": "ASUS",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -350,6 +369,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "MSI MAG B560M Mortar",
+        "release_year": 2021,
         "manufacturer": "MSI",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -368,6 +388,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "Gigabyte B450 AORUS Elite",
+        "release_year": 2018,
         "manufacturer": "Gigabyte",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -386,6 +407,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASRock Z690 Steel Legend",
+        "release_year": 2021,
         "manufacturer": "ASRock",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -404,6 +426,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Kingston Fury Beast 16GB (2x8GB) DDR5-5600",
+        "release_year": 2022,
         "manufacturer": "Kingston",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -419,6 +442,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Crucial Ballistix 32GB (2x16GB) DDR4-3200",
+        "release_year": 2019,
         "manufacturer": "Crucial",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -434,6 +458,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Corsair Vengeance SO-DIMM 16GB (2x8GB) DDR4-3200",
+        "release_year": 2019,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -450,6 +475,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "G.Skill Ripjaws V 8GB (1x8GB) DDR4-3200",
+        "release_year": 2017,
         "manufacturer": "G.Skill",
         "quantity": 2,
         "condition": Condition.NEW,
@@ -466,6 +492,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Corsair Vengeance 64GB (2x32GB) DDR5-6000",
+        "release_year": 2023,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -481,6 +508,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Kingston HyperX Fury 16GB (2x8GB) DDR4-2666",
+        "release_year": 2017,
         "manufacturer": "Kingston",
         "quantity": 1,
         "condition": Condition.USED,
@@ -496,6 +524,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce RTX 4070",
+        "release_year": 2023,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -511,6 +540,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "AMD Radeon RX 6600",
+        "release_year": 2021,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -526,6 +556,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce GTX 1650 4GB",
+        "release_year": 2019,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -543,6 +574,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce GTX 1060 6GB",
+        "release_year": 2016,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -559,6 +591,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "AMD Radeon RX 570 4GB",
+        "release_year": 2017,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -574,6 +607,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce RTX 3080 10GB",
+        "release_year": 2020,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -589,6 +623,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "Intel Arc A380 6GB",
+        "release_year": 2022,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -604,6 +639,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Samsung 970 EVO Plus 500GB NVMe",
+        "release_year": 2019,
         "manufacturer": "Samsung",
         "quantity": 0,
         "condition": Condition.USED,
@@ -618,6 +654,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Seagate Barracuda 2TB",
+        "release_year": 2017,
         "manufacturer": "Seagate",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -631,6 +668,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Crucial MX500 1TB",
+        "release_year": 2018,
         "manufacturer": "Crucial",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -644,6 +682,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Kingston NV2 2TB NVMe",
+        "release_year": 2022,
         "manufacturer": "Kingston",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -657,6 +696,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "WD Blue 4TB",
+        "release_year": 2019,
         "manufacturer": "Western Digital",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -670,6 +710,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Samsung 990 Pro 2TB NVMe",
+        "release_year": 2022,
         "manufacturer": "Samsung",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -684,6 +725,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "WD Black SN850X 1TB NVMe",
+        "release_year": 2022,
         "manufacturer": "Western Digital",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -697,6 +739,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Seagate IronWolf 8TB",
+        "release_year": 2019,
         "manufacturer": "Seagate",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -711,6 +754,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Samsung 870 EVO 2TB",
+        "release_year": 2021,
         "manufacturer": "Samsung",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -724,6 +768,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Toshiba P300 1TB",
+        "release_year": 2016,
         "manufacturer": "Toshiba",
         "quantity": 2,
         "condition": Condition.NEW,
@@ -738,6 +783,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "SK Hynix Platinum P41 1TB NVMe",
+        "release_year": 2021,
         "manufacturer": "SK Hynix",
         "quantity": 1,
         "condition": Condition.USED,
@@ -751,6 +797,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "Corsair SF750",
+        "release_year": 2019,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -765,6 +812,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "EVGA 500W Bronze",
+        "release_year": 2018,
         "manufacturer": "EVGA",
         "quantity": 1,
         "condition": Condition.FAULTY,
@@ -780,6 +828,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "be quiet! Pure Power 11 400W",
+        "release_year": 2019,
         "manufacturer": "be quiet!",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -795,6 +844,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "Corsair RM1000x",
+        "release_year": 2018,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -809,6 +859,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "NZXT SFX 650",
+        "release_year": 2021,
         "manufacturer": "NZXT",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -823,6 +874,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "Fractal Design Node 304",
+        "release_year": 2014,
         "manufacturer": "Fractal Design",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -840,6 +892,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "Lian Li O11 Dynamic",
+        "release_year": 2018,
         "manufacturer": "Lian Li",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -856,6 +909,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "Corsair 4000D Airflow",
+        "release_year": 2020,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -872,6 +926,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "Cooler Master NR200",
+        "release_year": 2019,
         "manufacturer": "Cooler Master",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -888,6 +943,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "be quiet! Dark Base 700",
+        "release_year": 2017,
         "manufacturer": "be quiet!",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -904,6 +960,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "Noctua NH-D15",
+        "release_year": 2014,
         "manufacturer": "Noctua",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -919,6 +976,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "Corsair H100i 240mm AIO",
+        "release_year": 2018,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -933,6 +991,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "Cooler Master Hyper 212",
+        "release_year": 2012,
         "manufacturer": "Cooler Master",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -948,6 +1007,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "Arctic Liquid Freezer II 280",
+        "release_year": 2019,
         "manufacturer": "Arctic",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -962,6 +1022,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "Intel Stock Cooler (LGA1200)",
+        "release_year": 2020,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -977,6 +1038,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core i7-14700K",
+        "release_year": 2023,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -993,6 +1055,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "AMD Ryzen 7 5700X",
+        "release_year": 2022,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -1009,6 +1072,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "MSI PRO B760M-A",
+        "release_year": 2023,
         "manufacturer": "MSI",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -1027,6 +1091,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASRock X670E Taichi",
+        "release_year": 2022,
         "manufacturer": "ASRock",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -1046,6 +1111,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Kingston Fury Beast 32GB (2x16GB) DDR5-6000",
+        "release_year": 2022,
         "manufacturer": "Kingston",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -1061,6 +1127,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Team T-Force 8GB DDR4-3200",
+        "release_year": 2019,
         "manufacturer": "Team Group",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1076,6 +1143,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "AMD Radeon RX 7800 XT 16GB",
+        "release_year": 2023,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -1091,6 +1159,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce RTX 4060 8GB",
+        "release_year": 2023,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -1106,6 +1175,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "Seasonic Focus GX-850",
+        "release_year": 2019,
         "manufacturer": "Seasonic",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -1120,6 +1190,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "EVGA 500 W1",
+        "release_year": 2020,
         "manufacturer": "EVGA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1135,6 +1206,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "Phanteks P400A",
+        "release_year": 2019,
         "manufacturer": "Phanteks",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -1151,6 +1223,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "SSUPD Meshlicious",
+        "release_year": 2021,
         "manufacturer": "SSUPD",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -1168,6 +1241,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "be quiet! Dark Rock Pro 4",
+        "release_year": 2017,
         "manufacturer": "be quiet!",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -1182,6 +1256,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "Thermalright Peerless Assassin 120",
+        "release_year": 2022,
         "manufacturer": "Thermalright",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -1200,6 +1275,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Pentium 4 630",
+        "release_year": 2005,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1217,6 +1293,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Pentium D 820",
+        "release_year": 2005,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1234,6 +1311,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "AMD Athlon 64 3200+",
+        "release_year": 2005,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1251,6 +1329,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "AMD Athlon 64 X2 4200+",
+        "release_year": 2005,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1268,6 +1347,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core 2 Duo E6600",
+        "release_year": 2006,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1285,6 +1365,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core 2 Quad Q6600",
+        "release_year": 2007,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1302,6 +1383,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "AMD Phenom X4 9850 Black Edition",
+        "release_year": 2008,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1319,6 +1401,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core 2 Duo E8400",
+        "release_year": 2008,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1336,6 +1419,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core i7-920",
+        "release_year": 2008,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1353,6 +1437,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "AMD Phenom II X4 955",
+        "release_year": 2010,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1372,6 +1457,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core i5-2500K",
+        "release_year": 2011,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1389,6 +1475,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core i7-2600K",
+        "release_year": 2011,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1406,6 +1493,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "AMD FX-8350",
+        "release_year": 2012,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1423,6 +1511,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core i5-3570K",
+        "release_year": 2012,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1440,6 +1529,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core i7-4770K",
+        "release_year": 2013,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1457,6 +1547,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "AMD FX-9590",
+        "release_year": 2013,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1474,6 +1565,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "AMD A10-7850K",
+        "release_year": 2014,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1491,6 +1583,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core i5-4690K",
+        "release_year": 2014,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1508,6 +1601,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core i7-6700K",
+        "release_year": 2015,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1525,6 +1619,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core i5-7600K",
+        "release_year": 2017,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1542,6 +1637,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core i7-7700K",
+        "release_year": 2017,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1559,6 +1655,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "AMD Ryzen 7 1800X",
+        "release_year": 2017,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1576,6 +1673,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Core i9-9900K",
+        "release_year": 2018,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1595,6 +1693,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Xeon E-2336",
+        "release_year": 2021,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -1612,6 +1711,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "AMD EPYC 4124P",
+        "release_year": 2024,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -1629,6 +1729,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "Intel Xeon Silver 4210",
+        "release_year": 2019,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1646,6 +1747,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CPU,
         "name": "AMD EPYC 7302",
+        "release_year": 2019,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1664,6 +1766,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASUS P5B",
+        "release_year": 2006,
         "manufacturer": "ASUS",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1683,6 +1786,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "Gigabyte GA-EP45-UD3P",
+        "release_year": 2008,
         "manufacturer": "Gigabyte",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1702,6 +1806,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASUS A8N-SLI Deluxe",
+        "release_year": 2005,
         "manufacturer": "ASUS",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1721,6 +1826,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "Gigabyte GA-MA790FX-DS5",
+        "release_year": 2008,
         "manufacturer": "Gigabyte",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1740,6 +1846,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASUS P6T",
+        "release_year": 2008,
         "manufacturer": "ASUS",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1759,6 +1866,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "Gigabyte GA-890FXA-UD5",
+        "release_year": 2010,
         "manufacturer": "Gigabyte",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1778,6 +1886,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASUS P8Z68-V PRO",
+        "release_year": 2011,
         "manufacturer": "ASUS",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1797,6 +1906,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "Gigabyte GA-Z77X-UD5H",
+        "release_year": 2012,
         "manufacturer": "Gigabyte",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1816,6 +1926,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "Zotac H61ITX-A-E",
+        "release_year": 2012,
         "manufacturer": "Zotac",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1835,6 +1946,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASUS Sabertooth 990FX",
+        "release_year": 2012,
         "manufacturer": "ASUS",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1854,6 +1966,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "Biostar TA970",
+        "release_year": 2013,
         "manufacturer": "Biostar",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1873,6 +1986,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "Gigabyte GA-78LMT-USB3",
+        "release_year": 2013,
         "manufacturer": "Gigabyte",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1892,6 +2006,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "MSI Z97 Gaming 5",
+        "release_year": 2014,
         "manufacturer": "MSI",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1911,6 +2026,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASRock FM2A88X Extreme6+",
+        "release_year": 2014,
         "manufacturer": "ASRock",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1930,6 +2046,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASRock FM2A75M-DGS",
+        "release_year": 2013,
         "manufacturer": "ASRock",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1949,6 +2066,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASUS Z170-A",
+        "release_year": 2015,
         "manufacturer": "ASUS",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1968,6 +2086,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "MSI Z270 Gaming M5",
+        "release_year": 2017,
         "manufacturer": "MSI",
         "quantity": 1,
         "condition": Condition.USED,
@@ -1987,6 +2106,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASUS ROG Strix Z370-E",
+        "release_year": 2017,
         "manufacturer": "ASUS",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2006,6 +2126,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASRock X370 Taichi",
+        "release_year": 2017,
         "manufacturer": "ASRock",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2025,6 +2146,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "MSI X370 Gaming Pro Carbon",
+        "release_year": 2017,
         "manufacturer": "MSI",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2048,6 +2170,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASRock Rack E3C252D4I",
+        "release_year": 2021,
         "manufacturer": "ASRock Rack",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -2067,6 +2190,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "Gigabyte MC13-LE1",
+        "release_year": 2024,
         "manufacturer": "Gigabyte",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -2086,6 +2210,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "Supermicro X11SPL-F",
+        "release_year": 2018,
         "manufacturer": "Supermicro",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2105,6 +2230,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASRock Rack EPYCD8-2T",
+        "release_year": 2019,
         "manufacturer": "ASRock Rack",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2124,6 +2250,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.MOTHERBOARD,
         "name": "ASRock Rack X470D4U2-2T",
+        "release_year": 2018,
         "manufacturer": "ASRock Rack",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2144,6 +2271,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Corsair Value Select 2GB (2x1GB) DDR-400",
+        "release_year": 2005,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2160,6 +2288,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Kingston ValueRAM 2GB (2x1GB) DDR2-667",
+        "release_year": 2006,
         "manufacturer": "Kingston",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2176,6 +2305,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "OCZ 2GB (1x2GB) DDR2-800",
+        "release_year": 2007,
         "manufacturer": "OCZ",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2192,6 +2322,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Corsair XMS2 8GB (2x4GB) DDR2-800",
+        "release_year": 2008,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2208,6 +2339,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "G.Skill 4GB (2x2GB) DDR2-1066",
+        "release_year": 2008,
         "manufacturer": "G.Skill",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2224,6 +2356,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Corsair Dominator 6GB (3x2GB) DDR3-1600",
+        "release_year": 2009,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2240,6 +2373,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Kingston HyperX 8GB (2x4GB) DDR3-1600",
+        "release_year": 2010,
         "manufacturer": "Kingston",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2256,6 +2390,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Corsair Vengeance 16GB (2x8GB) DDR3-1866",
+        "release_year": 2012,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2272,6 +2407,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "G.Skill Sniper 8GB (2x4GB) DDR3-1866",
+        "release_year": 2013,
         "manufacturer": "G.Skill",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2288,6 +2424,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Crucial Ballistix Sport 16GB (2x8GB) DDR3-1600",
+        "release_year": 2014,
         "manufacturer": "Crucial",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2304,6 +2441,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Kingston Fury 8GB (1x8GB) DDR3-2133",
+        "release_year": 2014,
         "manufacturer": "Kingston",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2320,6 +2458,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Crucial 8GB (1x8GB) DDR3L-1600 SODIMM",
+        "release_year": 2014,
         "manufacturer": "Crucial",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2336,6 +2475,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "G.Skill Trident Z 16GB (2x8GB) DDR4-3200",
+        "release_year": 2017,
         "manufacturer": "G.Skill",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2352,6 +2492,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Kingston Server Premier 32GB (1x32GB) DDR4-2666 ECC",
+        "release_year": 2018,
         "manufacturer": "Kingston",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -2368,6 +2509,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Samsung 64GB (1x64GB) DDR4-2933 ECC RDIMM",
+        "release_year": 2019,
         "manufacturer": "Samsung",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2384,6 +2526,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.RAM,
         "name": "Micron 32GB (1x32GB) DDR5-4800 ECC",
+        "release_year": 2024,
         "manufacturer": "Micron",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -2401,6 +2544,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce 7800 GTX 256MB",
+        "release_year": 2005,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2416,6 +2560,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "ATI Radeon X850 XT 256MB",
+        "release_year": 2005,
         "manufacturer": "ATI",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2431,6 +2576,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce 8800 GTX 768MB",
+        "release_year": 2006,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2446,6 +2592,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "ATI Radeon HD 4870 1GB",
+        "release_year": 2008,
         "manufacturer": "ATI",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2462,6 +2609,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce GTX 285 1GB",
+        "release_year": 2009,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2478,6 +2626,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce GTX 580 1.5GB",
+        "release_year": 2010,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2494,6 +2643,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce GTX 680 2GB",
+        "release_year": 2012,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2510,6 +2660,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "AMD Radeon HD 7970 3GB",
+        "release_year": 2012,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2526,6 +2677,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce GTX 770 2GB",
+        "release_year": 2013,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2542,6 +2694,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "AMD Radeon R9 290X 4GB",
+        "release_year": 2013,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2558,6 +2711,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce GTX 970 4GB",
+        "release_year": 2014,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2574,6 +2728,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce GTX 980 Ti 6GB",
+        "release_year": 2015,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2590,6 +2745,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "AMD Radeon RX 480 8GB",
+        "release_year": 2016,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2606,6 +2762,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce GTX 1080 8GB",
+        "release_year": 2016,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2622,6 +2779,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce GTX 1080 Ti 11GB",
+        "release_year": 2017,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2638,6 +2796,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce RTX 4090 24GB",
+        "release_year": 2022,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -2654,6 +2813,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "AMD Radeon RX 7900 XTX 24GB",
+        "release_year": 2022,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -2670,6 +2830,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA GeForce RTX 5090 32GB",
+        "release_year": 2025,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -2686,6 +2847,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA RTX A2000 12GB",
+        "release_year": 2022,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -2702,6 +2864,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.GPU,
         "name": "NVIDIA Tesla P4 8GB",
+        "release_year": 2016,
         "manufacturer": "NVIDIA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2719,6 +2882,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Seagate Barracuda 7200.7 160GB",
+        "release_year": 2005,
         "manufacturer": "Seagate",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2728,6 +2892,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Western Digital Caviar SE 250GB",
+        "release_year": 2006,
         "manufacturer": "Western Digital",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2737,6 +2902,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Seagate Barracuda 7200.10 500GB",
+        "release_year": 2007,
         "manufacturer": "Seagate",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2746,6 +2912,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Intel X25-M 80GB",
+        "release_year": 2008,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2755,6 +2922,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Western Digital Black 1TB",
+        "release_year": 2011,
         "manufacturer": "Western Digital",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2764,6 +2932,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Samsung 840 EVO 250GB",
+        "release_year": 2013,
         "manufacturer": "Samsung",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2773,6 +2942,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Crucial M500 480GB",
+        "release_year": 2014,
         "manufacturer": "Crucial",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2782,6 +2952,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Samsung 850 Pro 512GB",
+        "release_year": 2015,
         "manufacturer": "Samsung",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2791,6 +2962,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Samsung 960 EVO 500GB NVMe",
+        "release_year": 2016,
         "manufacturer": "Samsung",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2800,6 +2972,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "WD Red 4TB",
+        "release_year": 2018,
         "manufacturer": "Western Digital",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2809,6 +2982,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Samsung PM983 1.92TB NVMe",
+        "release_year": 2019,
         "manufacturer": "Samsung",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -2818,6 +2992,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Seagate Exos X16 16TB",
+        "release_year": 2020,
         "manufacturer": "Seagate",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -2827,6 +3002,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.STORAGE,
         "name": "Western Digital Red Pro 10TB",
+        "release_year": 2021,
         "manufacturer": "Western Digital",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -2837,6 +3013,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "Antec TruePower 2.0 550W",
+        "release_year": 2005,
         "manufacturer": "Antec",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2852,6 +3029,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "Corsair HX620W",
+        "release_year": 2007,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2867,6 +3045,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "Seasonic S12II 520W",
+        "release_year": 2009,
         "manufacturer": "Seasonic",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2882,6 +3061,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "Corsair TX750",
+        "release_year": 2011,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2897,6 +3077,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "EVGA SuperNOVA 850 G2",
+        "release_year": 2015,
         "manufacturer": "EVGA",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2912,6 +3093,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "Corsair RM750x",
+        "release_year": 2018,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.USED,
@@ -2927,6 +3109,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "Seasonic PRIME TX-1000",
+        "release_year": 2020,
         "manufacturer": "Seasonic",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -2942,6 +3125,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "Corsair HX1200i",
+        "release_year": 2022,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -2957,6 +3141,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "ASUS ROG Thor 1200W",
+        "release_year": 2023,
         "manufacturer": "ASUS",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -2972,6 +3157,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "be quiet! Straight Power 12 1500W",
+        "release_year": 2024,
         "manufacturer": "be quiet!",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -2987,6 +3173,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "FSP Twins Pro 700W (redundant, 1U)",
+        "release_year": 2017,
         "manufacturer": "FSP",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3002,6 +3189,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.PSU,
         "name": "HP 800W Flex Slot Platinum",
+        "release_year": 2017,
         "manufacturer": "HP",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3021,6 +3209,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "Antec SX635B",
+        "release_year": 2005,
         "manufacturer": "Antec",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3038,6 +3227,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "Cooler Master Stacker 830",
+        "release_year": 2006,
         "manufacturer": "Cooler Master",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3055,6 +3245,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "Antec Three Hundred",
+        "release_year": 2009,
         "manufacturer": "Antec",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3072,6 +3263,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "Corsair 600T",
+        "release_year": 2011,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3089,6 +3281,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "Fractal Design Define R4",
+        "release_year": 2013,
         "manufacturer": "Fractal Design",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3106,6 +3299,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "NZXT S340",
+        "release_year": 2015,
         "manufacturer": "NZXT",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3123,6 +3317,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "Cooler Master MasterBox 5",
+        "release_year": 2017,
         "manufacturer": "Cooler Master",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3140,6 +3335,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "Rosewill RSV-L4000 (4U rack)",
+        "release_year": 2018,
         "manufacturer": "Rosewill",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -3157,6 +3353,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "SilverStone RM41-506 (4U rack)",
+        "release_year": 2021,
         "manufacturer": "SilverStone",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -3174,6 +3371,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "Supermicro CSE-813 (1U rack)",
+        "release_year": 2017,
         "manufacturer": "Supermicro",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3191,6 +3389,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "Rosewill RSV-R4000 (2U rack)",
+        "release_year": 2016,
         "manufacturer": "Rosewill",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -3208,6 +3407,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.CASE,
         "name": "Chenbro RM23612 (2U rack)",
+        "release_year": 2015,
         "manufacturer": "Chenbro",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3226,6 +3426,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "Intel Stock Cooler (LGA775)",
+        "release_year": 2005,
         "manufacturer": "Intel",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3241,6 +3442,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "AMD Stock Cooler (Socket 939)",
+        "release_year": 2005,
         "manufacturer": "AMD",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3256,6 +3458,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "Zalman CNPS9500",
+        "release_year": 2006,
         "manufacturer": "Zalman",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3271,6 +3474,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "Cooler Master Hyper N520",
+        "release_year": 2009,
         "manufacturer": "Cooler Master",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3286,6 +3490,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "Noctua NH-U12P",
+        "release_year": 2009,
         "manufacturer": "Noctua",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3301,6 +3506,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "Noctua NH-D14",
+        "release_year": 2010,
         "manufacturer": "Noctua",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3316,6 +3522,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "Corsair H60 240mm AIO",
+        "release_year": 2012,
         "manufacturer": "Corsair",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3332,6 +3539,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "NZXT Kraken X61 280mm AIO",
+        "release_year": 2014,
         "manufacturer": "NZXT",
         "quantity": 1,
         "condition": Condition.USED,
@@ -3348,6 +3556,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "Dynatron R17 (1U rack active cooler)",
+        "release_year": 2020,
         "manufacturer": "Dynatron",
         "quantity": 1,
         "condition": Condition.NEW,
@@ -3363,6 +3572,7 @@ SEED_COMPONENTS: list[dict] = [
     {
         "category": Category.COOLER,
         "name": "Noctua NH-U9 DX-3647",
+        "release_year": 2018,
         "manufacturer": "Noctua",
         "quantity": 1,
         "condition": Condition.NEW,

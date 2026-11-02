@@ -2,6 +2,55 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-11-02 – Diagnosed and fixed a live "cannot save builds" bug: stale table columns
+
+**Generated:**
+- `backend/app/bootstrap.py`: `_sync_missing_columns()`, run right after `Base.metadata.create_all()` on every container start. It inspects each mapped table's actual database columns, compares them against the current model, and issues `ALTER TABLE ... ADD COLUMN` for anything the model has that the table doesn't -- never drops, renames, or alters an existing column, only ever adds one.
+
+**Root cause (live-reported bug: "I cannot save builds now. When I click the save build button it blinks shortly and the builds tab shows 'an unexpected server error occurred'"):**
+- This project has no migration framework (Alembic) by design (see the 2026-10-19 Phase 1 entry) -- `create_all()` only creates *missing tables*, it never alters one that already exists. `SavedBuild.purpose` was added to the model in a later commit than the one that first created the `saved_builds` table on the student's home-server deployment. Every restart since then kept calling `create_all()`, which correctly saw the table already existed and did nothing -- so the live table never gained the `purpose` column the code had been writing to and reading from for several commits. Every `INSERT`/`SELECT` touching it failed at the database level, surfaced to the frontend as a 500 ("unexpected server error"). This was never caught by any test because every test's database is created fresh via `create_all()` on an empty schema, which always gets the *current* model's full column set -- the bug only exists on a database that persisted across a schema change, which no test fixture does.
+
+**Assumptions:**
+- A real migration tool (Alembic) was deliberately not introduced this late to fix this -- `_sync_missing_columns()` is a scoped, additive-only stand-in that solves the one failure mode this project has actually hit (a new nullable column on an existing table), not a general schema-migration solution. It does nothing for a renamed/retyped/dropped column, which would need a real migration tool or a manual fix.
+
+**Known risks / weaknesses:**
+- This fix only self-heals on the *next* container restart after pulling the new code -- it doesn't retroactively fix a database the backend is currently running against without a restart.
+- Column types are generated via `column.type.compile(dialect=engine.dialect)`, which is correct for every column type this project currently uses (String/Integer/Text/Boolean/DateTime/the custom non-native SAEnum), but wasn't exhaustively tested against every SQLAlchemy type that could theoretically be added later.
+
+**Tests covering it:**
+- `backend/tests/test_bootstrap.py` (2 new tests): a table manually created with an older, narrower column set than the current model gets the missing column added, existing rows survive untouched, and the new column reads back as `NULL`; a table that's already fully up to date is confirmed to be a true no-op (doesn't raise, doesn't duplicate anything).
+- `ruff check`/`ruff format --check`/`pytest` green (201 tests at the time of this entry).
+
+**Review (filled in by the student):**
+
+## 2026-11-02 – Era-aware hardware requests, and the real reason recommendations always reused the same parts
+
+**Generated:**
+- **The actual root cause of "the assistant always recommends the same hardware,"** reported live with logs showing the same CPU+GPU pair chosen for "play [a game]", "pick hardware from 2010 or earlier", and "look for a build with older hardware" alike: `compatibility/engine.py`'s `generate_builds()` only ever looks at the first `top_n` (default 5) candidates per category, *in whatever order it's handed them* -- its own module docstring already said sorting by relevance before calling it is the caller's job. `pipeline/recommend.py`'s `prefilter_candidates()` never did that sort; it just appended rows in plain database order, which in practice is insertion order. Since the original ~10-CPU demo seed was inserted before the 135 later-added historical/server CPUs (2026-10-31's seed expansion), `top_n=5` permanently saw only the first five CPUs ever inserted -- always the same modern parts -- no matter what was actually asked for. Confirmed directly: `db.query(Component).filter(category==CPU).all()` on the real 210-component seed returns ids `1, 9, 10, 11, 12` first, out of 37 CPUs.
+- **Fix: `prefilter_candidates()` now sorts each category's candidates by relevance before handing them to the engine** (`_sort_candidates_by_relevance`), instead of leaving them in whatever order the database returned. This alone fixes the general bug for any stated preference, not just era (e.g. `min_vram_gb`/`min_cpu_cores` overshoot now also affects which candidates survive the `top_n` cutoff, not just the final ranking).
+- **A genuinely new capability, not just the bug fix: `release_year` on every component** (`ComponentBase`/`Component`/`CandidateComponent`), so "hardware from 2010 or earlier"/"my newest gear" can be answered with real data instead of the LLM guessing. `ProjectRequirements` gains `max_release_year`/`min_release_year` (hard bounds, for an actual stated year) and `prefer_oldest`/`prefer_newest` (a relative preference, for "the oldest I have" -- the LLM is explicitly told never to invent a year for this case, since it doesn't know what's in the inventory). `_meets_hard_requirements` now drops any component (of any category) outside a stated year bound, missing data counts as failing, same policy as every other hard requirement. `deterministic_score` gained a matching soft nudge using the build's newest core component's year. The ranking and chat-reply prompts/payloads now include each build's cpu/gpu `release_year` so the LLM can actually reference real years instead of guessing or contradicting itself (the live log showed exactly that: "your builds use...2019" immediately after already claiming they fit "2010 or earlier").
+- `backend/app/seed.py`'s 210 components all got a `release_year` (the historical/era ones already had an implied year in their `notes`; the rest are the real-world release year of that specific product).
+- Surfaced through to the frontend: `ComponentSummary`/`InventoryView`/`RecommendView`/`BuildsView` all show each component's release year now, partly so this fix is actually visible/verifiable in the UI, not just in logs.
+
+**Deliberate deviation from SPEC.md, flagged the same way others have been:** §4.2 doesn't define a `release_year` field on any component. Added anyway, as `ComponentBase` metadata rather than inside any category's spec class, since it's a property of the specific product, not a technical capability -- judged necessary to honestly answer a class of request the student actually hit live, not a speculative addition.
+
+**Assumptions:**
+- **`max_release_year`/`min_release_year` are hard requirements across every category, not just the one the user seems to be talking about.** "Hardware from 2010 or earlier" is read as "the whole build", not "just the CPU" -- a 2024 GPU paired with a 2008 CPU wouldn't honestly satisfy that request. This does mean a component with no recorded release_year is excluded the moment *any* era constraint is stated, same policy as a missing spec already failing `min_vram_gb` etc.
+- **A build's "era" for the `prefer_oldest`/`prefer_newest` soft nudge is its newest core component's year** (max across cpu/motherboard/ram/gpu), not an average -- a build is only as modern as its newest part, so this was judged the more honest single signal, at the cost of not rewarding a build for having *several* old parts if even one part is recent.
+- **A bug in the same family was found and fixed while making this change**: `services/backup.py`'s `_COMMON_COLUMNS` was a hand-maintained list of `ComponentRead` fields for the `.xlsx` backup format, already out of sync with the schema the moment `release_year` was added (it silently dropped the field on every backup round-trip, which then failed the sha256 integrity check). Changed to derive the column list from `ComponentRead.model_fields` directly instead of hand-maintaining a parallel list -- this exact class of bug (a model gains a field, a sibling hardcoded list/table doesn't know about it) is also what caused the `purpose` column bug fixed in the previous entry, so it's now fixed at the source for this specific list rather than patched again next time a field is added.
+
+**Known risks / weaknesses:**
+- The web-search/LLM extraction flow (`/api/components/extract`) does not attempt to fill in `release_year` -- it's manual-entry only, the same scope boundary `manufacturer` already has in that flow. A component added via search+extract still needs its release year typed in by hand on the Inventory tab if era-based requests should be able to use it.
+- This only helps components that actually have a `release_year` set. Pre-existing rows already in a live database (seeded before this change, or added manually without it) will have `release_year = NULL` until re-seeded or edited -- the "Clear inventory" + "Populate with demo data" buttons (issue #1, previous entries) are the practical way to pick up the updated seed data's years on an already-running deployment.
+
+**Tests covering it:**
+- `backend/tests/test_pipeline.py` (9 new tests): hard `max_release_year`/`min_release_year` filtering (including that a missing year fails the same as an out-of-range one); candidates are reordered to put an era-appropriate component first under `prefer_oldest`/`prefer_newest` even when it was seeded after far more than `top_n` other candidates (the actual regression case); candidate order is provably unchanged when no era preference is stated at all (so this machinery never biases results by default); `deterministic_score`'s oldest/newest nudges; a full end-to-end `recommend()` call reproducing the live scenario -- 8 modern CPUs seeded before 1 era-matching one, a stated "2010 or earlier" ask, asserting the final build actually uses the old one.
+- `backend/tests/test_backup.py`: existing roundtrip/tamper tests already cover `_COMMON_COLUMNS` incidentally; re-ran green after deriving it dynamically.
+- `ruff check`/`ruff format --check`/`pytest --cov` green: 209 tests, 96% overall coverage, `pipeline/recommend.py` at 99%.
+- `npm run build` and `npx playwright test` green (18 e2e tests, including a new one asserting each component's release year renders in its own Inventory column).
+
+**Review (filled in by the student):**
+
 ## 2026-11-02 – "Clear inventory" and "Populate with demo data" buttons (issue #1)
 
 **Generated:**
@@ -27,6 +76,8 @@ See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" i
 **Review (filled in by the student):**
 
 ## 2026-10-31 – Seed data expanded to 210 components across three hardware eras
+
+**Deliberate deviation from SPEC.md, not flagged at the time -- corrected here:** §12 ("Uden for scope") explicitly excludes *"servere i rack-format"* (rack-format servers). This entry's seed data adds rack-mountable cases, rack motherboards, and single-socket server CPUs (Xeon E/Silver, EPYC 4004/7002) without flagging that against §12, unlike every other deviation in this project, which gets an explicit note at the time. Flagged now, after the fact: the student asked for "server specific hardware, like rack-mountable cases and motherboards" directly, so this is a knowing, student-directed choice to widen scope, not an oversight -- it's being named here for the same reason the `.xlsx` backup format and the per-request backend choice are named in their own entries, so a reader of SPEC.md doesn't mistake the inconsistency for carelessness.
 
 **Generated:**
 - `backend/app/seed.py` grown from 75 to 210 components, requested because recommendations kept converging on the same handful of recent parts. The new 135 components span roughly 2005-2010 (Socket 775/939/AM2+/LGA1366, e.g. Pentium 4/D, Athlon 64 (X2), Core 2 Duo/Quad, Phenom (II)), the 2010s (LGA1155/LGA1150/LGA1151/AM3+/FM2+/first-gen AM4, e.g. Sandy Bridge through Coffee Lake Refresh, FX-8350/9590, Ryzen 7 1800X), and more 2020s/2026 high-end (RTX 4090/5090, RX 7900 XTX), plus single-socket server/workstation hardware: rack-mountable cases (1U/2U/4U), rack motherboards (ASRock Rack, Supermicro), server CPUs (Xeon E/Silver, EPYC 4004/7002), ECC RAM, datacenter GPUs (Tesla P4, RTX A2000), and NAS/enterprise drives.

@@ -34,18 +34,11 @@ APP_VERSION = "0.1.0"
 
 # Every ComponentRead field except "category" (implied by which sheet a row
 # is on) and "specs" (the category-specific columns that follow these).
-_COMMON_COLUMNS = [
-    "id",
-    "name",
-    "manufacturer",
-    "quantity",
-    "condition",
-    "specs_source",
-    "specs_verified",
-    "notes",
-    "created_at",
-    "updated_at",
-]
+# Derived from the model rather than hand-maintained: a hardcoded list here
+# silently drifted out of sync once before (ComponentBase gained
+# release_year without this list being updated), which corrupted every
+# backup's sha256 check on nothing but newly-added, still-None fields.
+_COMMON_COLUMNS = [f for f in ComponentRead.model_fields if f not in ("category", "specs")]
 
 _BUILD_COLUMNS = ["id", "name", "purpose", "reason", "completed", "created_at", "completed_at", "components"]
 
