@@ -29,6 +29,27 @@ class Settings(BaseSettings):
     # backend/scripts/measure_prompt_budget.py for the measurement.
     ollama_num_ctx: int = 8192
 
+    # --- CORS ---
+    # The frontend is served from a different port than the backend, and it
+    # derives the API URL from window.location.hostname, so the legitimate
+    # origin varies with whatever address the user typed (localhost, the
+    # server's LAN IP, a hostname). That is why this used to be "*".
+    #
+    # "*" is not a neutral convenience here. With no authentication on any
+    # endpoint, it lets *any* website the user happens to visit both read the
+    # inventory and destroy it -- the wildcard is specifically what makes the
+    # response readable cross-origin. The attacker never needs to be on the
+    # network; the victim's browser already is.
+    #
+    # Default below: allow any port on loopback and RFC1918 addresses, and
+    # nothing else. That blocks every public-internet origin, which is the
+    # actual attack, while keeping the "LAN address isn't fixed" property.
+    # DNS rebinding does not defeat it: the Origin header still carries the
+    # attacker's public hostname, not the address it resolved to.
+    #
+    # Set CORS_ALLOW_ORIGINS to a comma-separated list to pin it exactly.
+    cors_allow_origins: str = ""
+
     # --- Web lookup (SearXNG) for /api/components/search + /extract ---
     enable_web_lookup: bool = True
     searxng_base_url: str = "http://searxng:8080"

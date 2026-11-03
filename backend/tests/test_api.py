@@ -287,3 +287,74 @@ def test_update_component_can_set_source_url(client):
 
     assert response.status_code == 200
     assert response.json()["source_url"] == url
+
+
+# --- CORS is restricted to the user's own network ---
+# This was allow_origins=["*"], justified as "not a public-internet
+# deployment". With no authentication on any endpoint, that let any website
+# the user visited read the whole inventory and wipe it with a POST to
+# /api/components/clear -- the wildcard being exactly what made the response
+# readable cross-origin. The attacker never needed network access.
+
+
+def test_cors_allows_a_private_network_origin(client):
+    response = client.get("/api/components", headers={"Origin": "http://192.168.5.10:14173"})
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://192.168.5.10:14173"
+
+
+def test_cors_allows_localhost_on_any_port(client):
+    response = client.get("/api/components", headers={"Origin": "http://localhost:4173"})
+
+    assert response.headers["access-control-allow-origin"] == "http://localhost:4173"
+
+
+def test_cors_does_not_expose_the_response_to_a_public_origin(client):
+    """The response still arrives -- CORS is enforced by the browser, not the
+    server -- but without the header the browser refuses to hand it to the
+    calling page, which is what stops the exfiltration."""
+    response = client.get("/api/components", headers={"Origin": "https://evil.com"})
+
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_cors_is_not_fooled_by_a_private_address_as_a_subdomain(client):
+    response = client.get("/api/components", headers={"Origin": "http://192.168.5.10.evil.com"})
+
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_cors_blocks_a_destructive_preflight_from_a_public_origin(client):
+    """The clear-inventory call is a JSON POST, so the browser preflights it.
+    Refusing the preflight is what prevents the request being sent at all."""
+    response = client.options(
+        "/api/components/clear",
+        headers={
+            "Origin": "https://evil.com",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_an_explicit_origin_list_overrides_the_private_network_default():
+    from app.config import Settings
+    from app.main import _cors_kwargs
+
+    kwargs = _cors_kwargs(Settings(cors_allow_origins="https://pc.example.com, http://localhost:4173"))
+
+    assert kwargs["allow_origins"] == ["https://pc.example.com", "http://localhost:4173"]
+    assert "allow_origin_regex" not in kwargs
+
+
+def test_an_empty_origin_list_falls_back_to_the_private_network_regex():
+    from app.config import Settings
+    from app.main import _cors_kwargs
+
+    kwargs = _cors_kwargs(Settings(cors_allow_origins=""))
+
+    assert "allow_origins" not in kwargs
+    assert kwargs["allow_origin_regex"]

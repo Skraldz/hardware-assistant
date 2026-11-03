@@ -54,18 +54,43 @@ class CatchUnhandledExceptionsMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(CatchUnhandledExceptionsMiddleware)
 
-# The frontend is served from a different port than the backend (and the
-# home server's LAN address isn't fixed), so this is a real cross-origin
-# request. Not a public-internet deployment, so allowing any origin is an
-# acceptable simplification here — documented in docs/architecture.md.
+# Only loopback and RFC1918 origins, on any port. The frontend is served
+# from a different port than the backend and derives the API URL from
+# window.location.hostname, so the legitimate origin varies with whichever
+# address the user typed -- but it is always on their own network.
+#
+# This used to be allow_origins=["*"], justified as "not a public-internet
+# deployment". That reasoning has a hole: with no authentication on any
+# endpoint, the wildcard let any website the user visited read the whole
+# inventory and wipe it with a single POST to /api/components/clear. The
+# attacker never needed network access; the victim's browser already had it,
+# and "*" is exactly what made the response readable cross-origin.
+#
+# DNS rebinding does not get around this: the Origin header carries the
+# attacker's own hostname, never the address it resolved to.
+_PRIVATE_ORIGIN_REGEX = (
+    r"https?://("
+    r"localhost|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[::1\]"
+    r"|10\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+    r"|192\.168\.\d{1,3}\.\d{1,3}"
+    r"|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}"
+    r")(:\d+)?"
+)
+
+
+def _cors_kwargs(settings: Settings) -> dict:
+    """An explicit CORS_ALLOW_ORIGINS list wins; otherwise fall back to the
+    private-network regex. Credentials stay off -- the API uses no cookies,
+    and allow_credentials with a permissive origin rule is what turns a
+    readable response into a session-riding one."""
+    configured = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
+    origins = {"allow_origins": configured} if configured else {"allow_origin_regex": _PRIVATE_ORIGIN_REGEX}
+    return {**origins, "allow_methods": ["*"], "allow_headers": ["*"]}
+
+
 # Added *after* CatchUnhandledExceptionsMiddleware so CORS stays outermost
 # and still decorates the responses that middleware produces.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, **_cors_kwargs(get_settings()))
 
 app.include_router(components.router)
 app.include_router(recommend.router)

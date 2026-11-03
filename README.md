@@ -123,6 +123,8 @@ deployment has a regression test that was first verified to fail against the pre
 These are open and documented rather than hidden. Each has a proposed fix and the design
 questions that are actually blocking it:
 
+- [#9](https://github.com/Skraldz/hardware-assistant/issues/9) — `/api/components/extract`
+  fetches whatever URL the caller supplies, so it can be pointed at internal addresses (SSRF).
 - [#7](https://github.com/Skraldz/hardware-assistant/issues/7) — the model only partially fills
   the preference flags, so some different prompts return identical builds.
 - [#8](https://github.com/Skraldz/hardware-assistant/issues/8) — build diversification can force

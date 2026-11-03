@@ -330,7 +330,10 @@ def test_unhandled_exception_still_gets_cors_headers(client):
     app.dependency_overrides[get_llm_client] = lambda: ExplodingLLMClient()
     response = client.post(
         "/api/components/extract",
-        headers={"Origin": "http://example.com"},
+        # A real frontend origin: CORS is no longer a wildcard, so the header
+        # is only added for an allowed origin -- and this test is about the
+        # error path still getting one, not about which origins are allowed.
+        headers={"Origin": "http://192.168.5.10:4173"},
         json={
             "name": "x",
             "candidate": {"title": "t", "url": "https://example.com", "snippet": "s"},
@@ -338,7 +341,7 @@ def test_unhandled_exception_still_gets_cors_headers(client):
     )
 
     assert response.status_code == 500
-    assert response.headers.get("access-control-allow-origin") == "*"
+    assert response.headers.get("access-control-allow-origin") == "http://192.168.5.10:4173"
     assert response.json()["detail"] == "An unexpected server error occurred."
 
 

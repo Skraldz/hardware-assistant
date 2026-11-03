@@ -2,6 +2,41 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-11-03 – Security review: CORS locked to the local network
+
+A security review of the whole codebase (not a diff — the tree was clean), looking at the public endpoints, the web-lookup path, backup/restore file handling, credential handling and injection surfaces.
+
+**Generated:**
+- **CORS no longer allows every origin.** `allow_origins=["*"]` is replaced by a regex permitting only loopback and RFC1918 origins on any port, with `CORS_ALLOW_ORIGINS` as an explicit override. `allow_credentials` stays off.
+
+**Why this mattered more than the old comment admitted.** The wildcard was justified in-code as "not a public-internet deployment, so allowing any origin is an acceptable simplification". The hole in that reasoning: there is no authentication on any endpoint, so the attacker never needed to be on the network — the victim's browser already was. Any website the student visited while at home could run
+
+```js
+fetch('http://192.168.5.10:18000/api/components').then(r => r.json())   // read the whole inventory
+fetch('http://192.168.5.10:18000/api/components/clear', {method:'POST', ...})  // and wipe it
+```
+
+and `allow_origins=["*"]` is specifically what made the *response readable* cross-origin. Without it a POST still executes, but the attacker cannot see what came back.
+
+**Assumptions:**
+- **Private-network origins are acceptable, public ones are not.** The frontend derives the API URL from `window.location.hostname`, so the legitimate origin varies with whichever address was typed — but it is always on the user's own network. An attacker already running a web server inside the LAN is a different threat model and is not addressed.
+- **DNS rebinding does not defeat this.** The `Origin` header carries the attacker's own hostname, never the address it resolved to. Verified against `http://192.168.5.10.evil.com`, which is rejected.
+- **CORS is a browser control, not a server one.** A blocked origin still gets a response; it just cannot read it. This stops drive-by exfiltration from a web page, and nothing else — `curl` is unaffected, which is why #9 is filed separately.
+
+**Known risks / weaknesses:**
+- Still no authentication. Anyone who can reach the port can do anything, including from a script. The CORS change narrows the browser-driven attack only.
+- **SSRF in `/api/components/extract` is not fixed** (issue #9): the caller supplies any URL and the backend fetches it, with `follow_redirects=True`. Limited by a content-type check and by the content passing through the LLM, but real.
+- The private-origin regex covers IPv4 RFC1918 plus `localhost`/`[::1]`. Other IPv6 private forms (`fd00::/8`) are not matched; a deployment using them must set `CORS_ALLOW_ORIGINS` explicitly.
+
+**Verified clean during the same review:** SQL injection (ORM throughout; the only f-string SQL is `bootstrap.py`, interpolating SQLAlchemy metadata names rather than user input), path traversal (fixed earlier, guarded by `LocalStorage._path_inside`), no file-upload endpoints, no `dangerouslySetInnerHTML`/`innerHTML`/`eval` in the frontend, and no credential ever placed in a response (asserted by an existing test).
+
+**Tests covering it:**
+- `tests/test_api.py` (7 new): a private origin and `localhost` on any port get the header; a public origin does not; `192.168.5.10.evil.com` does not; a destructive JSON `POST` preflight from a public origin is refused; and an explicit `CORS_ALLOW_ORIGINS` list overrides the regex while an empty one falls back to it.
+- `tests/test_api_llm_endpoints.py` (1 updated): the unhandled-exception test asserted `access-control-allow-origin == "*"`, which could only ever pass under a wildcard. It now uses a real frontend origin — the behaviour it guards (the error path still gets CORS headers) is unchanged.
+- `pytest` green (265 backend tests), `ruff check` and `ruff format` clean.
+
+**Review (filled in by the student):**
+
 ## 2026-11-03 – prefer_max_vram no longer answered with a build that has no GPU
 
 Found while measuring issue #8 rather than from a report: part of what looked like a ranking-quality trade-off was a plain bug hiding inside it.
