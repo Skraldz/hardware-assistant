@@ -2,6 +2,38 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-11-03 – prefer_max_vram no longer answered with a build that has no GPU
+
+Found while measuring issue #8 rather than from a report: part of what looked like a ranking-quality trade-off was a plain bug hiding inside it.
+
+**Generated:**
+- **`_gpu_is_required` now includes `prefer_max_vram`.** It is nominally a preference -- "the biggest GPU available" rather than a stated VRAM figure -- so GPU-less builds stayed in the pool. That had a concrete consequence, because `_select_diverse_builds` treats "no GPU" as a distinct GPU identity: once the two best cards were used, it reached for a GPU-less build as the third suggestion.
+
+**Measured on the 210-component seed data**, prompt "the biggest model my hardware can run":
+
+| | Before | After |
+|---|---|---|
+| 1 | RX 7900 XTX 24GB | RX 7900 XTX 24GB |
+| 2 | RX 7800 XT 16GB | RX 7800 XT 16GB |
+| 3 | **no graphics card at all** | RX 7800 XT 16GB |
+
+This is the prompt used in the oral demonstration, so the third suggestion directly contradicted the request being demonstrated. A secondary effect: the worst-case cost of diversification dropped from 35.6% of the top score to 12%, because the GPU-less option was what dragged it down.
+
+**Assumptions:**
+- **A preference that cannot be satisfied at all becomes a requirement.** A build with no GPU does not "prefer less VRAM" -- it cannot answer the question. If the inventory genuinely has no GPU this now reports gpu as missing rather than quietly answering a different question than the one asked. The alternative (keep offering an iGPU build with a note) was rejected: the user can see for themselves that they own no graphics card, and a named missing category says it plainly.
+- **This does not make `prefer_max_vram` and `min_vram_gb` equivalent.** The former still states no figure, so no component is filtered out by VRAM; it only forces the category to be present.
+
+**Known risks / weaknesses:**
+- "No GPU" is still a distinct identity to the diversity step in every other situation. For a request with no GPU preference either way, a GPU-less build remains a legitimate and often sensible third suggestion -- that part is intended, not a leftover.
+- The general problem in #8 is untouched: when the score has a strong opinion, diversification can still cost 12% (prefer_max_vram) or 11.6% (prefer_minimal_spec), and a uniform threshold is measurably infeasible -- 0.5% for gaming against 35.6% before this fix, on the same scale.
+
+**Tests covering it:**
+- `tests/test_pipeline.py` (2 new): every build returned under `prefer_max_vram` has a GPU; and with no GPU in the inventory the category is reported missing and no builds are returned.
+- Both verified to fail against the pre-fix `recommend.py` -- the first with "build 3 has no GPU despite prefer_max_vram", which is the live symptom exactly.
+- `pytest` green (258 backend tests), `ruff check` and `ruff format` clean.
+
+**Review (filled in by the student):**
+
 ## 2026-11-03 – Two documented limitations closed: the PCIe x16 rule and per-build storage
 
 Issues #5 and #6, both opened the day before as "documented, not fixed", both turned out to be cheap once looked at properly.

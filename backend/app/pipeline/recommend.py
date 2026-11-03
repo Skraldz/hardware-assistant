@@ -158,8 +158,26 @@ def _gpu_is_required(requirements: ProjectRequirements) -> bool:
     penalises the GPU's TDP with its always-on power-draw nudge, with
     nothing opposing it unless prefer_max_vram happens to be set, so the
     GPU-less build actively won.
+
+    prefer_max_vram counts as requiring one too. It is nominally a
+    *preference* -- "the biggest GPU available" rather than a stated VRAM
+    figure -- but a build with no GPU at all cannot satisfy it in any
+    meaningful sense, and leaving GPU-less builds in the pool had a concrete
+    consequence: _select_diverse_builds treats "no GPU" as a distinct GPU
+    identity, so once the two best GPUs were used it reached for a GPU-less
+    build as the third suggestion. On the seed data, "the biggest model my
+    hardware can run" returned RX 7900 XTX (24GB), RX 7800 XT (16GB), and
+    then a build with no graphics card -- directly contradicting the request
+    (issue #8).
+
+    If the inventory genuinely has no GPU, this now reports gpu as missing
+    rather than quietly answering a different question than the one asked.
     """
-    return requirements.min_vram_gb is not None or Category.GPU in requirements.required_categories
+    return (
+        requirements.min_vram_gb is not None
+        or requirements.prefer_max_vram
+        or Category.GPU in requirements.required_categories
+    )
 
 
 def _era_rank(release_year: int | None, requirements: ProjectRequirements) -> int:

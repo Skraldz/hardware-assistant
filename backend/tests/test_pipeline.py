@@ -1691,3 +1691,99 @@ def test_a_single_large_enough_drive_still_satisfies_the_requirement(db_session)
 
     assert Category.STORAGE not in result.missing
     assert result.builds
+
+
+# --- prefer_max_vram must not be answered with a GPU-less build (issue #8) ---
+# _select_diverse_builds treats "no GPU" as a distinct GPU identity, so once
+# the two best cards were used it reached for a GPU-less build as the third
+# suggestion. On the seed data, "the biggest model my hardware can run"
+# returned a 24GB card, a 16GB card, and then no graphics card at all.
+
+
+def test_prefer_max_vram_never_returns_a_build_without_a_gpu(db_session):
+    seed_compatible_inventory(db_session)  # CPU has no integrated graphics
+    # A second GPU so there are two distinct cards, and an iGPU-capable CPU so
+    # GPU-less builds are genuinely generatable and would otherwise be offered.
+    insert_component(
+        db_session,
+        category=Category.GPU,
+        name="Smaller GPU",
+        specs={
+            "category": "gpu",
+            "vram_gb": 4,
+            "tdp_w": 75,
+            "length_mm": 200,
+            "pcie_power_connectors": [],
+            "vendor": "nvidia",
+        },
+    )
+    insert_component(
+        db_session,
+        category=Category.CPU,
+        name="Ryzen 5 5600G",
+        specs={
+            "category": "cpu",
+            "socket": "AM4",
+            "cores": 6,
+            "tdp_w": 65,
+            "integrated_graphics": True,
+            "memory_type": ["DDR4"],
+        },
+    )
+    client = FakeLLMClient(
+        [
+            load_fixture("valid_requirements_prefer_max_vram.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("hallucinated_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
+    )
+
+    result = recommend(
+        prompt="run the biggest model available from my inventory",
+        max_builds=3,
+        db=db_session,
+        llm_client=client,
+    )
+
+    assert result.builds
+    for i, build in enumerate(result.builds, 1):
+        categories = [c.category for c in build.components]
+        assert Category.GPU in categories, f"build {i} has no GPU despite prefer_max_vram"
+
+
+def test_prefer_max_vram_without_any_gpu_reports_the_category_as_missing(db_session):
+    """Asking for the biggest available GPU when there is none should say so,
+    not quietly answer a different question with an iGPU build."""
+    seed_compatible_inventory(db_session)
+    db_session.query(Component).filter(Component.category == Category.GPU).delete()
+    db_session.commit()
+    insert_component(
+        db_session,
+        category=Category.CPU,
+        name="Ryzen 5 5600G",
+        specs={
+            "category": "cpu",
+            "socket": "AM4",
+            "cores": 6,
+            "tdp_w": 65,
+            "integrated_graphics": True,
+            "memory_type": ["DDR4"],
+        },
+    )
+    client = FakeLLMClient(
+        [
+            load_fixture("valid_requirements_prefer_max_vram.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
+    )
+
+    result = recommend(
+        prompt="the biggest model my hardware can run",
+        max_builds=3,
+        db=db_session,
+        llm_client=client,
+    )
+
+    assert result.builds == []
+    assert Category.GPU in result.missing
