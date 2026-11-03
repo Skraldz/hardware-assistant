@@ -60,6 +60,12 @@ class BuildEvaluation:
 
     @property
     def warnings(self) -> list[str]:
+        """Human-readable messages for every rule that could not decide.
+
+        Returns:
+            list[str]: One message per rule that returned "unknown", shown to
+                the user alongside the build.
+        """
         return [result.message for result in self.rule_results.values() if result.status == "unknown"]
 
 

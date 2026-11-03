@@ -35,15 +35,49 @@ class SearchUnavailableError(RuntimeError):
 
 
 class SearchClient(Protocol):
-    def search(self, query: str) -> list[SearchCandidate]: ...
+    """Finds candidate web pages for a hardware name.
+
+    A Protocol so tests never hit a real SearXNG instance (SPEC.md 9.1).
+    """
+
+    def search(self, query: str) -> list[SearchCandidate]:
+        """Find candidate pages documenting a component.
+
+        Args:
+            query: The component name the user typed.
+
+        Returns:
+            list[SearchCandidate]: Pages for the user to choose from.
+        """
+        ...
 
 
 class SearxngClient:
     def __init__(self, base_url: str, timeout: float = 10.0) -> None:
+        """Configure the SearXNG endpoint.
+
+        Args:
+            base_url: SearXNG base URL.
+            timeout: Per-request timeout in seconds.
+        """
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
 
     def search(self, query: str) -> list[SearchCandidate]:
+        """Search SearXNG for pages documenting a component.
+
+        Args:
+            query: The component name the user typed.
+
+        Returns:
+            list[SearchCandidate]: Up to MAX_CANDIDATES results, biased toward
+                spec pages and away from retail listings.
+
+        Raises:
+            SearchUnavailableError: SearXNG could not be reached, or answered
+                with something other than JSON -- which is what it does when its
+                `json` output format is left disabled.
+        """
         try:
             response = httpx.get(
                 f"{self._base_url}/search",

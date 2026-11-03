@@ -42,23 +42,52 @@ MAX_STORAGE_PAIR_CANDIDATES = 3
 
 
 def evaluate_build(build: Build, *, headless: bool = False) -> dict[str, RuleResult]:
+    """Run every compatibility rule against one build.
+
+    Args:
+        build: The build to evaluate.
+        headless: Passed to display_output_available, which a headless
+            build satisfies without any display output.
+
+    Returns:
+        dict[str, RuleResult]: Rule name -> result, for all 16 checks.
+    """
     results = {rule.__name__: rule(build) for rule in ALL_RULES}
     results["display_output_available"] = display_output_available(build, headless=headless)
     return results
 
 
 def is_build_valid(rule_results: dict[str, RuleResult]) -> bool:
+    """Whether a build may be offered to the user.
+
+    Args:
+        rule_results: Output of evaluate_build.
+
+    Returns:
+        bool: True unless at least one rule returned "fail". "unknown" does
+            not disqualify a build -- missing data produces a warning for
+            the user rather than a rejection.
+    """
     return all(result.status != "fail" for result in rule_results.values())
 
 
 def _storage_combos(
     storage_candidates: list[CandidateComponent],
 ) -> list[tuple[CandidateComponent, ...]]:
-    """Every single-drive option from the full candidate list, plus every
+    """Enumerate the drive combinations to try.
+
+    Every single-drive option from the full candidate list, plus every
     2-drive combination from a smaller sub-pool (MAX_STORAGE_PAIR_CANDIDATES)
     so combo count grows linearly with top_n rather than quadratically
     (order doesn't matter for compatibility purposes, so combinations
-    rather than permutations keeps the count down further)."""
+    rather than permutations keeps the count down further).
+
+    Args:
+        storage_candidates: Storage candidates, already ordered by relevance.
+
+    Returns:
+        list[tuple[CandidateComponent, ...]]: One tuple per drive combination.
+    """
     combos: list[tuple[CandidateComponent, ...]] = [(c,) for c in storage_candidates]
     if MAX_STORAGE_DRIVES >= 2:
         pair_pool = storage_candidates[:MAX_STORAGE_PAIR_CANDIDATES]
@@ -72,11 +101,28 @@ def generate_builds(
     headless: bool = False,
     top_n: int = 5,
 ) -> EngineResult:
+    """Combine candidates into builds and keep only the valid ones.
+
+    Candidates are taken in the order given; ranking them by relevance
+    beforehand is the caller's job (pipeline/recommend.py's
+    _sort_candidates_by_relevance).
+
+    Args:
+        candidates: Category -> candidate components.
+        headless: Passed through to evaluate_build.
+        top_n: How many candidates per category to consider, bounding the
+            combinatorics.
+
+    Returns:
+        EngineResult: The valid builds, or an empty list plus the names of
+            any required categories that had no candidates at all.
+    """
     missing = [category for category in REQUIRED_CATEGORIES if not candidates.get(category)]
     if missing:
         return EngineResult(builds=[], missing=missing)
 
     def top(category: Category) -> list[CandidateComponent]:
+        """Return the first `top_n` candidates for one category."""
         return candidates.get(category, [])[:top_n]
 
     gpu_options: list[CandidateComponent | None] = [None, *top(Category.GPU)]

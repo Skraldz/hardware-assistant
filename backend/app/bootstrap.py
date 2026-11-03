@@ -29,6 +29,14 @@ from app.db import Base, engine
 
 
 def _sync_missing_columns() -> None:
+    """Add columns that exist on the models but not yet in the database.
+
+    A deliberately minimal stand-in for a migration tool: create_all() only
+    ever creates missing tables, never alters existing ones, so a new column
+    existed in the code but not in a running database -- which is exactly
+    how saving a build started returning server errors. Only ever adds, never
+    drops or alters, so it is safe on every container start.
+    """
     inspector = inspect(engine)
     existing_tables = set(inspector.get_table_names())
     with engine.begin() as conn:
@@ -44,6 +52,7 @@ def _sync_missing_columns() -> None:
 
 
 def main() -> None:
+    """Create any missing tables, then add any missing columns."""
     Base.metadata.create_all(bind=engine)
     _sync_missing_columns()
 

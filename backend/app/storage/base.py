@@ -16,8 +16,44 @@ class BackupInfo(BaseModel):
 
 
 class BackupStorage(Protocol):
-    def upload(self, name: str, data: bytes) -> str: ...
+    """Where backups are written and read.
 
-    def list(self) -> list[BackupInfo]: ...
+    Implemented by LocalStorage and AzureBlobStorage. Routers and services
+    depend on this rather than on either concrete backend, which is what
+    lets the destination be chosen per request -- and what lets every test
+    run against a temporary directory instead of Azure.
+    """
 
-    def download(self, name: str) -> bytes: ...
+    def upload(self, name: str, data: bytes) -> str:
+        """Write one backup file.
+
+        Args:
+            name: File or blob name.
+            data: File contents.
+
+        Returns:
+            str: Where it was written, for display to the user.
+        """
+        ...
+
+    def list(self) -> list[BackupInfo]:
+        """List the available backups, newest first.
+
+        Returns:
+            list[BackupInfo]: Name, size and timestamp for each backup.
+        """
+        ...
+
+    def download(self, name: str) -> bytes:
+        """Read one backup file by name.
+
+        Args:
+            name: File or blob name.
+
+        Returns:
+            bytes: The file contents.
+
+        Raises:
+            FileNotFoundError: When no backup has that name.
+        """
+        ...

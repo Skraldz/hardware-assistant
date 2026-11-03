@@ -24,6 +24,18 @@ def recommend_builds(
     db: Session = Depends(get_db),
     llm_client: LLMClient = Depends(get_llm_client),
 ) -> RecommendResponse:
+    """Turn a free-text conversation into verified-compatible builds.
+
+    Args:
+        payload: The conversation so far (oldest first) and how many builds
+            to return.
+        db: Database session.
+        llm_client: Ollama client; replaced by a fake in tests.
+
+    Returns:
+        RecommendResponse: The builds, any categories with no usable
+            candidates, per-call LLM status, and the assistant's reply.
+    """
     max_builds = payload.max_builds or get_settings().recommend_default_max_builds
     transcript = _build_transcript(payload.conversation)
     return recommend(prompt=transcript, max_builds=max_builds, db=db, llm_client=llm_client)

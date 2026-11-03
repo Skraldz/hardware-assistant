@@ -15,6 +15,15 @@ from app.config import get_settings
 
 
 def cpu_socket_matches_board(build: Build) -> RuleResult:
+    """Check that the CPU's socket matches the motherboard's.
+
+    Args:
+        build: The candidate build to evaluate.
+
+    Returns:
+        RuleResult: "pass" on an exact match, "fail" on a mismatch, "unknown" if
+            either socket is unrecorded.
+    """
     cpu_socket = build.cpu.specs.socket
     board_socket = build.motherboard.specs.socket
     if cpu_socket is None or board_socket is None:
@@ -27,6 +36,16 @@ def cpu_socket_matches_board(build: Build) -> RuleResult:
 
 
 def ram_type_matches(build: Build) -> RuleResult:
+    """Check that the RAM's memory type is supported by both the
+    motherboard and the CPU.
+
+    Args:
+        build: The candidate build to evaluate.
+
+    Returns:
+        RuleResult: "pass" when both accept it, "fail" when either rejects it,
+            "unknown" when the RAM type or both support lists are unrecorded.
+    """
     ram_type = build.ram.specs.memory_type
     board_types = build.motherboard.specs.memory_type
     cpu_types = build.cpu.specs.memory_type
@@ -43,6 +62,15 @@ def ram_type_matches(build: Build) -> RuleResult:
 
 
 def ram_form_is_dimm(build: Build) -> RuleResult:
+    """Check that the RAM is a desktop DIMM rather than SO-DIMM.
+
+    Args:
+        build: The candidate build to evaluate.
+
+    Returns:
+        RuleResult: "pass" for DIMM, "fail" for any other form factor, "unknown"
+            if the form is unrecorded.
+    """
     form = build.ram.specs.form
     if form is None:
         return RuleResult("unknown", "RAM form factor is not specified.")
@@ -52,6 +80,15 @@ def ram_form_is_dimm(build: Build) -> RuleResult:
 
 
 def ram_slots_sufficient(build: Build) -> RuleResult:
+    """Check that the motherboard has enough slots for the RAM modules.
+
+    Args:
+        build: The candidate build to evaluate.
+
+    Returns:
+        RuleResult: "pass" when the modules fit, "fail" when they outnumber the
+            slots, "unknown" if either count is unrecorded.
+    """
     modules = build.ram.specs.modules
     slots = build.motherboard.specs.memory_slots
     if modules is None or slots is None:
@@ -62,6 +99,15 @@ def ram_slots_sufficient(build: Build) -> RuleResult:
 
 
 def ram_capacity_within_board_max(build: Build) -> RuleResult:
+    """Check the total RAM against the motherboard's maximum.
+
+    Args:
+        build: The candidate build to evaluate.
+
+    Returns:
+        RuleResult: "pass" when within the maximum, "fail" when over it, "unknown"
+            if any of the three figures is unrecorded.
+    """
     per_module = build.ram.specs.capacity_gb_per_module
     modules = build.ram.specs.modules
     max_gb = build.motherboard.specs.max_memory_gb
@@ -74,6 +120,15 @@ def ram_capacity_within_board_max(build: Build) -> RuleResult:
 
 
 def board_fits_case(build: Build) -> RuleResult:
+    """Check that the case supports the motherboard's form factor.
+
+    Args:
+        build: The candidate build to evaluate.
+
+    Returns:
+        RuleResult: "pass" when the form factor is listed, "fail" when it is not,
+            "unknown" if either value is unrecorded.
+    """
     form_factor = build.motherboard.specs.form_factor
     supported = build.case.specs.supported_form_factors
     if form_factor is None or supported is None:
@@ -86,6 +141,15 @@ def board_fits_case(build: Build) -> RuleResult:
 
 
 def gpu_fits_case(build: Build) -> RuleResult:
+    """Check the GPU's length against the case's clearance.
+
+    Args:
+        build: The candidate build to evaluate.
+
+    Returns:
+        RuleResult: "pass" for a GPU-less build or one that fits, "fail" when the
+            card is too long, "unknown" if either length is unrecorded.
+    """
     if build.gpu is None:
         return RuleResult("pass", "No GPU selected — this rule does not apply.")
     length = build.gpu.specs.length_mm
@@ -98,13 +162,23 @@ def gpu_fits_case(build: Build) -> RuleResult:
 
 
 def gpu_has_pcie_slot(build: Build) -> RuleResult:
-    """A discrete GPU needs a PCIe x16 slot to sit in. `pcie_x16_slots` was
-    modelled and populated from the start, but nothing read it, so a GPU
-    paired with a slotless board passed every check (issue #5).
+    """Check that the motherboard has a PCIe x16 slot for a discrete GPU.
+
+    `pcie_x16_slots` was modelled and populated from the start, but nothing
+    read it, so a GPU paired with a slotless board passed every check
+    (issue #5).
 
     Missing data gives "unknown" like every other rule rather than a quiet
     pass: a board whose slot count was never recorded probably has one, but
     "probably" is exactly what the unknown status exists to say out loud.
+
+    Args:
+        build: The candidate build to evaluate.
+
+    Returns:
+        RuleResult: "pass" for a GPU-less build or a board with at least one
+            slot, "fail" at zero slots, "unknown" when the count is
+            unrecorded.
     """
     if build.gpu is None:
         return RuleResult("pass", "No GPU selected — this rule does not apply.")
@@ -117,6 +191,15 @@ def gpu_has_pcie_slot(build: Build) -> RuleResult:
 
 
 def cooler_fits_case(build: Build) -> RuleResult:
+    """Check an air cooler's height against the case's clearance.
+
+    Args:
+        build: The candidate build to evaluate.
+
+    Returns:
+        RuleResult: "pass" for a non-air cooler or one that fits, "fail" when too
+            tall, "unknown" if the type or either height is unrecorded.
+    """
     cooler_type = build.cooler.specs.type
     if cooler_type is None:
         return RuleResult("unknown", "Cooler type (air/aio) is not specified.")
@@ -132,6 +215,15 @@ def cooler_fits_case(build: Build) -> RuleResult:
 
 
 def cooler_supports_socket(build: Build) -> RuleResult:
+    """Check that the cooler lists the CPU's socket.
+
+    Args:
+        build: The candidate build to evaluate.
+
+    Returns:
+        RuleResult: "pass" when the socket is supported, "fail" when it is not,
+            "unknown" if either value is unrecorded.
+    """
     socket = build.cpu.specs.socket
     supported = build.cooler.specs.supported_sockets
     if socket is None or supported is None:
@@ -142,6 +234,15 @@ def cooler_supports_socket(build: Build) -> RuleResult:
 
 
 def cooler_handles_tdp(build: Build) -> RuleResult:
+    """Check that the cooler is rated for the CPU's heat output.
+
+    Args:
+        build: The candidate build to evaluate.
+
+    Returns:
+        RuleResult: "pass" when the rating covers the CPU's TDP, "fail" when it
+            does not, "unknown" if either figure is unrecorded.
+    """
     rating = build.cooler.specs.tdp_rating_w
     cpu_tdp = build.cpu.specs.tdp_w
     if rating is None or cpu_tdp is None:
@@ -152,6 +253,19 @@ def cooler_handles_tdp(build: Build) -> RuleResult:
 
 
 def psu_wattage_sufficient(build: Build) -> RuleResult:
+    """Check the PSU against the build's estimated power draw
+
+    The estimate is the CPU and GPU TDP plus PSU_BASE_WATT_W for everything
+    else, multiplied by PSU_SAFETY_MARGIN -- both configurable, because the
+    right headroom is a judgement call rather than a fact.
+
+    Args:
+        build: The candidate build to evaluate.
+
+    Returns:
+        RuleResult: "pass" when the PSU covers the estimate, "fail" when it does
+            not, "unknown" if the wattage or the CPU's TDP is unrecorded.
+    """
     cpu_tdp = build.cpu.specs.tdp_w
     gpu_tdp = 0
     if build.gpu is not None:
@@ -170,6 +284,16 @@ def psu_wattage_sufficient(build: Build) -> RuleResult:
 
 
 def psu_has_gpu_connectors(build: Build) -> RuleResult:
+    """Check that the PSU offers every PCIe power connector the GPU needs.
+
+    Args:
+        build: The candidate build to evaluate.
+
+    Returns:
+        RuleResult: "pass" for a GPU-less build or when the connectors are
+            available in sufficient number, "fail" when they are not,
+            "unknown" if either list is unrecorded.
+    """
     if build.gpu is None:
         return RuleResult("pass", "No GPU selected — this rule does not apply.")
     gpu_connectors = build.gpu.specs.pcie_power_connectors
@@ -186,6 +310,15 @@ def psu_has_gpu_connectors(build: Build) -> RuleResult:
 
 
 def psu_fits_case(build: Build) -> RuleResult:
+    """Check that the case accepts the PSU's form factor.
+
+    Args:
+        build: The candidate build to evaluate.
+
+    Returns:
+        RuleResult: "pass" on a match, "fail" on a mismatch, "unknown" if either
+            form factor is unrecorded.
+    """
     psu_form_factor = build.psu.specs.form_factor
     case_psu_form_factor = build.case.specs.psu_form_factor
     if psu_form_factor is None or case_psu_form_factor is None:
@@ -198,10 +331,21 @@ def psu_fits_case(build: Build) -> RuleResult:
 
 
 def storage_slots_available(build: Build) -> RuleResult:
-    """A build may hold multiple drives (engine.py's MAX_STORAGE_DRIVES) --
+    """Check the build's drives against the motherboard's and case's capacity.
+
+    A build may hold multiple drives (engine.py's MAX_STORAGE_DRIVES) --
     counts them by interface (NVMe drives need M.2 slots, SATA SSDs/HDDs
     need SATA ports) and checks each count against the motherboard's
-    matching slot count."""
+    matching slot count.
+
+    Args:
+        build: The candidate build to evaluate.
+
+    Returns:
+        RuleResult: "pass" when every drive has somewhere to go, "fail" when
+            they exceed the available M.2 slots, SATA ports or drive bays,
+            "unknown" when an interface or the relevant counts are unrecorded.
+    """
     nvme_count = 0
     sata_count = 0
     for drive in build.storage:
@@ -238,6 +382,19 @@ def storage_slots_available(build: Build) -> RuleResult:
 
 
 def display_output_available(build: Build, *, headless: bool = False) -> RuleResult:
+    """Check that the build can drive a monitor.
+
+    Args:
+        build: The candidate build to evaluate.
+        headless: When True the rule is satisfied regardless, since a
+            headless machine needs no display output (SPEC.md §5).
+
+    Returns:
+        RuleResult: "pass" for a headless build, a discrete GPU, or a CPU
+            with integrated graphics; "fail" when neither is present;
+            "unknown" when the CPU's integrated-graphics flag is unrecorded
+            and there is no discrete GPU.
+    """
     if headless:
         return RuleResult("pass", "Headless — no display output needed.")
     if build.gpu is not None:

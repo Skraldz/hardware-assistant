@@ -10,6 +10,11 @@ from app.storage.base import BackupInfo
 
 class LocalStorage:
     def __init__(self, directory: str) -> None:
+        """Point the store at a directory.
+
+        Args:
+            directory: Where backups are written; created if missing.
+        """
         self._directory = Path(directory)
         self._directory.mkdir(parents=True, exist_ok=True)
 
@@ -29,11 +34,28 @@ class LocalStorage:
         return path
 
     def upload(self, name: str, data: bytes) -> str:
+        """Write one backup into the directory.
+
+        Args:
+            name: File name, validated to stay inside the directory.
+            data: File contents.
+
+        Returns:
+            str: The path written.
+
+        Raises:
+            FileNotFoundError: When the name would escape the directory.
+        """
         path = self._path_inside(name)
         path.write_bytes(data)
         return str(path)
 
     def list(self) -> list[BackupInfo]:
+        """List backups in the directory, newest first.
+
+        Returns:
+            list[BackupInfo]: Both current .xlsx and older .json backups.
+        """
         # Matches both the current .xlsx format and any older .json backups
         # already on disk from before the spreadsheet-format switch, so
         # pre-existing backups don't just disappear from the list.
@@ -51,6 +73,19 @@ class LocalStorage:
         return infos
 
     def download(self, name: str) -> bytes:
+        """Read one backup from the directory.
+
+        Args:
+            name: File name, validated to stay inside the directory.
+
+        Returns:
+            bytes: The file contents.
+
+        Raises:
+            FileNotFoundError: When the file is absent, or the name would escape
+                the directory -- deliberately the same error, so it never
+                reveals which of the two it was.
+        """
         path = self._path_inside(name)
         if not path.is_file():
             raise FileNotFoundError(name)

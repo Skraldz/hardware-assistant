@@ -45,6 +45,21 @@ class CatchUnhandledExceptionsMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
+        """Catch anything the routers did not, so the reply still has CORS headers.
+
+        Starlette places its own error handler outside user middleware, so an
+        unhandled exception would otherwise produce a response with no CORS
+        headers and the browser would report a generic network failure instead
+        of the real status.
+
+        Args:
+            request: The incoming request.
+            call_next: The rest of the middleware chain.
+
+        Returns:
+            Response: The normal response, or a 500 JSON body on an unhandled
+                exception.
+        """
         try:
             return await call_next(request)
         except Exception:
@@ -99,6 +114,15 @@ app.include_router(builds.router)
 
 
 def _backup_destination(settings: Settings) -> str:
+    """Describe the active backup destination for the health endpoint.
+
+    Args:
+        settings: Application settings.
+
+    Returns:
+        str: The Azure container or the local directory -- never a
+            credential.
+    """
     if settings.backup_backend == "azure":
         return settings.azure_backup_container
     return settings.local_backup_dir
@@ -110,6 +134,17 @@ def health(
     llm_client: LLMClient = Depends(get_llm_client),
     storage: BackupStorage = Depends(get_backup_storage_dependency),
 ) -> dict:
+    """Report whether each dependency is reachable.
+
+    Args:
+        db: Database session.
+        llm_client: Ollama client.
+        storage: The active backup storage.
+
+    Returns:
+        dict: Status per dependency, the active backup backend and its
+            destination. Never includes secrets; a test asserts that.
+    """
     try:
         db.execute(text("SELECT 1"))
         db_status = "ok"

@@ -77,11 +77,30 @@ class Settings(BaseSettings):
     @field_validator("backup_backend", mode="before")
     @classmethod
     def _normalize_backup_backend(cls, value: object) -> object:
+        """Accept BACKUP_BACKEND case-insensitively, with surrounding space.
+
+        Args:
+            value: The raw setting.
+
+        Returns:
+            str: The normalized backend name.
+        """
         # Case-insensitive ("AZURE" == "azure") per SPEC.md §7.2.1.
         return value.strip().lower() if isinstance(value, str) else value
 
     @model_validator(mode="after")
     def _require_azure_credentials_when_selected(self) -> "Settings":
+        """Fail at startup if Azure is the default but unconfigured.
+
+        Deliberately loud: silently falling back to local storage would leave
+        the user believing their data was in the cloud when it was not.
+
+        Returns:
+            Settings: The validated settings.
+
+        Raises:
+            ValueError: BACKUP_BACKEND=azure without either credential form.
+        """
         # Fail fast: never silently fall back to local storage when azure is
         # misconfigured, or the user would wrongly believe data is in the cloud.
         if self.backup_backend == "azure" and not (
@@ -95,4 +114,11 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    """Load settings once per process.
+
+    Returns:
+        Settings: Values from the environment and .env, cached -- so the
+            same configuration is seen everywhere, and tests can clear the
+            cache to substitute their own.
+    """
     return Settings()

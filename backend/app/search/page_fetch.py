@@ -29,11 +29,39 @@ _SKIP_TAGS = ["script", "style", "nav", "header", "footer", "noscript", "svg", "
 
 
 class PageFetcher(Protocol):
-    def fetch(self, url: str) -> str | None: ...
+    """Fetches a web page and reduces it to readable text.
+
+    A Protocol so tests never make a real HTTP request (SPEC.md 9.1).
+    """
+
+    def fetch(self, url: str) -> str | None:
+        """Fetch and clean one page's visible text.
+
+        Args:
+            url: The page to fetch.
+
+        Returns:
+            str | None: The visible text, or None if it could not be had --
+                callers fall back to the search snippet rather than failing.
+        """
+        ...
 
 
 class HttpPageFetcher:
     def fetch(self, url: str) -> str | None:
+        """Fetch a page and reduce it to plain visible text.
+
+        Best-effort: every failure returns None, falling back to the
+        snippet-only extraction that already existed.
+
+        Args:
+            url: The page to fetch.
+
+        Returns:
+            str | None: Visible text truncated to page_fetch_max_chars, or None
+                when fetching is disabled, the request fails, the response is
+                not HTML, or the text is empty.
+        """
         settings = get_settings()
         if not settings.fetch_full_page:
             return None

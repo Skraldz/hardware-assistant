@@ -48,6 +48,19 @@ class BackupRestoreError(Exception):
 
 
 def _components_hash(components: list[dict]) -> str:
+    """Hash the component list for the integrity check.
+
+    Sorts by id first. Without that the hash depended on the order rows came
+    back in, and since the spreadsheet groups rows by category, a restore of
+    any multi-category inventory failed its own hash check -- a real bug,
+    found by comparing a snapshot field by field across a round trip.
+
+    Args:
+        components: The components, in any order.
+
+    Returns:
+        str: Hex sha256 over the canonical, id-sorted representation.
+    """
     # Order-independent: _write_xlsx groups rows into one sheet per category
     # (for human readability), so _read_xlsx's reconstructed list is ordered
     # by category/sheet, not by id the way export_snapshot's original
@@ -62,10 +75,25 @@ def _components_hash(components: list[dict]) -> str:
 
 
 def _backup_filename(created_at: datetime) -> str:
+    """Build a timestamped backup file name.
+
+    Returns:
+        str: e.g. "inventory-20261103T143000Z.xlsx" -- UTC, so names sort
+            chronologically regardless of the server's timezone.
+    """
     return f"inventory-{created_at.strftime('%Y%m%dT%H%M%SZ')}.xlsx"
 
 
 def _to_cell(value: object) -> object:
+    """Convert one Python value into something a spreadsheet cell accepts.
+
+    Args:
+        value: Any value from a component or build.
+
+    Returns:
+        Cell-safe value: lists and dicts become JSON text, None becomes an
+            empty cell, everything else passes through.
+    """
     # A list-valued spec field (e.g. memory_type, pcie_power_connectors)
     # can't be stored in a single Excel cell directly -- JSON-encode it, and
     # _from_cell reverses this on read. Everything else (str/int/bool/None)
@@ -74,6 +102,17 @@ def _to_cell(value: object) -> object:
 
 
 def _from_cell(value: object) -> object:
+    """Convert one spreadsheet cell back into a Python value.
+
+    The inverse of _to_cell: empty cells become None, JSON text becomes the
+    list or dict it encodes, everything else passes through.
+
+    Args:
+        value: The raw cell value.
+
+    Returns:
+        The decoded Python value.
+    """
     if isinstance(value, str) and value.startswith("["):
         try:
             return json.loads(value)
@@ -83,6 +122,18 @@ def _from_cell(value: object) -> object:
 
 
 def _write_xlsx(snapshot: dict) -> bytes:
+    """Render a backup snapshot as a spreadsheet.
+
+    One sheet per hardware category, plus Builds and Metadata. The format is
+    a spreadsheet rather than JSON so the user can open a backup and read it,
+    instead of having to trust an opaque blob.
+
+    Args:
+        snapshot: The snapshot from export_snapshot.
+
+    Returns:
+        bytes: The .xlsx file.
+    """
     wb = Workbook()
     wb.remove(wb.active)
 
@@ -126,6 +177,17 @@ def _write_xlsx(snapshot: dict) -> bytes:
 
 
 def _read_xlsx(data: bytes) -> dict:
+    """Parse a backup spreadsheet back into a snapshot.
+
+    Args:
+        raw: The .xlsx file contents.
+
+    Returns:
+        dict: The snapshot, in the same shape export_snapshot produced.
+
+    Raises:
+        BackupRestoreError: When the file is not a readable backup.
+    """
     try:
         wb = load_workbook(BytesIO(data), data_only=True)
     except Exception as exc:  # openpyxl raises several exception types for a corrupt/non-xlsx file
@@ -203,6 +265,16 @@ def _read_backup(raw: bytes, name: str) -> dict:
 
 
 def export_snapshot(db: Session) -> dict:
+    """Collect the whole inventory into a restorable snapshot.
+
+    Args:
+        db: Database session.
+
+    Returns:
+        dict: Every component and saved build, plus schema version,
+            timestamp, component count and sha256 -- the four values
+            restore_backup checks before it writes anything.
+    """
     components = [
         ComponentRead.model_validate(row).model_dump(mode="json")
         for row in db.query(Component).order_by(Component.id).all()
@@ -223,6 +295,15 @@ def export_snapshot(db: Session) -> dict:
 
 
 def create_backup(db: Session, storage: BackupStorage) -> BackupInfo:
+    """Write a backup of the whole inventory to a storage backend.
+
+    Args:
+        db: Database session.
+        storage: Where to write.
+
+    Returns:
+        BackupInfo: Name, size and timestamp of the file written.
+    """
     snapshot = export_snapshot(db)
     created_at = datetime.fromisoformat(snapshot["created_at"])
     name = _backup_filename(created_at)

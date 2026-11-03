@@ -3589,10 +3589,32 @@ SEED_COMPONENTS: list[dict] = [
 
 
 def _component_from_seed_item(item: dict) -> Component:
+    """Build a Component row from one seed entry.
+
+    Shared by the startup seed and the /reseed endpoint so the two can never
+    drift apart.
+
+    Args:
+        item: One entry from SEED_COMPONENTS.
+
+    Returns:
+        Component: The unsaved row.
+    """
     return Component(specs_source=SpecsSource.MANUAL, specs_verified=True, **item)
 
 
 def seed(db) -> int:
+    """Populate an empty inventory with the demo components.
+
+    Idempotent: does nothing when the table already has rows, so it is safe
+    to run on every container start.
+
+    Args:
+        db: Database session.
+
+    Returns:
+        int: How many components were inserted.
+    """
     if db.query(Component).first() is not None:
         return 0
     for item in SEED_COMPONENTS:
@@ -3602,6 +3624,7 @@ def seed(db) -> int:
 
 
 def main() -> None:
+    """Seed the database from the command line."""
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:

@@ -141,6 +141,19 @@ CHAT_REPLY_SYSTEM_PROMPT = (
 
 
 def _data_block(label: str, text: str) -> str:
+    """Wrap untrusted text in a labelled block.
+
+    Everything the user typed, and anything fetched from the web, is marked
+    as data rather than instructions -- OWASP's mitigation for indirect
+    prompt injection (LLM01:2025).
+
+    Args:
+        label: What the content is, e.g. "web_search_results".
+        content: The untrusted text.
+
+    Returns:
+        str: The content wrapped in tagged delimiters.
+    """
     # Escape literal angle brackets so untrusted text can't contain a fake
     # "</data>" and break out of the block early.
     escaped = text.replace("<", "&lt;").replace(">", "&gt;")
@@ -148,6 +161,16 @@ def _data_block(label: str, text: str) -> str:
 
 
 def build_requirements_prompt(user_prompt: str, *, error_feedback: str | None = None) -> str:
+    """Build the prompt that turns free text into requirements.
+
+    Args:
+        conversation: The conversation so far, oldest first.
+        error_feedback: The validation error from a previous attempt, fed
+            back so the model can correct itself.
+
+    Returns:
+        str: The prompt.
+    """
     parts = [
         "Translate the following project description (possibly a multi-turn conversation transcript) "
         "into structured requirements (ProjectRequirements).",
@@ -168,6 +191,19 @@ def build_category_prompt(
     web_snippet: str | None = None,
     error_feedback: str | None = None,
 ) -> str:
+    """Build the prompt asking only which category a component is.
+
+    A deliberately tiny schema: Ollama's grammar satisfies a single enum far
+    more reliably than the full discriminated union.
+
+    Args:
+        name: The component name the user typed.
+        web_snippet: Fetched page text and search results, if any.
+        error_feedback: The validation error from a previous attempt.
+
+    Returns:
+        str: The prompt.
+    """
     parts = [
         "Identify which hardware category this component belongs to.",
         _data_block("component_name", name),
@@ -192,6 +228,17 @@ def build_extract_prompt(
     web_snippet: str | None = None,
     error_feedback: str | None = None,
 ) -> str:
+    """Build the prompt that extracts one component's specs.
+
+    Args:
+        name: The component name the user typed.
+        category: The category already determined by the first call.
+        web_snippet: Fetched page text and search results, if any.
+        error_feedback: The validation error from a previous attempt.
+
+    Returns:
+        str: The prompt.
+    """
     parts = [
         f"Extract the specifications for this {category} component.",
         _data_block("component_name", name),
@@ -220,6 +267,20 @@ def build_ranking_prompt(
     *,
     error_feedback: str | None = None,
 ) -> str:
+    """Build the prompt that ranks already-verified builds.
+
+    The model only ever reorders and justifies; every build it is shown has
+    already passed the rules.
+
+    Args:
+        summaries: One summary per build, each with its build_id.
+        requirements: The interpreted requirements, so the reasons can refer
+            to what was actually asked for.
+        error_feedback: The validation error from a previous attempt.
+
+    Returns:
+        str: The prompt.
+    """
     parts = [
         "Rank the following compatible builds by how well they fit the project below. "
         "Return a one-to-two sentence 'reason' per build.",
@@ -243,6 +304,20 @@ def build_chat_reply_prompt(
     *,
     error_feedback: str | None = None,
 ) -> str:
+    """Build the prompt for the assistant's reply to the user.
+
+    Includes each build's real specs, not just component names, so a comment
+    about VRAM or core count is grounded in the actual numbers.
+
+    Args:
+        prompt: The conversation flattened, oldest first.
+        build_summaries: The chosen builds with their specs.
+        missing: Categories with no usable candidates.
+        error_feedback: The validation error from a previous attempt.
+
+    Returns:
+        str: The prompt.
+    """
     parts = [
         "Write your reply to the user's latest message below, given the already-computed builds.",
         _data_block("conversation", transcript),

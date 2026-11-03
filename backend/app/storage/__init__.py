@@ -27,6 +27,15 @@ class BackendUnavailableError(Exception):
 
 
 def is_azure_available(settings: Settings) -> bool:
+    """Whether Azure can be used at all.
+
+    Args:
+        settings: Application settings.
+
+    Returns:
+        bool: True once either credential form is configured -- independently
+            of which backend BACKUP_BACKEND defaults to.
+    """
     return bool(settings.azure_storage_connection_string or settings.azure_storage_account_url)
 
 
@@ -42,6 +51,18 @@ def available_backends(settings: Settings) -> list[BackendName]:
 
 
 def get_backup_storage_for(backend: BackendName, settings: Settings) -> BackupStorage:
+    """Build the storage for one named backend.
+
+    Args:
+        backend: "local" or "azure".
+        settings: Application settings.
+
+    Returns:
+        BackupStorage: The storage for that backend.
+
+    Raises:
+        BackendUnavailableError: Azure was asked for without credentials.
+    """
     if backend == "local":
         return LocalStorage(settings.local_backup_dir)
     if not is_azure_available(settings):
@@ -53,11 +74,20 @@ def get_backup_storage_for(backend: BackendName, settings: Settings) -> BackupSt
 
 
 def get_backup_storage(settings: Settings) -> BackupStorage:
+    """Build the storage for the configured default backend.
+
+    Args:
+        settings: Application settings.
+
+    Returns:
+        BackupStorage: Storage for settings.backup_backend.
+    """
     return get_backup_storage_for(settings.backup_backend, settings)
 
 
 @lru_cache
 def _cached_backup_storage() -> BackupStorage:
+    """The default backend's storage, built once per process."""
     return get_backup_storage(get_settings())
 
 

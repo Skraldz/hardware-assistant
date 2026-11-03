@@ -43,6 +43,15 @@ def list_components(
     category: Category | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> list[models.Component]:
+    """List inventory components, newest first.
+
+    Args:
+        category: Optional filter; omitted returns every category.
+        db: Database session.
+
+    Returns:
+        list[Component]: Matching components.
+    """
     query = db.query(models.Component)
     if category is not None:
         query = query.filter(models.Component.category == category)
@@ -51,6 +60,18 @@ def list_components(
 
 @router.post("", response_model=ComponentRead, status_code=201)
 def create_component(payload: ComponentCreate, db: Session = Depends(get_db)) -> models.Component:
+    """Add one component to the inventory.
+
+    The category is taken from the specs payload rather than sent
+    separately, so the two can never disagree.
+
+    Args:
+        payload: The component to create, including its category-specific specs.
+        db: Database session.
+
+    Returns:
+        Component: The created row, with its assigned id.
+    """
     component = models.Component(
         category=Category(payload.specs.category),
         name=payload.name,
@@ -72,6 +93,19 @@ def create_component(payload: ComponentCreate, db: Session = Depends(get_db)) ->
 
 @router.post("/clear", response_model=ClearInventoryResponse)
 def clear_inventory(payload: ClearInventoryRequest, db: Session = Depends(get_db)) -> ClearInventoryResponse:
+    """Delete every component and every saved build.
+
+    Args:
+        payload: Must carry confirm=True; the step exists because this is
+            irreversible and there is no undo.
+        db: Database session.
+
+    Returns:
+        dict: Counts of deleted components and builds.
+
+    Raises:
+        HTTPException: 400 when confirm is not True.
+    """
     if not payload.confirm:
         raise HTTPException(status_code=400, detail="confirm: true is required to clear the inventory.")
     # Saved builds reference components by id and are meaningless once every
@@ -84,6 +118,21 @@ def clear_inventory(payload: ClearInventoryRequest, db: Session = Depends(get_db
 
 @router.post("/reseed", response_model=ReseedResponse)
 def reseed_inventory(payload: ReseedRequest, db: Session = Depends(get_db)) -> ReseedResponse:
+    """Add the demo components on top of the current inventory.
+
+    Adds rather than replaces, and skips any component whose name is already
+    present, so it is safe to run twice.
+
+    Args:
+        payload: Must carry confirm=True.
+        db: Database session.
+
+    Returns:
+        dict: How many demo components were added and how many skipped.
+
+    Raises:
+        HTTPException: 400 when confirm is not True.
+    """
     if not payload.confirm:
         raise HTTPException(status_code=400, detail="confirm: true is required to reseed the inventory.")
     # Adds on top of whatever's already there rather than replacing it --
@@ -109,6 +158,20 @@ def reseed_inventory(payload: ReseedRequest, db: Session = Depends(get_db)) -> R
 def search_components(
     payload: SearchRequest, search_client: SearchClient = Depends(get_search_client)
 ) -> SearchResponse:
+    """Find candidate web pages documenting a component's specs.
+
+    Args:
+        payload: The component name to search for.
+        search_client: SearXNG client; replaced by a fake in tests.
+
+    Returns:
+        SearchResponse: Up to MAX_CANDIDATES pages for the user to choose from.
+
+    Raises:
+        HTTPException: 503 when SearXNG cannot be reached, 404 when the search
+            returns nothing -- deliberately an error rather than a silent fall
+            back to the model guessing.
+    """
     settings = get_settings()
     if not settings.enable_web_lookup:
         raise HTTPException(
@@ -134,6 +197,30 @@ def extract_component_specs(
     llm_client: LLMClient = Depends(get_llm_client),
     page_fetcher: PageFetcher = Depends(get_page_fetcher),
 ) -> ExtractResponse:
+    """Extract a component's specifications for the user to confirm.
+
+    Two LLM calls: a tiny category-only schema first, then a flat
+    category-specific schema for the fields. Ollama's structured-output
+    grammar handles a plain object far more reliably than the full
+    discriminated union, which was leading the model to emit little beyond
+    the category itself.
+
+    Args:
+        payload: Component name, the chosen search candidate, and the other
+            candidates from the same search (pooled for extra context).
+        llm_client: Ollama client; replaced by a fake in tests.
+        page_fetcher: Fetches the chosen candidate's page text; faked in tests.
+
+    Returns:
+        ExtractResponse: The extracted specs, release year, the source URL
+            actually fetched, and whether the model answered cleanly, retried
+            or fell back.
+
+    Raises:
+        HTTPException: 400 when web lookup is enabled but no candidate was
+            given; 422 when the category or the specs could not be determined
+            even after a retry, so the user enters them manually.
+    """
     settings = get_settings()
     web_snippet: str | None = None
     specs_source = SpecsSource.LLM_EXTRACTED
@@ -219,6 +306,18 @@ def extract_component_specs(
 
 @router.get("/{component_id}", response_model=ComponentRead)
 def get_component(component_id: int, db: Session = Depends(get_db)) -> models.Component:
+    """Fetch one component by id.
+
+    Args:
+        component_id: Primary key.
+        db: Database session.
+
+    Returns:
+        Component: The matching row.
+
+    Raises:
+        HTTPException: 404 when no component has that id.
+    """
     component = db.get(models.Component, component_id)
     if component is None:
         raise HTTPException(status_code=404, detail="Component not found")
@@ -229,6 +328,22 @@ def get_component(component_id: int, db: Session = Depends(get_db)) -> models.Co
 def update_component(
     component_id: int, payload: ComponentUpdate, db: Session = Depends(get_db)
 ) -> models.Component:
+    """Update some of a component's fields.
+
+    Only the fields present in the payload are changed. Sending new specs
+    also updates the stored category, keeping the two in step.
+
+    Args:
+        component_id: Primary key.
+        payload: The fields to change.
+        db: Database session.
+
+    Returns:
+        Component: The updated row.
+
+    Raises:
+        HTTPException: 404 when no component has that id.
+    """
     component = db.get(models.Component, component_id)
     if component is None:
         raise HTTPException(status_code=404, detail="Component not found")
@@ -248,6 +363,15 @@ def update_component(
 
 @router.delete("/{component_id}", status_code=204)
 def delete_component(component_id: int, db: Session = Depends(get_db)) -> None:
+    """Delete one component.
+
+    Args:
+        component_id: Primary key.
+        db: Database session.
+
+    Raises:
+        HTTPException: 404 when no component has that id.
+    """
     component = db.get(models.Component, component_id)
     if component is None:
         raise HTTPException(status_code=404, detail="Component not found")

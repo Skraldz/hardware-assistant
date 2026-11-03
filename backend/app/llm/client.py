@@ -22,19 +22,71 @@ class LLMUnavailableError(RuntimeError):
 
 
 class LLMClient(Protocol):
-    def generate_structured(self, *, system: str, prompt: str, schema: type[BaseModel]) -> str: ...
+    """Talks to a language model that can be constrained to a schema.
 
-    def ping(self) -> bool: ...
+    A Protocol so tests can swap in a fake without touching Ollama
+    (SPEC.md 9.1). Implementations return the model's raw text; validating
+    it against a schema is llm/parsing.py's job, not the client's.
+    """
+
+    def generate_structured(self, *, system: str, prompt: str, schema: type[BaseModel]) -> str:
+        """Ask the model for JSON matching a schema.
+
+        Args:
+            system: System prompt.
+            prompt: User prompt.
+            schema: Pydantic model constraining the output.
+
+        Returns:
+            str: The model's raw text, not yet validated.
+        """
+        ...
+
+    def ping(self) -> bool:
+        """Whether the model server is reachable.
+
+        Returns:
+            bool: True when the server answers.
+        """
+        ...
 
 
 class OllamaClient:
     def __init__(self, base_url: str, model: str, timeout: float, num_ctx: int) -> None:
+        """Configure the Ollama endpoint.
+
+        Args:
+            base_url: Ollama's base URL.
+            model: Model tag, e.g. "qwen2.5:7b-instruct".
+            timeout: Per-request timeout in seconds.
+            num_ctx: Context window. Set explicitly because Ollama otherwise
+                picks its own and truncates silently on overflow.
+        """
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._timeout = timeout
         self._num_ctx = num_ctx
 
     def generate_structured(self, *, system: str, prompt: str, schema: type[BaseModel]) -> str:
+        """Ask Ollama for JSON constrained to a schema.
+
+        The schema is passed in the `format` parameter, which restricts sampling
+        to exactly that shape. Temperature is 0 so the same prompt gives the same
+        answer.
+
+        Args:
+            system: System prompt.
+            prompt: User prompt.
+            schema: Pydantic model whose JSON schema constrains the output.
+
+        Returns:
+            str: The model's raw text. Validating it is llm/parsing.py's job.
+
+        Raises:
+            LLMUnavailableError: Ollama could not be reached, returned an error,
+                or returned a 200 whose body is not the expected JSON shape --
+                all treated alike so a misbehaving Ollama never becomes a 500.
+        """
         try:
             response = httpx.post(
                 f"{self._base_url}/api/generate",
@@ -78,6 +130,12 @@ class OllamaClient:
             raise LLMUnavailableError(f"Unexpected response from Ollama: {exc}") from exc
 
     def ping(self) -> bool:
+        """Whether Ollama answers.
+
+        Returns:
+            bool: True when /api/tags returns 200. Does not verify that the
+                configured model is actually pulled.
+        """
         try:
             response = httpx.get(f"{self._base_url}/api/tags", timeout=5.0)
             return response.status_code == 200
@@ -87,6 +145,7 @@ class OllamaClient:
 
 @lru_cache
 def get_ollama_client() -> OllamaClient:
+    """Build the Ollama client from settings, cached per process."""
     settings = get_settings()
     return OllamaClient(
         base_url=settings.ollama_base_url,

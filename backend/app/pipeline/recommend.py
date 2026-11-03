@@ -98,6 +98,19 @@ def _validate_requirements(requirements: ProjectRequirements) -> None:
 def interpret_requirements(
     user_prompt: str, llm_client: LLMClient
 ) -> tuple[ProjectRequirements, LlmCallStatus]:
+    """Translate the conversation into structured requirements.
+
+    Args:
+        user_prompt: The whole conversation flattened, oldest first -- not
+            just the latest message, so a refinement can build on an earlier
+            ask.
+        llm_client: Ollama client; replaced by a fake in tests.
+
+    Returns:
+        tuple[ProjectRequirements, LlmCallStatus]: The requirements and
+            whether the model answered cleanly, needed a retry, or fell back
+            to conservative defaults.
+    """
     return call_llm_with_retry(
         llm_client,
         system=REQUIREMENTS_SYSTEM_PROMPT,
@@ -318,6 +331,24 @@ def _sort_candidates_by_relevance(
 def prefilter_candidates(
     db: Session, requirements: ProjectRequirements, *, top_n_hint: int = 5
 ) -> dict[Category, list[CandidateComponent]]:
+    """Select and rank the inventory components worth considering.
+
+    Drops anything out of stock, faulty, or failing a hard requirement, then
+    orders what remains by relevance -- because the engine only ever looks at
+    the first `top_n` per category.
+
+    Args:
+        db: Database session.
+        requirements: The interpreted requirements.
+        top_n_hint: The `top_n` the engine will use, so the cross-category
+            socket and memory-type checks know which candidates will actually
+            be tried.
+
+    Returns:
+        dict[Category, list[CandidateComponent]]: Ranked candidates per
+            category. A component whose stored specs no longer validate is
+            skipped and logged rather than failing the whole request.
+    """
     candidates: dict[Category, list[CandidateComponent]] = {}
     rows = db.query(Component).filter(Component.quantity > 0, Component.condition != Condition.FAULTY).all()
     for row in rows:
@@ -481,6 +512,12 @@ def rank_builds(
     known_ids = {summary["build_id"] for summary in summaries}
 
     def validate(ranking: BuildRanking) -> None:
+        """Reject a ranking that invents or repeats a build id.
+
+        Raises:
+            ValueError: On an id the model was never given, or a duplicate --
+                which would show the user the same build twice.
+        """
         seen: set[int] = set()
         for entry in ranking.ranking:
             if entry.build_id not in known_ids:
@@ -510,6 +547,20 @@ def _to_build_result(
     score: float,
     headless: bool,
 ) -> BuildResult:
+    """Shape one evaluated build for the API response.
+
+    Re-runs the rules on the chosen build rather than trusting the earlier
+    pass (SPEC.md §5 step 5, defense in depth).
+
+    Args:
+        evaluation: The build and its earlier rule results.
+        reason: Why this build was chosen, from the LLM or generated.
+        score: The deterministic score, shown alongside the reason.
+        headless: Passed to the re-verification.
+
+    Returns:
+        BuildResult: Components, fresh rule results, warnings, reason, score.
+    """
     build = evaluation.build
     components = [
         ComponentSummary(
@@ -663,6 +714,17 @@ def _select_diverse_builds(
     used_gpu_ids: set[int] = set()
 
     def diversity_key(idx: int) -> tuple[bool, bool]:
+        """Sort key preferring builds that repeat neither CPU nor GPU.
+
+        CPU takes priority over GPU: a tuple sorts on its first element, so a
+        not-yet-used CPU always outranks a not-yet-used GPU alone.
+
+        Args:
+            idx: Index into the pool.
+
+        Returns:
+            tuple[bool, bool]: (CPU already used, GPU already used).
+        """
         # CPU takes priority over GPU: a tuple sorts on its first element
         # first, so a not-yet-used CPU always outranks a not-yet-used GPU
         # alone. GPU only decides between two builds that are tied on
@@ -684,6 +746,23 @@ def _select_diverse_builds(
 
 
 def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClient) -> RecommendResponse:
+    """Run the full recommend pipeline, from free text to builds.
+
+    Interpret the requirements, prefilter the inventory, generate
+    rule-verified builds, pick a diverse pool, rank it, re-verify, and write
+    a conversational reply.
+
+    Args:
+        prompt: The conversation flattened, oldest first.
+        max_builds: How many builds to return.
+        db: Database session.
+        llm_client: Ollama client; replaced by a fake in tests.
+
+    Returns:
+        RecommendResponse: The builds, categories with no usable candidates,
+            per-call LLM status, and the assistant's reply. Returns no builds
+            rather than unverified ones when nothing compatible exists.
+    """
     settings = get_settings()
 
     requirements, interpret_status = interpret_requirements(prompt, llm_client)

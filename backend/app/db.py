@@ -15,6 +15,11 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 def get_db() -> Generator[Session, None, None]:
+    """Yield a database session for one request, closing it afterwards.
+
+    Yields:
+        Session: A SQLAlchemy session scoped to the request.
+    """
     db = SessionLocal()
     try:
         yield db
