@@ -2,6 +2,8 @@
 
 AI-driven hardware assistant and inventory system. See `SPEC.md` for the full technical spec and `CLAUDE.md` for the project rules. Exam requirements are summarized in `docs/exam-requirements.md`.
 
+Reading the code for the first time? `docs/code-map.md` is a reading order — which six files matter, in which order, and the question each one answers.
+
 ## Features
 
 - **Hardware inventory**: register your own PC components (CPU, motherboard, RAM, GPU, storage, PSU, case, cooler) with category-specific specifications.

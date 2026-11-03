@@ -14,6 +14,13 @@ from app.enums import Category, Condition, SpecsSource
 
 
 class CpuSpecs(BaseModel):
+    """Specifications for a processor.
+
+    `memory_type` is a list because a CPU can support more than one DDR
+    generation; `ram_type_matches` requires the RAM's single type to appear
+    in both this list and the motherboard's.
+    """
+
     category: Literal["cpu"] = "cpu"
     socket: str | None = None
     cores: int | None = None
@@ -24,6 +31,13 @@ class CpuSpecs(BaseModel):
 
 
 class MotherboardSpecs(BaseModel):
+    """Specifications for a motherboard.
+
+    The most constraining component in a build: its socket fixes the CPU,
+    its memory support and slot count fix the RAM, its form factor must fit
+    the case, and its M.2 and SATA counts cap how many drives can be used.
+    """
+
     category: Literal["motherboard"] = "motherboard"
     socket: str | None = None
     form_factor: Literal["ATX", "mATX", "ITX", "EATX"] | None = None
@@ -36,6 +50,13 @@ class MotherboardSpecs(BaseModel):
 
 
 class RamSpecs(BaseModel):
+    """Specifications for a memory kit.
+
+    `modules` is how many sticks the kit holds, so total capacity is
+    `capacity_gb_per_module * modules` -- which is what both the
+    motherboard maximum and any `min_ram_gb` requirement are checked against.
+    """
+
     category: Literal["ram"] = "ram"
     memory_type: Literal["DDR", "DDR2", "DDR3", "DDR4", "DDR5"] | None = None
     capacity_gb_per_module: int | None = None
@@ -45,6 +66,14 @@ class RamSpecs(BaseModel):
 
 
 class GpuSpecs(BaseModel):
+    """Specifications for a graphics card.
+
+    `length_mm` and `pcie_power_connectors` are the two fields that most
+    often differ between board-partner versions of the same chip, and both
+    feed compatibility rules -- which is why extracting them from the right
+    page matters.
+    """
+
     category: Literal["gpu"] = "gpu"
     vram_gb: int | None = None
     tdp_w: int | None = None
@@ -54,6 +83,12 @@ class GpuSpecs(BaseModel):
 
 
 class StorageSpecs(BaseModel):
+    """Specifications for a drive.
+
+    `interface` decides which slot the drive consumes: NVMe takes an M.2
+    slot, SATA takes a port and a physical bay.
+    """
+
     category: Literal["storage"] = "storage"
     interface: Literal["nvme", "sata_ssd", "sata_hdd"] | None = None
     capacity_gb: int | None = None
@@ -61,6 +96,12 @@ class StorageSpecs(BaseModel):
 
 
 class PsuSpecs(BaseModel):
+    """Specifications for a power supply.
+
+    `pcie_power_connectors` lists the physical connectors available, which
+    `psu_has_gpu_connectors` matches against what the GPU requires.
+    """
+
     category: Literal["psu"] = "psu"
     wattage_w: int | None = None
     form_factor: Literal["ATX", "SFX"] | None = None
@@ -69,6 +110,13 @@ class PsuSpecs(BaseModel):
 
 
 class CaseSpecs(BaseModel):
+    """Specifications for a case.
+
+    Purely a set of constraints: which board sizes fit, how long a GPU may
+    be, how tall a cooler may be, which PSU shape it takes, and how many
+    drive bays it has.
+    """
+
     category: Literal["case"] = "case"
     supported_form_factors: list[str] | None = None
     max_gpu_length_mm: int | None = None
@@ -79,6 +127,13 @@ class CaseSpecs(BaseModel):
 
 
 class CoolerSpecs(BaseModel):
+    """Specifications for a CPU cooler.
+
+    `supported_sockets` and `tdp_rating_w` are checked against the CPU;
+    `height_mm` only matters for air coolers, which is why `type` is
+    consulted first.
+    """
+
     category: Literal["cooler"] = "cooler"
     type: Literal["air", "aio"] | None = None
     supported_sockets: list[str] | None = None
@@ -157,6 +212,13 @@ EXTRACT_SCHEMA_BY_CATEGORY: dict[Category, type[BaseModel]] = {
 
 
 class ComponentBase(BaseModel):
+    """Fields every component has, whatever its category.
+
+    The category-specific specifications live separately, in the `specs`
+    field of the subclasses below. `release_year` sits here rather than in
+    `specs` because it describes the product, not its capabilities.
+    """
+
     name: str = Field(min_length=1, max_length=200)
     manufacturer: str | None = Field(default=None, max_length=100)
     # When this specific product was released -- a property of the part
@@ -178,10 +240,23 @@ class ComponentBase(BaseModel):
 
 
 class ComponentCreate(ComponentBase):
+    """Payload for adding a component.
+
+    The category is taken from `specs.category` rather than being sent
+    separately, so the stored category and the stored specs can never
+    disagree.
+    """
+
     specs: ComponentSpecs
 
 
 class ComponentUpdate(BaseModel):
+    """Payload for a partial update: every field optional.
+
+    Only the fields actually present are written. Sending new `specs` also
+    updates the stored category.
+    """
+
     name: str | None = Field(default=None, min_length=1, max_length=200)
     manufacturer: str | None = Field(default=None, max_length=100)
     release_year: int | None = None
@@ -195,6 +270,8 @@ class ComponentUpdate(BaseModel):
 
 
 class ComponentRead(ComponentBase):
+    """A component as returned by the API, including its database id."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -205,10 +282,18 @@ class ComponentRead(ComponentBase):
 
 
 class ClearInventoryRequest(BaseModel):
+    """Payload for wiping the inventory.
+
+    `confirm` must be True. The field exists because the operation deletes
+    every component and every saved build, with no undo.
+    """
+
     confirm: bool = False
 
 
 class ClearInventoryResponse(BaseModel):
+    """How much the wipe deleted."""
+
     deleted_components: int
     # Saved builds reference components by id and are meaningless once every
     # component is gone, so clearing the inventory clears these too.
@@ -216,10 +301,18 @@ class ClearInventoryResponse(BaseModel):
 
 
 class ReseedRequest(BaseModel):
+    """Payload for adding the demo components.
+
+    `confirm` must be True, matching the clear endpoint even though this one
+    only ever adds.
+    """
+
     confirm: bool = False
 
 
 class ReseedResponse(BaseModel):
+    """How many demo components were added, and how many already existed."""
+
     added: int
     # How many seed components were already present (matched by category +
     # name) and therefore left untouched -- reseeding adds what's missing,

@@ -10,6 +10,19 @@ from app.enums import Category
 
 
 class ProjectRequirements(BaseModel):
+    """The language model's reading of what the user asked for.
+
+    Every field has a safe default, so the fallback used when the model's
+    output never validates is simply `ProjectRequirements(use_case=prompt)`.
+
+    Two kinds of field live here, and the difference matters. Hard
+    requirements (`min_vram_gb`, `released_no_later_than`, ...) remove
+    components from consideration entirely, and missing data counts as not
+    meeting them -- a requirement the user actually stated must not be
+    satisfied by a guess. Preferences (`prefer_low_power`, `prefer_oldest`,
+    ...) only shift the ranking among builds that already passed the rules.
+    """
+
     use_case: str
     headless: bool = False
     required_categories: list[Category] = Field(default_factory=list)

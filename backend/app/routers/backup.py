@@ -1,3 +1,9 @@
+"""Endpoints for creating, listing and restoring backups.
+
+The destination is chosen per request rather than fixed at deployment, so
+the same server can write locally today and to Azure tomorrow.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 

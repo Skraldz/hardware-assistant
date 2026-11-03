@@ -1,3 +1,5 @@
+"""Database engine, session factory, and the per-request session dependency."""
+
 from collections.abc import Generator
 
 from sqlalchemy import create_engine
@@ -7,6 +9,8 @@ from app.config import get_settings
 
 
 class Base(DeclarativeBase):
+    """Declarative base all ORM models inherit from."""
+
     pass
 
 

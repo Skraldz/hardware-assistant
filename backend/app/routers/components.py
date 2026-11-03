@@ -1,3 +1,10 @@
+"""Endpoints for the inventory, and for looking a component up on the web.
+
+The lookup flow is deliberately three steps -- search, extract, then the
+user confirms -- so nothing a language model produced is stored without a
+person having seen it.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 

@@ -1,3 +1,10 @@
+"""Application settings, loaded from the environment and .env.
+
+Configuration is kept out of the code entirely (12factor.net/config): the
+same image runs locally and on the server, and the only difference is the
+environment it is handed.
+"""
+
 from functools import lru_cache
 from typing import Literal
 
@@ -6,6 +13,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    """Every setting, read from the environment and .env.
+
+    Loaded once per process via `get_settings`. Nothing here has a hardcoded
+    secret: credentials arrive only as environment variables, and the
+    validators below refuse to start rather than silently doing something
+    other than what was configured.
+    """
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     database_url: str = "mysql+pymysql://app:app@db:3306/hardware_assistant"

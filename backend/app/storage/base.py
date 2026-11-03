@@ -7,6 +7,8 @@ from pydantic import BaseModel
 
 
 class BackupInfo(BaseModel):
+    """One backup's name, size and timestamp, as listed to the user."""
+
     name: str
     created_at: datetime
     size_bytes: int

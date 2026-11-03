@@ -18,6 +18,13 @@ if TYPE_CHECKING:
 
 
 class AzureBlobStorage:
+    """Backups in an Azure Blob Storage container.
+
+    Offsite copy, so the inventory survives the loss of the machine holding
+    it. Storage only -- no processing, no sharing, no inference. Credentials
+    come from the environment, never from code or from a request.
+    """
+
     def __init__(self, container_client: "ContainerClient") -> None:
         """Wrap an Azure container client.
 

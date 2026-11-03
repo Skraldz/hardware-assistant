@@ -48,6 +48,16 @@ class PageFetcher(Protocol):
 
 
 class HttpPageFetcher:
+    """Fetches a page over HTTP and strips it to readable text.
+
+    Exists because a search engine's snippet is a short preview, while the
+    specification table usually sits further down the real page. Fetching
+    the page gives the extraction model far more of the actual content.
+
+    Note the URL comes from the request body and is not yet validated, so
+    this can be pointed at internal addresses -- tracked as issue #9.
+    """
+
     def fetch(self, url: str) -> str | None:
         """Fetch a page and reduce it to plain visible text.
 

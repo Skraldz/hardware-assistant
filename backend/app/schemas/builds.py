@@ -15,20 +15,33 @@ ConversationRole = Literal["user", "assistant"]
 
 
 class ConversationMessage(BaseModel):
+    """One turn of the recommend conversation."""
+
     role: ConversationRole
     content: str
 
 
 class BuildRankingEntry(BaseModel):
+    """The ranking model's verdict on one build.
+
+    `build_id` is an index into the list the model was given, never a
+    database id -- and it is validated against exactly that list, which is
+    what stops a hallucinated build reaching the user.
+    """
+
     build_id: int
     reason: str
 
 
 class BuildRanking(BaseModel):
+    """The ranking model's ordering of the builds it was offered."""
+
     ranking: list[BuildRankingEntry]
 
 
 class ChatReply(BaseModel):
+    """The assistant's free-text reply to the user's latest message."""
+
     # A free-text reply to the user's latest message, written with the
     # already-computed builds as context (pipeline/recommend.py's
     # generate_chat_reply) -- e.g. actually answering "what model can I run
@@ -37,11 +50,15 @@ class ChatReply(BaseModel):
 
 
 class RuleResultOut(BaseModel):
+    """One rule's verdict, as returned to the frontend."""
+
     status: RuleStatus
     message: str
 
 
 class ComponentSummary(BaseModel):
+    """A component as it appears inside a returned build."""
+
     id: int
     category: Category
     name: str
@@ -49,6 +66,13 @@ class ComponentSummary(BaseModel):
 
 
 class BuildResult(BaseModel):
+    """One recommended build, with the evidence behind it.
+
+    `rule_results` is included so the user can see *why* the build is
+    considered compatible rather than having to trust it, and `warnings`
+    carries every rule that could not decide for lack of data.
+    """
+
     components: list[ComponentSummary]
     rule_results: dict[str, RuleResultOut]
     warnings: list[str]
@@ -60,12 +84,25 @@ LlmCallStatus = Literal["ok", "retried", "fallback"]
 
 
 class LlmUsed(BaseModel):
+    """Per-call status of the three language-model calls.
+
+    Surfaced to the frontend so the user can tell a clean answer from one
+    that needed a retry or fell back to conservative defaults. Hiding this
+    would make an unreliable answer indistinguishable from a good one.
+    """
+
     interpret: LlmCallStatus
     rank: LlmCallStatus
     reply: LlmCallStatus
 
 
 class RecommendRequest(BaseModel):
+    """A recommend request: the conversation so far, oldest first.
+
+    The whole conversation rather than one message, so a follow-up can
+    refine an earlier ask instead of starting over.
+    """
+
     # The full conversation so far, oldest first, so the user can refine an
     # earlier ask ("actually, nothing more powerful than that") across
     # multiple turns instead of only getting one shot at a single prompt.
@@ -76,6 +113,8 @@ class RecommendRequest(BaseModel):
 
 
 class RecommendResponse(BaseModel):
+    """Everything one recommend call produced."""
+
     builds: list[BuildResult]
     missing: list[Category]
     llm_used: LlmUsed
@@ -87,6 +126,8 @@ class RecommendResponse(BaseModel):
 
 
 class SavedBuildCreate(BaseModel):
+    """Payload for saving a build, with the ask that produced it."""
+
     name: str | None = None
     components: list[ComponentSummary] = Field(min_length=1)
     # Why the user wanted this build in the first place (e.g. "play
@@ -98,6 +139,8 @@ class SavedBuildCreate(BaseModel):
 
 
 class SavedBuildRead(BaseModel):
+    """A saved build as returned by the API."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -111,6 +154,8 @@ class SavedBuildRead(BaseModel):
 
 
 class CompleteBuildResponse(BaseModel):
+    """Result of marking a build assembled, and which stock it consumed."""
+
     id: int
     completed: bool
     # Ids of components whose inventory quantity was actually decremented --

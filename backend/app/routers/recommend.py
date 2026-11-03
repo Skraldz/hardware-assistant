@@ -1,3 +1,8 @@
+"""The recommend endpoint: free-text conversation in, verified builds out.
+
+Thin by design; the work lives in pipeline/recommend.py.
+"""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 

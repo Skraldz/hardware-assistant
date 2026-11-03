@@ -1,3 +1,9 @@
+"""SQLAlchemy ORM models: the two tables this project stores.
+
+One table for inventory components and one for builds the user saved. See
+each class for why the schema is shaped the way it is.
+"""
+
 from datetime import datetime
 from enum import Enum
 
@@ -15,6 +21,33 @@ def _enum_values(enum_cls: type[Enum]) -> list[str]:
 
 
 class Component(Base):
+    """One piece of hardware in the user's inventory.
+
+    Category-independent fields are real columns; the category-specific
+    specifications live in the `specs` JSON column, because the eight
+    categories have almost nothing in common. Type safety is restored in the
+    application layer by schemas/components.py's discriminated union.
+
+    `release_year` is deliberately a column rather than part of `specs`: it
+    is metadata about the product rather than a technical capability, and
+    keeping it top-level is what makes era-based requests ("hardware from
+    2010 or earlier") expressible at all.
+
+    Attributes:
+        category: Which of the eight kinds of hardware this is.
+        name: Product name as the user or the extraction recorded it.
+        manufacturer: Brand, optional.
+        release_year: When the product launched, optional.
+        quantity: How many are owned; 0 keeps the row but excludes it from
+            recommendations.
+        condition: New, used, or faulty.
+        specs: Category-specific specifications as JSON.
+        specs_source: Whether the specs were typed, extracted, or seeded.
+        specs_verified: Whether the user confirmed them.
+        source_url: The page the specs were extracted from, if any.
+        notes: Free text.
+    """
+
     __tablename__ = "components"
     __table_args__ = (CheckConstraint("quantity >= 0", name="ck_components_quantity_nonnegative"),)
 
@@ -52,6 +85,20 @@ class Component(Base):
 
 
 class SavedBuild(Base):
+    """A build the user chose to keep.
+
+    Stores the components as JSON rather than as foreign keys, so a saved
+    build survives the component rows being edited or deleted -- it is a
+    record of what was recommended at the time, not a live view.
+
+    Attributes:
+        name: What the user called it.
+        purpose: The original free-text ask that produced it.
+        components: The chosen components as JSON.
+        completed: Whether the machine has actually been assembled, which is
+            what decrements the components' quantity.
+    """
+
     __tablename__ = "saved_builds"
 
     id: Mapped[int] = mapped_column(primary_key=True)

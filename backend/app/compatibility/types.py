@@ -37,6 +37,26 @@ class CandidateComponent:
 
 @dataclass(frozen=True)
 class Build:
+    """One candidate machine: a specific component in each slot.
+
+    Every slot but `gpu` is required -- a build without a CPU or a PSU is
+    not a build. `storage` is a list because a machine may hold more than
+    one drive (engine.MAX_STORAGE_DRIVES), and `gpu` is None for a build
+    relying on the CPU's integrated graphics.
+
+    Attributes:
+        cpu: The processor.
+        motherboard: The board; its socket and memory support constrain most
+            of the other slots.
+        ram: One memory kit, itself possibly several modules.
+        storage: One or more drives.
+        psu: The power supply.
+        case: The enclosure; its clearances constrain GPU length and cooler
+            height.
+        cooler: The CPU cooler.
+        gpu: A discrete graphics card, or None.
+    """
+
     cpu: CandidateComponent
     motherboard: CandidateComponent
     ram: CandidateComponent
@@ -49,12 +69,31 @@ class Build:
 
 @dataclass(frozen=True)
 class RuleResult:
+    """What one compatibility rule concluded, and why.
+
+    The three-way status is the heart of the design. "unknown" exists
+    because a missing specification is genuinely different from an
+    incompatibility: the build is still offered, with the gap surfaced as a
+    warning, rather than being rejected on data the user never entered.
+
+    Attributes:
+        status: "pass", "fail", or "unknown".
+        message: Human-readable reason, shown next to the build.
+    """
+
     status: RuleStatus
     message: str
 
 
 @dataclass(frozen=True)
 class BuildEvaluation:
+    """A build together with every rule's verdict on it.
+
+    Attributes:
+        build: The candidate machine.
+        rule_results: Rule name -> result, for all 16 checks.
+    """
+
     build: Build
     rule_results: dict[str, RuleResult]
 
@@ -71,5 +110,17 @@ class BuildEvaluation:
 
 @dataclass(frozen=True)
 class EngineResult:
+    """What the compatibility engine produced from one inventory.
+
+    `builds` and `missing` are alternatives in practice: when a required
+    category has no candidates at all, no build can be formed, so the engine
+    reports the category by name instead of returning an unexplained empty
+    list.
+
+    Attributes:
+        builds: Every combination where no rule returned "fail".
+        missing: Required categories that had no candidates.
+    """
+
     builds: list[BuildEvaluation]
     missing: list[str]

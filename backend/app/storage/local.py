@@ -9,6 +9,14 @@ from app.storage.base import BackupInfo
 
 
 class LocalStorage:
+    """Backups on the server's own disk.
+
+    Always available and needs no configuration, which is why it is the
+    default. Every name coming from the API is checked to resolve inside the
+    backup directory: without that, a name like "../../../etc/passwd" read
+    an arbitrary file on the host.
+    """
+
     def __init__(self, directory: str) -> None:
         """Point the store at a directory.
 

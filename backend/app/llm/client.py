@@ -52,6 +52,16 @@ class LLMClient(Protocol):
 
 
 class OllamaClient:
+    """Talks to a running Ollama instance.
+
+    Sets two options deliberately on every call: temperature 0, so the same
+    prompt gives the same answer and a follow-up question cannot silently
+    reshuffle builds the user is already looking at; and an explicit
+    `num_ctx`, because Ollama otherwise picks its own and truncates without
+    error when a prompt overflows it -- which silently discarded the fetched
+    page text that web lookup exists to provide.
+    """
+
     def __init__(self, base_url: str, model: str, timeout: float, num_ctx: int) -> None:
         """Configure the Ollama endpoint.
 

@@ -20,21 +20,38 @@ from app.schemas.components import ComponentSpecs
 
 
 class SearchCandidate(BaseModel):
+    """One web page offered as a source for a component's specs.
+
+    `url` is whatever the search returned and the user picked. It is fetched
+    server-side, which is why validating it matters (issue #9).
+    """
+
     title: str
     url: str
     snippet: str
 
 
 class SearchRequest(BaseModel):
+    """A request to find pages documenting a component."""
+
     name: str
 
 
 class SearchResponse(BaseModel):
+    """Candidate pages for the user to choose between."""
+
     query: str
     candidates: list[SearchCandidate]
 
 
 class ExtractRequest(BaseModel):
+    """A request to extract specs from one chosen page.
+
+    `other_candidates` carries the rest of the same search's results: one
+    page's snippet often omits a value another one states, so pooling them
+    gives the model more to work with than the single chosen result.
+    """
+
     name: str
     candidate: SearchCandidate | None = None
     other_candidates: list[SearchCandidate] = []
@@ -61,6 +78,13 @@ class CategoryGuess(BaseModel):
 
 
 class ExtractResponse(BaseModel):
+    """Extracted specs for the user to confirm before saving.
+
+    Nothing here is stored until the user accepts it. `source_url` echoes
+    the page actually fetched, so the recorded provenance cannot drift from
+    where the values really came from.
+    """
+
     name: str
     specs: ComponentSpecs
     release_year: int | None = None

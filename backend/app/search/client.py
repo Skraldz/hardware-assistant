@@ -53,6 +53,13 @@ class SearchClient(Protocol):
 
 
 class SearxngClient:
+    """Queries a SearXNG instance for pages documenting a component.
+
+    Biases the query toward specification pages and away from retail
+    listings, whose copy is written to sell rather than to document and was
+    giving the extraction model marketing text instead of numbers.
+    """
+
     def __init__(self, base_url: str, timeout: float = 10.0) -> None:
         """Configure the SearXNG endpoint.
 

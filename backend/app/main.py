@@ -1,3 +1,11 @@
+"""FastAPI application: middleware, health endpoint, and router wiring.
+
+Middleware order matters here and is commented where it is set up: the
+catch-all exception handler must sit inside the CORS middleware, so that
+even an unhandled error comes back with CORS headers rather than as an
+opaque network failure in the browser.
+"""
+
 import logging
 from collections.abc import Awaitable, Callable
 
