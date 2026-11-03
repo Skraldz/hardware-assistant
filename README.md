@@ -28,7 +28,7 @@ All AI inference runs locally (Ollama on your own server) — only inventory sna
 - **Docker** and **Docker Compose** — to run the whole stack (database, backend, local LLM, web search, frontend) with one command.
 - Enough memory/disk space to run a local language model in Ollama (default `qwen2.5:7b-instruct`). A GPU is recommended for reasonable response times, but not required — see the GPU passthrough block in `docker-compose.yml`.
 - For local development without Docker: **Python 3.12+** (backend) and **Node.js 20+** (frontend).
-- No Azure account is required by default — backup uses local disk space unless `BACKUP_BACKEND=azure` is explicitly chosen in `.env`.
+- **No Azure account is required.** Local disk backup always works and needs no configuration. Adding Azure credentials to `.env` makes Azure *selectable* as a second destination, which you then pick per backup from the Backup tab — `BACKUP_BACKEND` only sets which one is used when a call doesn't say. See [Backup: local or Azure](#backup-local-or-azure).
 
 ## Run the project
 
