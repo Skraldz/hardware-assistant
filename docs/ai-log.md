@@ -2,6 +2,34 @@
 
 See SPEC.md §10 for the format. Each entry covers one phase/feature. "Review" is filled in by the student.
 
+## 2026-11-03 – Two documented limitations closed: the PCIe x16 rule and per-build storage
+
+Issues #5 and #6, both opened the day before as "documented, not fixed", both turned out to be cheap once looked at properly.
+
+**Generated:**
+- **`gpu_has_pcie_slot` (issue #5).** `MotherboardSpecs.pcie_x16_slots` was modelled and populated from the very first phase, but no rule ever read it, so a discrete GPU on a board with zero x16 slots passed every check. The new rule follows the shape of the other four conditionally-irrelevant rules: `pass` when there is no GPU, `unknown` when the slot count was never recorded, `fail` at zero. `ALL_RULES` is now 15 entries, 16 checks including `display_output_available`.
+- **`min_storage_gb` moved from per drive to per build (issue #6).** The prefilter rejected individual drives below the target, so two 1 TB drives could not satisfy a 2 TB request and storage was reported missing on an inventory that could in fact meet it. The check now runs on whole builds in `recommend()`, next to the existing GPU filter, and storage is still named in `missing` when no combination reaches the target.
+- **`_overshoot_rank` for storage now always prefers larger drives.** Sorting by "closest above the minimum" made sense when the minimum was per drive; with a per-build total, the drives that let a combination reach the target are simply the biggest ones.
+
+**Measured against the 210-component seed data:** build count unchanged at 20,544 and generation time unchanged at ~2.0 s. The PCIe rule changes nothing on demo data because all 35 seed motherboards record at least one x16 slot — checked before writing the rule, which is why this was safe to add at all. With `min_storage_gb=8000`, 15,408 of the 20,544 builds meet the target; previously the request would have been answerable only by a single drive of that size.
+
+**Assumptions:**
+- **An unrecorded x16 slot count gives `unknown`, not `pass`.** A board whose slot count was never captured almost certainly has one, but "almost certainly" is exactly what the unknown status exists to say out loud. This follows every other rule rather than making an exception for the likely case.
+- **A drive with no recorded capacity contributes 0 to the build total**, consistent with `_meets_hard_requirements` treating missing data as "does not provably meet the requirement".
+- **The per-build storage check lives in `recommend()`, not in `rules.py`.** Putting it in the rule set would show the user *why* a build was rejected, which is nicer, but it would turn a user requirement into a compatibility rule and blur the split the whole design rests on: rules are about parts physically working together, requirements are about what was asked for.
+
+**Known risks / weaknesses:**
+- Adding a rule means the "15 rules" figure appeared in the report body, three diagrams, two appendix tables and the figure index. All were updated and regenerated, but nothing enforces that count — a future rule will need the same sweep. `len(ALL_RULES)` is the only source of truth, and the prose does not read it.
+- `storage_slots_available` still caps builds at two drives (`MAX_STORAGE_DRIVES`), so a target only reachable with three drives is still unmeetable. That is a deliberate bound on combinatorics, not an oversight, but it is now the binding constraint rather than the prefilter.
+
+**Tests covering it:**
+- `tests/test_rules.py` (5 new): `gpu_has_pcie_slot` for pass, fail, unknown and the no-GPU branch, plus an engine-level test that the rule is actually registered in `ALL_RULES` — verified to fail with `KeyError` when the registration line is removed, since a rule that is defined but never called would otherwise pass its own unit tests.
+- `tests/test_pipeline.py` (1 rewritten, 3 new): the prefilter now keeps drives below the target and sorts biggest-first; two 1 TB drives satisfy a 2 TB request; an unmeetable target is still reported by category rather than as an unexplained empty result; and a single large-enough drive still works without forcing a second.
+- The two-drive test was verified to fail against the pre-fix `recommend.py`. The other two pass both before and after by design — they guard behaviour the change had to preserve, not behaviour it introduced, and are labelled as such rather than counted as evidence.
+- `pytest` green (256 backend tests, up from 248), `ruff check` and `ruff format` clean.
+
+**Review (filled in by the student):**
+
 ## 2026-11-03 – num_ctx measured against the real Ollama (and the first measurement was worthless)
 
 Follow-up to the entry below, run against the live stack (`qwen2.5:7b-instruct`, temperature 0).

@@ -123,10 +123,6 @@ deployment has a regression test that was first verified to fail against the pre
 These are open and documented rather than hidden. Each has a proposed fix and the design
 questions that are actually blocking it:
 
-- [#5](https://github.com/Skraldz/hardware-assistant/issues/5) — no rule checks that the
-  motherboard has a PCIe x16 slot for the GPU.
-- [#6](https://github.com/Skraldz/hardware-assistant/issues/6) — `min_storage_gb` is evaluated
-  per drive instead of per build, so two 1 TB drives do not satisfy a 2 TB request.
 - [#7](https://github.com/Skraldz/hardware-assistant/issues/7) — the model only partially fills
   the preference flags, so some different prompts return identical builds.
 - [#8](https://github.com/Skraldz/hardware-assistant/issues/8) — build diversification can force

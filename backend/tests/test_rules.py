@@ -138,6 +138,45 @@ def test_gpu_fits_case_not_applicable_without_gpu():
     assert rules.gpu_fits_case(build).status == "pass"
 
 
+# --- gpu_has_pcie_slot (issue #5) ---
+# The slot count was modelled and populated from the start, but no rule read
+# it, so a discrete GPU on a board with zero x16 slots passed all checks.
+
+
+def test_gpu_has_pcie_slot_pass():
+    build = compatible_build()
+    assert rules.gpu_has_pcie_slot(build).status == "pass"
+
+
+def test_gpu_has_pcie_slot_fail():
+    board = with_specs(compatible_build().motherboard, pcie_x16_slots=0)
+    assert rules.gpu_has_pcie_slot(compatible_build(motherboard=board)).status == "fail"
+
+
+def test_gpu_has_pcie_slot_unknown():
+    board = with_specs(compatible_build().motherboard, pcie_x16_slots=None)
+    assert rules.gpu_has_pcie_slot(compatible_build(motherboard=board)).status == "unknown"
+
+
+def test_gpu_has_pcie_slot_not_applicable_without_gpu():
+    """A slotless board is perfectly fine for an iGPU-only build, so this
+    rule must not reject it -- the same "not applicable" branch the other
+    four conditional rules have."""
+    board = with_specs(compatible_build().motherboard, pcie_x16_slots=0)
+    assert rules.gpu_has_pcie_slot(compatible_build(motherboard=board, gpu=None)).status == "pass"
+
+
+def test_engine_rejects_a_gpu_build_on_a_slotless_board():
+    """End-to-end through the engine: the rule has to be registered in
+    ALL_RULES, not merely defined."""
+    from app.compatibility.engine import evaluate_build, is_build_valid
+
+    board = with_specs(compatible_build().motherboard, pcie_x16_slots=0)
+    results = evaluate_build(compatible_build(motherboard=board))
+    assert results["gpu_has_pcie_slot"].status == "fail"
+    assert not is_build_valid(results)
+
+
 # --- cooler_fits_case ---
 
 

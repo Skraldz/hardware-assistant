@@ -97,6 +97,25 @@ def gpu_fits_case(build: Build) -> RuleResult:
     return RuleResult("fail", f"GPU ({length} mm) is too long for the case (max {max_length} mm).")
 
 
+def gpu_has_pcie_slot(build: Build) -> RuleResult:
+    """A discrete GPU needs a PCIe x16 slot to sit in. `pcie_x16_slots` was
+    modelled and populated from the start, but nothing read it, so a GPU
+    paired with a slotless board passed every check (issue #5).
+
+    Missing data gives "unknown" like every other rule rather than a quiet
+    pass: a board whose slot count was never recorded probably has one, but
+    "probably" is exactly what the unknown status exists to say out loud.
+    """
+    if build.gpu is None:
+        return RuleResult("pass", "No GPU selected — this rule does not apply.")
+    slots = build.motherboard.specs.pcie_x16_slots
+    if slots is None:
+        return RuleResult("unknown", "The motherboard's PCIe x16 slot count is not specified.")
+    if slots < 1:
+        return RuleResult("fail", "The motherboard has no PCIe x16 slot for the GPU.")
+    return RuleResult("pass", f"The motherboard has {slots} PCIe x16 slot(s) for the GPU.")
+
+
 def cooler_fits_case(build: Build) -> RuleResult:
     cooler_type = build.cooler.specs.type
     if cooler_type is None:
@@ -239,6 +258,7 @@ ALL_RULES = [
     ram_capacity_within_board_max,
     board_fits_case,
     gpu_fits_case,
+    gpu_has_pcie_slot,
     cooler_fits_case,
     cooler_supports_socket,
     cooler_handles_tdp,

@@ -123,9 +123,13 @@ def _meets_hard_requirements(
             return False
         if specs.capacity_gb_per_module * specs.modules < requirements.min_ram_gb:
             return False
-    if category == Category.STORAGE and requirements.min_storage_gb is not None:
-        if specs.capacity_gb is None or specs.capacity_gb < requirements.min_storage_gb:
-            return False
+    # min_storage_gb is deliberately NOT checked here. Unlike min_vram_gb and
+    # min_cpu_cores, which are properties of a single part, a build may hold
+    # two drives (engine.MAX_STORAGE_DRIVES), so the requirement is about the
+    # build's total. Rejecting individual drives here meant two 1 TB drives
+    # could not satisfy a 2 TB request, and storage was reported missing on an
+    # inventory that could in fact meet it (issue #6). The check now lives in
+    # recommend() where a whole build exists to measure.
     if category == Category.CPU and requirements.min_cpu_cores is not None:
         if specs.cores is None or specs.cores < requirements.min_cpu_cores:
             return False
@@ -190,9 +194,14 @@ def _overshoot_rank(category: Category, specs, requirements: ProjectRequirements
         capacity = (specs.capacity_gb_per_module or 0) * (specs.modules or 0)
         return max(capacity - requirements.min_ram_gb, 0)
     if category == Category.STORAGE:
-        if requirements.min_storage_gb is not None:
-            return max((specs.capacity_gb or 0) - requirements.min_storage_gb, 0)
-        # No stated minimum: default to preferring more capacity, the same
+        # Always prefer more capacity, whether or not a minimum was stated.
+        # Sorting by "closest above min_storage_gb" used to make sense when
+        # that minimum was per drive; now that it is per build (issue #6),
+        # the drives most likely to let a combination reach the target are
+        # simply the biggest ones, and a single drive that clears the target
+        # on its own still sorts first.
+        #
+        # No stated minimum: prefer more capacity, the same
         # direction deterministic_score's own gentle capacity nudge already
         # takes. Without this, the top-N storage candidates (and therefore
         # the pool `_storage_combos`/MAX_STORAGE_PAIR_CANDIDATES draws
@@ -681,6 +690,22 @@ def recommend(*, prompt: str, max_builds: int, db: Session, llm_client: LLMClien
     evaluations = engine_result.builds
     if _gpu_is_required(requirements):
         evaluations = [e for e in evaluations if e.build.gpu is not None]
+    if requirements.min_storage_gb is not None:
+        # Per build, not per drive (issue #6): a build's drives are summed.
+        # A drive with no recorded capacity contributes 0 rather than being
+        # guessed at, consistent with _meets_hard_requirements treating
+        # missing data as "does not provably meet the requirement".
+        with_enough_storage = [
+            e
+            for e in evaluations
+            if sum(d.specs.capacity_gb or 0 for d in e.build.storage) >= requirements.min_storage_gb
+        ]
+        # If nothing reaches the target, say so by category instead of
+        # returning an unexplained empty result.
+        if evaluations and not with_enough_storage:
+            forced_missing.append(Category.STORAGE)
+            missing = list(dict.fromkeys([*missing, Category.STORAGE]))
+        evaluations = with_enough_storage
 
     if not evaluations:
         reply, reply_status = generate_chat_reply(prompt, requirements, [], [], missing, llm_client)

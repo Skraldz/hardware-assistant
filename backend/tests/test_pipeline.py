@@ -304,7 +304,12 @@ def test_prefilter_applies_hard_minimum_ram(db_session):
     assert names == {"Big RAM"}
 
 
-def test_prefilter_applies_hard_minimum_storage(db_session):
+def test_prefilter_keeps_small_drives_because_storage_is_a_per_build_total(db_session):
+    """Issue #6. min_storage_gb used to be applied per drive here, so a 250 GB
+    drive was dropped for a 500 GB request even though a build may hold two
+    drives. The prefilter must now keep both -- the total is checked once a
+    whole build exists. Drives are still sorted biggest-first, since those are
+    the ones most likely to let a combination reach the target."""
     insert_component(
         db_session,
         category=Category.STORAGE,
@@ -320,8 +325,9 @@ def test_prefilter_applies_hard_minimum_storage(db_session):
 
     candidates = prefilter_candidates(db_session, ProjectRequirements(use_case="x", min_storage_gb=500))
 
-    names = {c.name for c in candidates[Category.STORAGE]}
-    assert names == {"Big SSD"}
+    names = [c.name for c in candidates[Category.STORAGE]]
+    assert set(names) == {"Small SSD", "Big SSD"}
+    assert names[0] == "Big SSD"
 
 
 def test_prefilter_applies_hard_minimum_cpu_cores(db_session):
@@ -1605,3 +1611,83 @@ def test_an_inverted_era_bound_falls_back_rather_than_reversing_the_request(db_s
     result = recommend(prompt="hardware from 2010 or earlier", max_builds=3, db=db_session, llm_client=client)
 
     assert result.llm_used.interpret == "fallback"
+
+
+# --- min_storage_gb is a per-build total, not a per-drive minimum (issue #6) ---
+# Two 1 TB drives used to fail a 2 TB request, because the prefilter rejected
+# each drive on its own before any build existed to sum them.
+
+
+def _inventory_with_two_small_drives(db) -> None:
+    seed_compatible_inventory(db)
+    db.query(Component).filter(Component.category == Category.STORAGE).delete()
+    db.commit()
+    for i in range(2):
+        insert_component(
+            db,
+            category=Category.STORAGE,
+            name=f"1TB SATA {i}",
+            specs={
+                "category": "storage",
+                "interface": "sata_ssd",
+                "capacity_gb": 1000,
+                "form_factor": "2_5",
+            },
+        )
+
+
+def test_two_drives_together_satisfy_a_storage_requirement_neither_meets_alone(db_session):
+    _inventory_with_two_small_drives(db_session)
+    client = FakeLLMClient(
+        [
+            '{"use_case": "lots of storage", "min_storage_gb": 2000, "headless": false, '
+            '"required_categories": [], "notes": ""}',
+            load_fixture("valid_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
+    )
+
+    result = recommend(prompt="2 TB of storage", max_builds=3, db=db_session, llm_client=client)
+
+    assert Category.STORAGE not in result.missing
+    assert result.builds, "two 1 TB drives satisfy a 2 TB request between them"
+    for build in result.builds:
+        drives = [c for c in build.components if c.category == Category.STORAGE]
+        assert len(drives) == 2
+
+
+def test_a_storage_target_no_combination_reaches_is_reported_by_category(db_session):
+    """Losing the per-drive filter must not turn an unmeetable request into an
+    unexplained empty result -- storage is still named in `missing`."""
+    _inventory_with_two_small_drives(db_session)
+    client = FakeLLMClient(
+        [
+            '{"use_case": "huge storage", "min_storage_gb": 50000, "headless": false, '
+            '"required_categories": [], "notes": ""}',
+            load_fixture("valid_chat_reply.json"),
+        ]
+    )
+
+    result = recommend(prompt="50 TB of storage", max_builds=3, db=db_session, llm_client=client)
+
+    assert result.builds == []
+    assert Category.STORAGE in result.missing
+
+
+def test_a_single_large_enough_drive_still_satisfies_the_requirement(db_session):
+    """The common case must keep working: one drive that clears the target on
+    its own is enough, and no second drive is forced into the build."""
+    seed_compatible_inventory(db_session)  # one 1 TB NVMe
+    client = FakeLLMClient(
+        [
+            '{"use_case": "some storage", "min_storage_gb": 500, "headless": false, '
+            '"required_categories": [], "notes": ""}',
+            load_fixture("valid_ranking.json"),
+            load_fixture("valid_chat_reply.json"),
+        ]
+    )
+
+    result = recommend(prompt="500 GB of storage", max_builds=3, db=db_session, llm_client=client)
+
+    assert Category.STORAGE not in result.missing
+    assert result.builds
